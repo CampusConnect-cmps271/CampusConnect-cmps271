@@ -1,0 +1,24 @@
+:root {
+  color-scheme: light;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #182631;
+  background: #f5f7fa;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { width: min(680px, 100%); margin: 0 auto; padding: 80px 24px; }
+.eyebrow { color: #5451a6; font-weight: 700; letter-spacing: 0.04em; }
+h1 { margin: 16px 0; font-size: clamp(30px, 5vw, 44px); letter-spacing: -0.04em; }
+.intro, .footnote { color: #526273; line-height: 1.7; }
+.card { margin-top: 32px; padding: 28px; border: 1px solid #dce3eb; border-radius: 16px; background: #fff; }
+.card-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+h2 { margin: 0; font-size: 20px; }
+.badge { background: #eef0f5; color: #4c5a6b; padding: 6px 10px; border-radius: 20px; font-size: 13px; }
+.badge.connected { background: #e0f5e9; color: #216542; }
+.card p { line-height: 1.7; }
+button { margin-top: 8px; border: 0; border-radius: 8px; background: #5451a6; color: white; padding: 12px 18px; font: inherit; font-weight: 600; cursor: pointer; }
+button:hover { background: #414080; }
+button:focus-visible { outline: 3px solid #9e9ae3; outline-offset: 3px; }
+button:disabled { opacity: 0.65; cursor: wait; }
+.footnote { margin-top: 20px; font-size: 14px; }
