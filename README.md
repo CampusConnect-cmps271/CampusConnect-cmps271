@@ -1,7 +1,15 @@
 # CampusConnect
 
 One shared Next.js application with Supabase, running from the repository root.
-The profile page is at `/`; the read-only Supabase connection checker is at `/setup`.
+| Route | What |
+| --- | --- |
+| `/` | Landing page |
+| `/login` | Placeholder until the login page (SCRUM-107) lands |
+| `/forgot-password` | Request a reset code, then choose a new password |
+| `/profile` | Student profile (mock data) |
+| `/setup` | Read-only Supabase connection checker |
+| `POST /api/auth/forgot-password` | Emails a password-recovery code |
+| `POST /api/auth/reset-password` | Verifies the code and sets the new password |
 The current profile page uses mock data, as in the team's migration.
 
 ## Run locally
@@ -28,7 +36,7 @@ an `sb_publishable_` key. `NEXT_PUBLIC_` values are visible in browser code.
 npm run dev
 ```
 
-Open <http://localhost:3000> for the profile or <http://localhost:3000/setup> to
+Open <http://localhost:3000> for the landing page or <http://localhost:3000/setup> to
 check the Supabase connection. The connection check reads Auth settings without
 creating users, tables, or authentication hooks. It does not verify email delivery
 or database policies. Restart the development server after changing `.env`; remove
@@ -53,8 +61,33 @@ role guards, registration, or unverified-login redirects.
 ```bash
 npm run lint
 npm run typecheck
+npm test        # automated API tests (Vitest, Supabase mocked)
 npm run build
 ```
+
+Manual API tests (Postman collection and test-case list) are in [`api-tests/`](api-tests/README.md).
+
+## Password recovery: Supabase settings
+
+`/forgot-password` uses Supabase's built-in recovery code. In the Supabase Dashboard:
+
+1. **Authentication → Email Templates → Reset Password**: include the code with `{{ .Token }}`, for example
+   `<p>Your CampusConnect reset code is: <strong>{{ .Token }}</strong></p>`.
+2. **Authentication → Providers → Email → Password requirements**: minimum length **8**, requiring
+   lowercase, uppercase, digits and symbols. This matches `lib/validation.ts`.
+3. Use custom SMTP before real use. The built-in mailer only sends a few emails per hour.
+
+The flow never reveals whether an email is registered. After a successful reset, every existing
+session for that user is signed out.
+
+## Deployment (dev environment)
+
+- **Vercel**: import the repo, set **Root Directory** to `frontend`, and add the two
+  `NEXT_PUBLIC_SUPABASE_*` variables.
+- **AWS Amplify**: use [`amplify.yml`](amplify.yml), which builds `frontend/` and runs the tests first.
+
+Then add the deployed URL under Supabase **Authentication → URL Configuration**, and run the
+Postman collection against it by setting the `baseUrl` variable.
 
 ## Next task
 
