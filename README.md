@@ -1,115 +1,154 @@
 # CampusConnect
 
-One shared Next.js application with Supabase, running from `frontend/`.
-The profile page is at `/`; the read-only Supabase connection checker is at `/setup`.
-The university verification page is at `/verify-email`.
-The current profile page uses mock data, as in the team's migration.
+An AI-powered campus community platform for AUB. CMPS 271 team project.
 
-## Run locally
+One deployable Next.js app, organised as a modular monolith. The app lives in
+`frontend/`, so **every command below runs from `frontend/`**.
 
-Use Node.js 22 or newer. Run these commands from the repository root:
+Stack: Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 ·
+Supabase (Postgres + Auth).
+
+## Getting started
+
+### 1. Prerequisites
+
+- **Node.js 22 or newer** (`node --version`)
+- **Docker Desktop, running.** The local Supabase stack runs in Docker; if
+  Docker is not up, `supabase start` fails.
+
+### 2. Install
 
 ```bash
 cd frontend
-npm ci
+npm install
 ```
 
-For a fresh clone, copy `frontend/.env.example` to `frontend/.env` (or
-`.env.example` to `.env` if already inside `frontend/`). Fill in your project's **Connect** details:
+### 3. Start Supabase locally
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_YOUR_KEY
+```bash
+npx supabase start
 ```
 
-Use the publishable key, not a secret/service-role key. The connection helpers expect
-an `sb_publishable_` key. `NEXT_PUBLIC_` values are visible in browser code.
-`.env` and its local variants are ignored by Git; the blank `.env.example` can be committed.
+First run downloads the Docker images and takes a few minutes. It prints the
+local URLs and keys; `npx supabase status` reprints them any time.
+
+| Service | URL |
+| --- | --- |
+| API | http://127.0.0.1:54321 |
+| Studio (database UI) | http://127.0.0.1:54323 |
+| **Mailpit (auth emails land here)** | http://127.0.0.1:54324 |
+
+No auth email ever leaves your machine in local development — confirmation and
+password-reset links all arrive in Mailpit.
+
+### 4. Configure the environment
+
+```bash
+cp .env.example .env.local
+```
+
+Fill `.env.local` from `npx supabase status`: `NEXT_PUBLIC_SUPABASE_URL` is the
+API URL, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` is `PUBLISHABLE_KEY`, and
+`SUPABASE_SECRET_KEY` is `SECRET_KEY`. Legacy `ANON_KEY` / `SERVICE_ROLE_KEY`
+JWTs work too.
+
+`.env.local` is never committed. `.env.example` holds placeholders only — keep
+real keys out of it.
+
+### 5. Create the test student
+
+```bash
+npm run seed:test-user
+```
+
+Creates a confirmed account from `TEST_USER_EMAIL` / `TEST_USER_PASSWORD`. Safe
+to re-run: it resets the password and confirmation instead of failing. It
+refuses to run against anything but a local Supabase.
+
+### 6. Run the app
 
 ```bash
 npm run dev
 ```
 
-Open <http://localhost:3000> for the profile or <http://localhost:3000/setup> to
-check the Supabase connection. The connection check reads Auth settings without
-creating users, tables, or authentication hooks. It does not verify email delivery
-or database policies. Restart the development server after changing `.env`; remove
-conflicting values from `.env.local` if it exists, since it has priority.
-For production, set variables before `npm run build`; changing public variables
-requires rebuilding.
+- http://localhost:3000 — profile page (mock data)
+- http://localhost:3000/login — log in
+- http://localhost:3000/home — protected placeholder home
+- http://localhost:3000/setup — Supabase connection checker
 
-## Supabase helpers
+### Everyday commands
 
-These paths are relative to `frontend/`:
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Development server |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | `next typegen` then `tsc --noEmit` |
+| `npm test` | Unit tests (Vitest, single run) |
+| `npm run test:watch` | Unit tests in watch mode |
+| `npm run build` | Production build |
+| `npm run seed:test-user` | Create/reset the local test student |
+| `npx supabase start` / `stop` | Local Supabase stack |
+| `npx supabase status` | Local URLs and keys |
 
-- `lib/supabase/client.ts`: browser client for Client Components.
-- `lib/supabase/server.ts`: cookie-based client for server components, actions, and route handlers.
-- `lib/supabase/config.ts`: project URL and publishable-key validation.
-- `lib/supabase/proxy.ts` and `proxy.ts`: validate and refresh existing sessions.
-- `app/api/supabase/health/route.ts`: read-only connectivity check.
+Run lint, typecheck, tests and build before pushing.
 
-Import `createClient` from `@/lib/supabase/client` in browser code. Import it from
-`@/lib/supabase/server` in server code and await it. Session refresh does not add
-role guards, registration, or unverified-login redirects.
+## Project structure
 
-## Checks
-
-Run from `frontend/`:
-
-```bash
-npm test
-npm run lint
-npm run typecheck
-npm run build
+```
+frontend/
+  app/                routes only; pages stay thin
+    (protected)/      route group gated by requireUser()
+    login/
+  modules/<name>/     feature modules; index.ts is the public API
+    auth/
+      components/
+  lib/
+    headers.ts        request headers the proxy adds
+    supabase/         client.ts, server.ts, proxy.ts, config.ts
+  scripts/            one-off maintenance scripts
+  supabase/           config.toml and migrations/
+  proxy.ts            root proxy; refreshes the session per request
 ```
 
-Verification browser tests use mocked Auth responses and a separate local server
-with test-only connection values; they do not send real email or create accounts.
-From `frontend/`, install the test browser once and run:
+### Import rules
+
+- **Import a module through its public API: `@/modules/auth`, never
+  `@/modules/auth/session`.** Each module's `index.ts` is the contract; the
+  files behind it are free to move.
+- Routes in `app/` stay thin. A page composes; the logic lives in a module.
+- Server-only files start with `import "server-only"` so they fail the build
+  instead of leaking into a client bundle.
+- A Client Component must not import a module barrel that re-exports
+  server-only code. Inside a module, client files import their siblings
+  directly.
+
+### Supabase clients
+
+Pick by where the code runs:
+
+| File | Use from |
+| --- | --- |
+| `lib/supabase/client.ts` | Client Components (browser) |
+| `lib/supabase/server.ts` | Server Components, Server Actions, Route Handlers |
+| `lib/supabase/proxy.ts` | the root `proxy.ts` only |
+
+Create a new server client per request; never share one. Identify the user with
+`supabase.auth.getClaims()` or `getUser()` — never `getSession()`, which trusts
+the cookie without verifying it.
+
+### Database changes
+
+Every schema change is a SQL migration in `supabase/migrations/`:
 
 ```bash
-npx playwright install chromium
-npm run test:e2e
+npx supabase migration new <name>   # then edit the generated file
+npx supabase db reset               # replay all migrations locally
 ```
 
-If Google Chrome is already installed, `PLAYWRIGHT_CHANNEL=chrome npm run test:e2e`
-uses that browser instead.
+Never edit the local database by hand without a migration, or teammates cannot
+reproduce it.
 
-## Verification page
+## AI assistance
 
-Open <http://localhost:3000/verify-email>. Enter the university email used at signup
-and the eight-digit code from the latest confirmation email. **Resend code** requests
-an existing signup confirmation and starts a 60-second countdown. Wrong/expired
-codes, rate limits, and connection failures show an error without leaving the page.
-Successful verification saves the Supabase session through the existing browser
-client, then offers **Continue to CampusConnect**.
-If the SCRUM-16 roles migration has not been applied yet, the profile still loads
-and role-protected features remain unavailable. Apply the migration using
-[the roles setup instructions](supabase/README.md#scrum-16-roles-and-permissions)
-to enable assigned roles.
-
-After successful signup with no session, the registration form should navigate to
-`/verify-email?email=${encodeURIComponent(email)}` to prefill the email. Direct
-visits also work. The page does not create accounts. See
-[the verification guide](supabase/VERIFICATION_EMAIL.md) for integration and live testing.
-
-## Next task
-
-**SCRUM-82: university-domain restriction** is implemented locally for the agreed
-`mail.aub.edu` domain. Apply the SQL migration and enable the Before User Created
-hook in Supabase using [the activation instructions](supabase/README.md).
-You reported applying the migration, enabling the hook, and passing the SQL checks.
-SCRUM-94's email delivery test passed using Gmail custom SMTP and the saved code
-template. The recipient confirmed the expected subject and an eight-digit code;
-the email arrived in Junk. See [the verification email guide](supabase/VERIFICATION_EMAIL.md)
-for setup and test details. SCRUM-106 is Done in Jira: the user reported live
-verification success, and the complete return-to-profile regression test passed
-after the missing-roles-table fix. Next is SCRUM-116's
-unverified-login redirect, coordinated with the login owner. Keep email confirmation enabled.
-
-See [SETUP_REPORT.md](SETUP_REPORT.md) for the setup and merge reconciliation report.
-
-References:
-- <https://supabase.com/docs/guides/auth/server-side/creating-a-client>
-- <https://nextjs.org/docs/app/guides/environment-variables>
-- <https://supabase.com/docs/guides/auth/auth-hooks/before-user-created-hook>
+Parts of this project were written with Claude Code, as declared per the course
+requirement.
