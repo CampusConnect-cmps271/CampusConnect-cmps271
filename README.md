@@ -1,6 +1,6 @@
 # CampusConnect
 
-One shared Next.js application with Supabase, running from the repository root.
+One shared Next.js application with Supabase, running from `frontend/`.
 The profile page is at `/`; the read-only Supabase connection checker is at `/setup`.
 The current profile page uses mock data, as in the team's migration.
 
@@ -9,11 +9,12 @@ The current profile page uses mock data, as in the team's migration.
 Use Node.js 22 or newer. Run these commands from the repository root:
 
 ```bash
+cd frontend
 npm ci
 ```
 
-For a fresh clone, copy `.env.example` to `.env`. Your existing local `.env` was
-preserved when the two app setups were combined. Fill in your project's **Connect** details:
+For a fresh clone, copy `frontend/.env.example` to `frontend/.env` (or
+`.env.example` to `.env` if already inside `frontend/`). Fill in your project's **Connect** details:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
@@ -38,6 +39,8 @@ requires rebuilding.
 
 ## Supabase helpers
 
+These paths are relative to `frontend/`:
+
 - `lib/supabase/client.ts`: browser client for Client Components.
 - `lib/supabase/server.ts`: cookie-based client for server components, actions, and route handlers.
 - `lib/supabase/config.ts`: project URL and publishable-key validation.
@@ -50,7 +53,10 @@ role guards, registration, or unverified-login redirects.
 
 ## Checks
 
+Run from `frontend/`:
+
 ```bash
+npm test
 npm run lint
 npm run typecheck
 npm run build
@@ -58,10 +64,12 @@ npm run build
 
 ## Next task
 
-The setup stops before **SCRUM-82: university-domain restriction**. Confirm the
-accepted university domains, then implement a Supabase Before User Created hook.
-Keep email confirmation enabled and arrange custom SMTP for university inboxes
-outside the Supabase organization's team during the verification-email task.
+**SCRUM-82: university-domain restriction** is implemented locally for the agreed
+`mail.aub.edu` domain. Apply the SQL migration and enable the Before User Created
+hook in Supabase using [the activation instructions](supabase/README.md).
+You reported applying the migration and enabling the hook. Rerun the updated
+SQL checks to validate the function, then test through the signup flow when ready.
+Keep email confirmation enabled for the subsequent verification tasks.
 
 See [SETUP_REPORT.md](SETUP_REPORT.md) for the setup and merge reconciliation report.
 
