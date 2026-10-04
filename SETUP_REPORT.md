@@ -2,6 +2,47 @@
 
 Date: October 4, 2026
 
+> Current layout: the Next.js application and environment files now live in
+> `frontend/`; run npm commands there. The sections below record the earlier
+> merge reconciliation and its root-app layout, not the current Git state.
+> SCRUM-82 is now prepared locally for `mail.aub.edu`; see
+> [the task setup and activation instructions](supabase/README.md).
+
+## SCRUM-82 implementation update
+
+The accepted domain is `mail.aub.edu`, matched case-insensitively. The new migration
+in `supabase/migrations/` creates a Before User Created function that rejects
+other domains, malformed domain inputs, and missing emails. Auth metadata cannot
+override the checked email. Only the Supabase Auth database role can execute it;
+anonymous and authenticated clients cannot call it directly.
+
+The new `supabase/tests/university_domain.sql` exercises 22 input cases without
+creating users. `frontend/tests/university-domain.test.mjs` runs the real migration
+and those checks in PGlite, and checks permissions and safe migration reapplication.
+PGlite was added as a development dependency; `npm test` runs the suite.
+
+Validation passed for the initial implementation: five automated tests covering the 22 SQL cases, role permissions,
+and migration reapplication; ESLint; TypeScript checking; and the production build.
+Checksums confirm the local environment files, profile page, and layout are unchanged.
+The environment files remain ignored by Git. README commands now use `frontend/`.
+
+No cloud hook was installed or enabled, and no Supabase users or tables were created.
+Follow [the activation guide](supabase/README.md) to finish the cloud configuration.
+There were no commits, staging operations, or pushes during this task. The merge
+details below describe the earlier reconciliation only.
+
+### SQL Editor test correction
+
+You reported installing the migration and enabling the hook in your project.
+The first dashboard test attempt failed because the test script used
+`SET LOCAL ROLE supabase_auth_admin`, which the hosted SQL Editor role cannot do.
+The shared SQL script now runs as the default SQL Editor role and inspects the
+required permissions instead. Local tests still execute the domain cases as Auth's
+role and additionally reproduce a dashboard role without Auth-role membership.
+The migration, signup restriction, and grants are unchanged. Rerun the updated
+SQL checks to validate the installed function; live signup testing is still pending.
+All six updated local tests and ESLint passed after this correction.
+
 ## What happened
 
 Local `main` had commit `08cd36e` (the Supabase setup), while `origin/main` had
