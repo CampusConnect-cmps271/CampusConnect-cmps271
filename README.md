@@ -23,7 +23,20 @@ cd frontend
 npm install
 ```
 
-### 3. Start Supabase locally
+### 3. Point the Supabase CLI at your local URLs
+
+```bash
+cp supabase/.env.example supabase/.env
+```
+
+`supabase/config.toml` reads its auth URLs from here through `env(...)`, so the
+same file can configure both local and the hosted project. Do this **before**
+starting Supabase — the CLI reads it at start-up.
+
+This file is for the CLI only. The app's own variables go in `.env.local`
+(step 5).
+
+### 4. Start Supabase locally
 
 ```bash
 npx supabase start
@@ -41,7 +54,7 @@ local URLs and keys; `npx supabase status` reprints them any time.
 No auth email ever leaves your machine in local development — confirmation and
 password-reset links all arrive in Mailpit.
 
-### 4. Configure the environment
+### 5. Configure the app environment
 
 ```bash
 cp .env.example .env.local
@@ -55,7 +68,7 @@ JWTs work too.
 `.env.local` is never committed. `.env.example` holds placeholders only — keep
 real keys out of it.
 
-### 5. Create the test student
+### 6. Create the test student
 
 ```bash
 npm run seed:test-user
@@ -65,7 +78,7 @@ Creates a confirmed account from `TEST_USER_EMAIL` / `TEST_USER_PASSWORD`. Safe
 to re-run: it resets the password and confirmation instead of failing. It
 refuses to run against anything but a local Supabase.
 
-### 6. Run the app
+### 7. Run the app
 
 ```bash
 npm run dev
