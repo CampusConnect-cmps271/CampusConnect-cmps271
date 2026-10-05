@@ -14,6 +14,22 @@ import type { LogLevel } from "./schema";
  */
 const ENDPOINT = "/api/log";
 
+/**
+ * True for the exceptions Next throws to steer navigation.
+ *
+ * `redirect()` and `notFound()` work by throwing, so a try/catch wrapped round
+ * a Server Action sees them on the happy path. Logging those as failures would
+ * report every successful login as an error.
+ */
+export function isFrameworkNavigation(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const digest = (error as { digest?: unknown }).digest;
+  return (
+    typeof digest === "string" &&
+    (digest.startsWith("NEXT_REDIRECT") || digest === "NEXT_NOT_FOUND")
+  );
+}
+
 export type ClientLogOptions = {
   level?: LogLevel;
   message?: string;
@@ -26,19 +42,31 @@ export function logClient(
 ): void {
   if (typeof window === "undefined") return;
 
-  const payload = JSON.stringify({
-    event,
-    level: options.level ?? "error",
-    message: options.message,
-    // Redacted here as well, so nothing sensitive leaves the browser at all.
-    context: redact(context),
-  });
-
   try {
-    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
-      const blob = new Blob([payload], { type: "application/json" });
-      // Returns false when the payload is rejected, e.g. over the queue limit.
-      if (navigator.sendBeacon(ENDPOINT, blob)) return;
+    // Inside the try: redact walks caller-supplied data, and a throwing getter
+    // or an exotic object would otherwise throw straight into the caller —
+    // which is a React effect at both call sites.
+    const payload = JSON.stringify({
+      event,
+      level: options.level ?? "error",
+      message: options.message,
+      // Redacted here as well, so nothing sensitive leaves the browser at all.
+      context: redact(context),
+    });
+
+    // The beacon gets its own guard: it can throw as well as return false, and
+    // a throw must fall through to fetch rather than skip it.
+    try {
+      if (
+        typeof navigator !== "undefined" &&
+        typeof navigator.sendBeacon === "function"
+      ) {
+        const blob = new Blob([payload], { type: "application/json" });
+        // False when the payload is rejected, e.g. over the queue limit.
+        if (navigator.sendBeacon(ENDPOINT, blob)) return;
+      }
+    } catch {
+      // Fall through to fetch.
     }
 
     void fetch(ENDPOINT, {

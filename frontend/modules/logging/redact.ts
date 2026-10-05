@@ -64,6 +64,7 @@ function redactString(value: string): string {
 function redactValue(
   value: unknown,
   depth: number,
+  /** Objects on the current path from the root, for cycle detection. */
   seen: WeakSet<object>,
 ): unknown {
   if (value === null || value === undefined) return value;
@@ -89,34 +90,42 @@ function redactValue(
   if (depth >= MAX_DEPTH) return "[depth limit]";
 
   if (typeof value === "object") {
-    // Guards against a self-referencing object looping forever.
+    // `seen` tracks the current ancestor path, not everything ever visited, so
+    // that a genuine cycle is caught while an object merely referenced twice
+    // in one context still gets redacted properly both times. Forgetting to
+    // remove it on the way out silently replaces the second mention with
+    // "[circular]" and loses the data.
     if (seen.has(value)) return "[circular]";
     seen.add(value);
 
-    if (Array.isArray(value)) {
-      const items = value
-        .slice(0, MAX_ARRAY_ITEMS)
-        .map((item) => redactValue(item, depth + 1, seen));
+    try {
+      if (Array.isArray(value)) {
+        const items = value
+          .slice(0, MAX_ARRAY_ITEMS)
+          .map((item) => redactValue(item, depth + 1, seen));
 
-      if (value.length > MAX_ARRAY_ITEMS) {
-        items.push(`[${value.length - MAX_ARRAY_ITEMS} more]`);
+        if (value.length > MAX_ARRAY_ITEMS) {
+          items.push(`[${value.length - MAX_ARRAY_ITEMS} more]`);
+        }
+
+        return items;
       }
 
-      return items;
-    }
+      const result: Record<string, unknown> = {};
+      for (const [key, item] of Object.entries(value)) {
+        if (isSensitiveKey(key)) {
+          result[key] = REDACTED;
+          continue;
+        }
 
-    const result: Record<string, unknown> = {};
-    for (const [key, item] of Object.entries(value)) {
-      if (isSensitiveKey(key)) {
-        result[key] = REDACTED;
-        continue;
+        const redacted = redactValue(item, depth + 1, seen);
+        if (redacted !== undefined) result[key] = redacted;
       }
 
-      const redacted = redactValue(item, depth + 1, seen);
-      if (redacted !== undefined) result[key] = redacted;
+      return result;
+    } finally {
+      seen.delete(value);
     }
-
-    return result;
   }
 
   return String(value);

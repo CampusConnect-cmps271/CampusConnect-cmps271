@@ -205,3 +205,34 @@ describe("redactMessage", () => {
     expect(redactMessage("")).toBeNull();
   });
 });
+
+describe("repeated references are not cycles", () => {
+  // Cycle detection must track the current path, not every object ever seen,
+  // or a context mentioning the same object twice silently loses the second.
+  it("keeps both mentions when one object appears under two keys", () => {
+    const user = { id: "u1", name: "Nadia" };
+    expect(redact({ actor: user, target: user })).toEqual({
+      actor: { id: "u1", name: "Nadia" },
+      target: { id: "u1", name: "Nadia" },
+    });
+  });
+
+  it("keeps every element when the same object repeats in an array", () => {
+    const item = { sku: "abc" };
+    expect(redact({ items: [item, item, item] })).toEqual({
+      items: [{ sku: "abc" }, { sku: "abc" }, { sku: "abc" }],
+    });
+  });
+
+  it("still catches a real cycle", () => {
+    const loop: Record<string, unknown> = { name: "loop" };
+    loop.self = loop;
+    expect(JSON.stringify(redact(loop))).toContain("circular");
+  });
+
+  it("still catches a cycle nested deeper than the first level", () => {
+    const inner: Record<string, unknown> = { name: "inner" };
+    inner.back = { to: inner };
+    expect(JSON.stringify(redact({ outer: inner }))).toContain("circular");
+  });
+});

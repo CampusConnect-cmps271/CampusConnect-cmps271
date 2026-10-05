@@ -195,8 +195,15 @@ export async function logout(): Promise<void> {
   const supabase = await createClient();
 
   // Read the identity before signing out, or there is nothing left to log.
-  const { data } = await supabase.auth.getClaims();
-  const userId = typeof data?.claims?.sub === "string" ? data.claims.sub : null;
+  // Guarded: getClaims re-throws anything that is not an AuthError, and a
+  // logging nicety must never be able to stop someone signing out.
+  let userId: string | null = null;
+  try {
+    const { data } = await supabase.auth.getClaims();
+    if (typeof data?.claims?.sub === "string") userId = data.claims.sub;
+  } catch {
+    // Sign out anyway, unattributed.
+  }
 
   await supabase.auth.signOut();
 

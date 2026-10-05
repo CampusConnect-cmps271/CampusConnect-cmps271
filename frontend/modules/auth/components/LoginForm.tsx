@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useId } from "react";
-import { logClient } from "@/modules/logging/client";
+import { useActionState, useId } from "react";
+import { isFrameworkNavigation, logClient } from "@/modules/logging/client";
 import { login, type LoginFormState } from "../actions";
-import { GENERIC_AUTH_ERROR_MESSAGE } from "../errors";
 import { REGISTER_PATH } from "../navigation";
 import { PasswordInput } from "./PasswordInput";
 
@@ -16,19 +15,26 @@ type LoginFormProps = {
 };
 
 export function LoginForm({ next }: LoginFormProps) {
-  const [state, formAction, pending] = useActionState(login, INITIAL_STATE);
+  // Wrapping the action, not watching its result: a failure to reach the
+  // server rejects here and never produces a state, which is exactly the case
+  // worth reporting. Outcomes that do produce a state, such as a wrong
+  // password, are already logged server-side and need no client row.
+  const [state, formAction, pending] = useActionState(
+    async (previous: LoginFormState, formData: FormData) => {
+      try {
+        return await login(previous, formData);
+      } catch (error) {
+        if (!isFrameworkNavigation(error)) {
+          logClient("auth.login.client_failure", { form: "login" });
+        }
+        throw error;
+      }
+    },
+    INITIAL_STATE,
+  );
   const emailId = useId();
   const emailErrorId = `${emailId}-error`;
   const emailError = state?.errors?.email?.[0];
-
-  // Report only the unexplained failures. A wrong password is a normal outcome
-  // and is already logged server-side; this catches the ones we cannot explain,
-  // such as the action failing to reach Supabase.
-  useEffect(() => {
-    if (state?.message === GENERIC_AUTH_ERROR_MESSAGE) {
-      logClient("auth.login.client_failure", { form: "login" });
-    }
-  }, [state]);
 
   return (
     <form action={formAction} noValidate className="flex flex-col gap-5">

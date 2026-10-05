@@ -10,11 +10,25 @@
  * tracking is SCRUM-25 (Housari).
  */
 
-const REQUIRED_ENV_VARS = [
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
-  "SUPABASE_SECRET_KEY",
-  "NEXT_PUBLIC_SITE_URL",
+/**
+ * Read with literal keys, not `process.env[name]`.
+ *
+ * Next only inlines literal `process.env.NEXT_PUBLIC_X` accesses at build
+ * time, so a computed lookup reports "missing" on any host that supplies these
+ * at build time but not in the runtime environment — a false alarm on a
+ * perfectly good deployment.
+ *
+ * NEXT_PUBLIC_SITE_URL is deliberately absent: nothing reads it any more, now
+ * that verification is by code rather than by emailed link. An alert for an
+ * unused variable just teaches people to ignore the alert.
+ */
+const REQUIRED_ENV_VARS: ReadonlyArray<readonly [string, string | undefined]> = [
+  ["NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL],
+  [
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+  ],
+  ["SUPABASE_SECRET_KEY", process.env.SUPABASE_SECRET_KEY],
 ];
 
 /**
@@ -53,8 +67,8 @@ export async function register(): Promise<void> {
 
   const { log } = await import("@/modules/logging");
 
-  const missing = REQUIRED_ENV_VARS.filter(
-    (name) => !process.env[name]?.trim(),
+  const missing = REQUIRED_ENV_VARS.filter(([, value]) => !value?.trim()).map(
+    ([name]) => name,
   );
 
   await withTimeout(

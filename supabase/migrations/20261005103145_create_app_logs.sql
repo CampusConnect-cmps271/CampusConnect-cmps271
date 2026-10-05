@@ -14,8 +14,14 @@ create table public.app_logs (
   -- Dotted event name, e.g. auth.login.failure. Query on this, not on message.
   event text not null,
   message text,
-  -- Kept if the account is later deleted, so the trail does not vanish.
-  user_id uuid references auth.users (id) on delete set null,
+  -- Plain uuid, deliberately NOT a foreign key to auth.users.
+  --
+  -- Two reasons. The insert is deferred through after(), so an id read from a
+  -- valid token can refer to a row deleted before the write lands; a foreign
+  -- key turns that into a violation and the entry is lost. And `on delete set
+  -- null` would strip attribution from every row of a deleted account, which
+  -- is exactly what an audit trail must not do.
+  user_id uuid,
   context jsonb not null default '{}'::jsonb
 );
 

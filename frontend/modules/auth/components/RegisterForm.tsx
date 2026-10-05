@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useId } from "react";
-import { logClient } from "@/modules/logging/client";
+import { useActionState, useId } from "react";
+import { isFrameworkNavigation, logClient } from "@/modules/logging/client";
 import { register, type RegisterFormState } from "../actions";
-import { GENERIC_AUTH_ERROR_MESSAGE } from "../errors";
 import { LOGIN_PATH, verifyEmailPathFor } from "../navigation";
 import { PASSWORD_HINT } from "../password";
 import { PasswordInput } from "./PasswordInput";
@@ -15,7 +14,21 @@ const FIELD_CLASS =
   "w-full rounded-md border border-black/15 bg-transparent px-3 py-2 text-base outline-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-sky-600 aria-[invalid]:border-red-600 dark:border-white/20";
 
 export function RegisterForm() {
-  const [state, formAction, pending] = useActionState(register, INITIAL_STATE);
+  // See LoginForm: wrap the action so a request that never reaches the server
+  // is reported, instead of watching for a state the server already logged.
+  const [state, formAction, pending] = useActionState(
+    async (previous: RegisterFormState, formData: FormData) => {
+      try {
+        return await register(previous, formData);
+      } catch (error) {
+        if (!isFrameworkNavigation(error)) {
+          logClient("auth.signup.client_failure", { form: "register" });
+        }
+        throw error;
+      }
+    },
+    INITIAL_STATE,
+  );
   const nameId = useId();
   const emailId = useId();
 
@@ -23,14 +36,6 @@ export function RegisterForm() {
   const values = state.status === "error" ? state.values : undefined;
   const nameError = errors?.fullName?.[0];
   const emailError = errors?.email?.[0];
-
-  // Only the failures we cannot account for. A taken address or a weak
-  // password is a normal outcome and is already logged server-side.
-  useEffect(() => {
-    if (state.status === "error" && state.message === GENERIC_AUTH_ERROR_MESSAGE) {
-      logClient("auth.signup.client_failure", { form: "register" });
-    }
-  }, [state]);
 
   // Account created: the form is done, so replace it rather than leave a
   // filled-in form the student might submit again.
