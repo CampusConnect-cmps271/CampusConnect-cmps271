@@ -1,6 +1,8 @@
 # Supabase
 .branches
 .temp
+# Scratch SQL saved from Studio; local to whoever wrote it.
+snippets
 
 # dotenvx
 .env.keys
