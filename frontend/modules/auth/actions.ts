@@ -9,7 +9,7 @@ import {
   isExistingAccount,
   messageForAuthError,
 } from "./errors";
-import { safeNextPath } from "./navigation";
+import { safeNextPath, verifyEmailPathFor } from "./navigation";
 import { loginSchema, registerSchema } from "./schema";
 
 export type LoginFormState = {
@@ -68,10 +68,27 @@ export async function login(
       status: error.status ?? null,
     });
 
+    // Only this Auth code identifies an unverified account; a generic 403 or
+    // wrong password must stay on the login form. Never include the password.
+    if (error.code === "email_not_confirmed") {
+      redirect(verifyEmailPathFor(parsed.data.email));
+    }
+
     return {
       message: messageForAuthError(error),
       email: parsed.data.email,
     };
+  }
+
+  // Confirmation might have been disabled accidentally in the dashboard.
+  // A session alone must not let an unverified student into the app.
+  if (data.user && !data.user.email_confirmed_at) {
+    await supabase.auth.signOut({ scope: "local" });
+    redirect(verifyEmailPathFor(parsed.data.email));
+  }
+
+  if (!data.session || !data.user) {
+    return { message: messageForAuthError(null), email: parsed.data.email };
   }
 
   log.info(

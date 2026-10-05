@@ -15,6 +15,10 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
 
+  if (!user.email_confirmed_at) {
+    return NextResponse.json({ error: "Email verification required" }, { status: 403 });
+  }
+
   const { data: callerRole, error: callerRoleError } = await supabase
     .from("user_roles")
     .select("role")

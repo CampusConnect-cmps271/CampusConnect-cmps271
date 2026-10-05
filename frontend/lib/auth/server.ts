@@ -2,6 +2,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { resolveRoleLookup, type AppRole } from "./roles";
+import { verifyEmailPathFor } from "@/modules/auth/navigation";
 
 export async function getCurrentUserAndRole() {
   const supabase = await createClient();
@@ -10,6 +11,8 @@ export async function getCurrentUserAndRole() {
   } = await supabase.auth.getUser();
 
   if (!user) return { user: null, role: null as AppRole | null };
+
+  if (!user.email_confirmed_at) redirect(verifyEmailPathFor(user.email));
 
   const { data, error } = await supabase
     .from("user_roles")

@@ -143,6 +143,18 @@ npm run test:e2e
 If Google Chrome is already installed,
 `PLAYWRIGHT_CHANNEL=chrome npm run test:e2e` uses that instead.
 
+Unverified login attempts now go directly to `/verify-email` with the university
+email prefilled. Incorrect credentials stay on `/login`. The redirect does not
+send another email automatically; students can use **Resend code** on the
+verification page. Protected pages check the current confirmation state with
+Supabase Auth before granting access.
+
+`.github/workflows/frontend-tests.yml` runs lint, type checks, unit/database
+tests, a production build, and Playwright browser tests on every push and pull
+request. It uses local test fixtures and synthetic keys; GitHub Supabase secrets
+are not required. The workflow becomes available after you push this file.
+See [TESTING.md](TESTING.md) for coverage and remaining work.
+
 ## Project structure
 
 ```

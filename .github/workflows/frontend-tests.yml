@@ -1,0 +1,71 @@
+name: Frontend checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Synthetic local values only; CI does not need the team's Supabase secrets.
+env:
+  NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:3101
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_test_only
+  NEXT_PUBLIC_ALLOWED_EMAIL_DOMAINS: mail.aub.edu
+  SUPABASE_SECRET_KEY: sb_secret_test_only
+
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  quality:
+    name: Lint, types, unit/database tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        id: install
+      - run: npm run lint
+      - run: npm run typecheck
+      # Run both suites even if lint/types or the other suite fails.
+      - run: npm run test:unit
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+      - run: npm run test:db
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+      - run: npm run build
+
+  browser:
+    name: Browser tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-results
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          retention-days: 7
+          if-no-files-found: ignore

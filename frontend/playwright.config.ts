@@ -3,8 +3,9 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
+  forbidOnly: Boolean(process.env.CI),
   workers: 2,
-  reporter: "list",
+  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL: "http://127.0.0.1:3100",
     trace: "retain-on-failure",
@@ -25,6 +26,8 @@ export default defineConfig({
     env: {
       NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:3101",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_only",
+      SUPABASE_SECRET_KEY: "sb_secret_test_only",
+      NEXT_PUBLIC_ALLOWED_EMAIL_DOMAINS: "mail.aub.edu",
     },
   }],
 });

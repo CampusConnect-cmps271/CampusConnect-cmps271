@@ -8,6 +8,81 @@ Date: October 4, 2026
 > SCRUM-82 is now prepared locally for `mail.aub.edu`; see
 > [the task setup and activation instructions](supabase/README.md).
 
+## Login integration and remaining test tasks — October 5, 2026
+
+Confirmed that the user's pull includes the teammate's login/registration
+module and error tracking, at `dc16a5d`. The checkout was clean; fetching GitHub
+showed no newer commits before implementation.
+
+### SCRUM-116: unverified-account handling
+
+- Updated the existing `modules/auth/actions.ts` login action, preserving the
+  teammate's form and validation. Supabase's `email_not_confirmed` code now
+  redirects to `/verify-email?email=...` with a normalized, encoded email.
+  Wrong credentials and other errors remain on login. Passwords never appear
+  in redirect URLs, form results or logging contexts.
+- Verified users retain the existing `/home` or sanitized `next` destination.
+  An unexpected successful login for an unconfirmed user signs out the current
+  session locally and opens verification. It does not sign out other devices.
+- Server-side session checks now read current confirmation status with
+  `getUser()`. Unverified users are redirected before protected content or
+  role lookups; direct role-assignment requests return 403 before database work.
+- Added unit and browser tests for redirects, aliases, credential errors,
+  confirmed sessions, stale/edited metadata, resending and code submission.
+  The verification page remains reachable without a redirect loop and does
+  not automatically send another email.
+
+### SCRUM-87 and SCRUM-99: automated tests
+
+Reused the teammate's Vitest tests and added action/session tests plus browser
+checks for the current root page, login, validation, password visibility,
+login/logout, protected visits, registration validation and mock profile edits.
+Existing code-verification, domain restriction and roles/RLS tests remain part
+of the suite. Tests use local fixtures and never contact the real project.
+
+SCRUM-99 cannot be fully completed yet: password-recovery implementation is
+absent from this checkout. Profile checks intentionally cover the existing
+local mock, not database persistence that has not been implemented.
+
+### SCRUM-111: GitHub checks
+
+Added `.github/workflows/frontend-tests.yml`. On every push and pull request it
+checks lint, types, all unit/database tests, build and browser tests. It uses
+Node 22 and synthetic local connection values, without real Supabase secrets.
+Browser results and failure traces are available as GitHub artifacts for seven
+days. The workflow is ready locally but needs the user's push and its first
+successful GitHub run before hosted execution can be confirmed.
+
+See `TESTING.md` for commands, coverage and remaining dependencies. No `.env`
+files, Supabase dashboard settings, live users or SMTP configuration were
+changed. No staging, commits or pushes were performed.
+
+### Validation and handoff
+
+- Installed the teammate's dependencies with `npm ci`, using the existing
+  lockfile without dependency edits. Downloads took about 19 minutes.
+- Passed **119 Vitest unit tests**, **24 Node database/verification tests**,
+  and **20 Playwright browser tests**: **163 tests total**.
+- Lint, type checking and the production build passed. The build used the
+  workflow's synthetic local configuration, without contacting the real project.
+  Workflow YAML, triggers, suite commands and permissions were also checked.
+- The first browser attempt found the previous development server's Next lock.
+  Stopped that server, ran the browser tests successfully, then restarted normal
+  development at `http://127.0.0.1:3000`. Refreshing dependencies had disrupted the
+  old server while it was running; the completed install and fresh server resolve
+  that temporary issue.
+- Pulled the new teammate commit `125ff60` (Studio snippet ignore rules) by
+  fast-forward while preserving all local work. There were no merge conflicts.
+- Jira confirmed **SCRUM-116: Done**, **SCRUM-87: Done** and
+  **SCRUM-111: In Review**. **SCRUM-99: In Progress** pending recovery tests.
+  Hosted GitHub Actions execution has not been claimed or verified before push.
+- `npm ci` reports five high-severity dependency advisories. No forced dependency
+  upgrades or downgrades were made as part of this work.
+
+Next: manually push the reviewed changes and inspect **Frontend checks** in
+GitHub Actions. Add password-recovery tests when that feature is available, then
+complete SCRUM-99. Current profile tests cover the mock's local state only.
+
 ## SCRUM-106 verification page — October 5, 2026
 
 Fetched GitHub before starting: local `main` and `origin/main` both contained the

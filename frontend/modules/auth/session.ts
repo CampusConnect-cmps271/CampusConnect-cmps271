@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { PATHNAME_HEADER } from "@/lib/headers";
 import { createClient } from "@/lib/supabase/server";
-import { loginPathFor } from "./navigation";
+import { loginPathFor, verifyEmailPathFor } from "./navigation";
 
 export type CurrentUser = {
   id: string;
@@ -16,19 +16,20 @@ export type CurrentUser = {
 /**
  * Returns the verified current user, or null when signed out.
  *
- * Uses `getClaims()`, which verifies the JWT signature, rather than
- * `getSession()`, which trusts whatever is in the cookie. Memoised with React
- * `cache` so a layout and the page it wraps share one verification per request.
+ * Uses `getUser()` to read the current confirmation state from Auth rather
+ * than trusting editable metadata or stale cookie/JWT user data. Memoised
+ * with React `cache` so a layout and its page share one lookup per request.
  */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.getClaims();
+  const { data: { user }, error } = await supabase.auth.getUser();
 
-  if (error || !data?.claims?.sub) return null;
+  if (error || !user) return null;
 
-  const { claims } = data;
-  const metadata = (claims.user_metadata ?? {}) as Record<string, unknown>;
-  const email = typeof claims.email === "string" ? claims.email : null;
+  if (!user.email_confirmed_at) redirect(verifyEmailPathFor(user.email));
+
+  const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const email = user.email ?? null;
 
   const metadataName = ["full_name", "name"]
     .map((key) => (typeof metadata[key] === "string" ? String(metadata[key]) : ""))
@@ -36,7 +37,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     .find((value) => value.length > 0);
 
   return {
-    id: String(claims.sub),
+    id: user.id,
     email,
     name: metadataName ?? email?.split("@")[0] ?? "student",
   };
