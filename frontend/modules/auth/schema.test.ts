@@ -2,6 +2,7 @@ import * as z from "zod";
 import { describe, expect, it } from "vitest";
 import {
   createLoginSchema,
+  createRegisterSchema,
   DEFAULT_ALLOWED_EMAIL_DOMAINS,
   emailDomainMessage,
   parseAllowedEmailDomains,
@@ -151,5 +152,97 @@ describe("emailDomainMessage", () => {
     expect(emailDomainMessage(["mail.aub.edu", "aub.edu.lb"])).toBe(
       "Use your university email (@mail.aub.edu or @aub.edu.lb)",
     );
+  });
+});
+
+const registerSchemaForTests = createRegisterSchema(["mail.aub.edu"]);
+
+function registerErrors(input: unknown) {
+  const result = registerSchemaForTests.safeParse(input);
+  if (result.success) return null;
+  return z.flattenError(result.error).fieldErrors;
+}
+
+const VALID_REGISTRATION = {
+  fullName: "Test Student",
+  email: "student@mail.aub.edu",
+  password: "CampusConnect1!",
+  confirmPassword: "CampusConnect1!",
+};
+
+describe("register schema", () => {
+  it("accepts a complete, valid registration", () => {
+    const result = registerSchemaForTests.safeParse(VALID_REGISTRATION);
+    expect(result.success).toBe(true);
+  });
+
+  it("normalises the name and the email", () => {
+    const result = registerSchemaForTests.safeParse({
+      ...VALID_REGISTRATION,
+      fullName: "  Test   Student  ",
+      email: "  Student@Mail.AUB.edu ",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.fullName).toBe("Test Student");
+    expect(result.data?.email).toBe("student@mail.aub.edu");
+  });
+
+  it("requires the name", () => {
+    expect(
+      registerErrors({ ...VALID_REGISTRATION, fullName: "   " })?.fullName,
+    ).toEqual(["Name is required"]);
+    expect(
+      registerErrors({ ...VALID_REGISTRATION, fullName: "A" })?.fullName,
+    ).toEqual(["Name must be at least 2 characters long"]);
+  });
+
+  it("applies the same university-email rule as login", () => {
+    expect(
+      registerErrors({ ...VALID_REGISTRATION, email: "student@gmail.com" })
+        ?.email,
+    ).toEqual([emailDomainMessage(["mail.aub.edu"])]);
+  });
+
+  it("enforces the password policy, unlike login", () => {
+    const errors = registerErrors({
+      ...VALID_REGISTRATION,
+      password: "weak",
+      confirmPassword: "weak",
+    });
+
+    expect(errors?.password).toContain("Contain an uppercase letter");
+    expect(errors?.password).toContain("Contain a digit");
+  });
+
+  it("requires the two passwords to match", () => {
+    expect(
+      registerErrors({
+        ...VALID_REGISTRATION,
+        confirmPassword: "CampusConnect2!",
+      })?.confirmPassword,
+    ).toEqual(["Passwords do not match"]);
+  });
+
+  it("asks for the confirmation before complaining that it differs", () => {
+    // An empty confirmation should read as "confirm it", not "they differ".
+    expect(
+      registerErrors({ ...VALID_REGISTRATION, confirmPassword: "" })
+        ?.confirmPassword,
+    ).toEqual(["Confirm your password"]);
+  });
+
+  it("reports problems on every bad field at once", () => {
+    const errors = registerErrors({
+      fullName: "",
+      email: "nope",
+      password: "",
+      confirmPassword: "",
+    });
+
+    expect(errors?.fullName).toEqual(["Name is required"]);
+    expect(errors?.email).toEqual(["Enter a valid email address"]);
+    expect(errors?.password).toEqual(["Password is required"]);
+    expect(errors?.confirmPassword).toEqual(["Confirm your password"]);
   });
 });

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  ALREADY_REGISTERED_MESSAGE,
   GENERIC_AUTH_ERROR_MESSAGE,
+  isExistingAccount,
   messageForAuthError,
   type AuthErrorLike,
 } from "./errors";
@@ -25,7 +27,10 @@ describe("messageForAuthError", () => {
   });
 
   it("falls back for an unknown code", () => {
-    expect(messageForAuthError({ code: "weak_password" })).toBe(
+    expect(messageForAuthError({ code: "mfa_challenge_expired" })).toBe(
+      GENERIC_AUTH_ERROR_MESSAGE,
+    );
+    expect(messageForAuthError({ code: "not_a_real_supabase_code" })).toBe(
       GENERIC_AUTH_ERROR_MESSAGE,
     );
   });
@@ -62,5 +67,58 @@ describe("messageForAuthError", () => {
     } as AuthErrorLike & { message: string };
 
     expect(messageForAuthError(error)).toBe(GENERIC_AUTH_ERROR_MESSAGE);
+  });
+});
+
+describe("registration error mappings", () => {
+  it("maps a weak password and names the policy", () => {
+    const message = messageForAuthError({ code: "weak_password" });
+    expect(message).toContain("too weak");
+    expect(message).toContain("symbol");
+  });
+
+  it("maps the confirmation-email rate limit", () => {
+    expect(messageForAuthError({ code: "over_email_send_rate_limit" })).toBe(
+      "Too many confirmation emails sent. Please wait a few minutes and try again.",
+    );
+  });
+
+  it("maps an invalid email address", () => {
+    expect(messageForAuthError({ code: "email_address_invalid" })).toBe(
+      "Enter a valid email address",
+    );
+  });
+
+  it("maps an address the project refuses", () => {
+    expect(messageForAuthError({ code: "email_address_not_authorized" })).toContain(
+      "university email",
+    );
+  });
+
+  it("maps the explicit already-exists codes", () => {
+    expect(messageForAuthError({ code: "user_already_exists" })).toBe(
+      ALREADY_REGISTERED_MESSAGE,
+    );
+    expect(messageForAuthError({ code: "email_exists" })).toBe(
+      ALREADY_REGISTERED_MESSAGE,
+    );
+  });
+});
+
+describe("isExistingAccount", () => {
+  // With confirmations on, signUp on a taken address succeeds and returns an
+  // obfuscated user with no identities. That empty array is the only signal.
+  it("detects the obfuscated response for an address already registered", () => {
+    expect(isExistingAccount({ identities: [] })).toBe(true);
+  });
+
+  it("treats a user with identities as genuinely new", () => {
+    expect(isExistingAccount({ identities: [{ id: "abc" }] })).toBe(false);
+  });
+
+  it("does not guess when identities is missing or not an array", () => {
+    expect(isExistingAccount({})).toBe(false);
+    expect(isExistingAccount({ identities: null })).toBe(false);
+    expect(isExistingAccount(null)).toBe(false);
   });
 });
