@@ -39,3 +39,14 @@ export function isAppRole(value: unknown): value is AppRole {
 export function hasPermission(role: AppRole | null, permission: Permission) {
   return role ? ROLE_PERMISSIONS[role].includes(permission) : false;
 }
+
+export function resolveRoleLookup(
+  data: { role?: unknown } | null,
+  error: { code?: string; message: string } | null,
+): AppRole | null {
+  // A fresh project may not have SCRUM-16's roles migration yet. Deny role
+  // permissions while allowing public pages to render after email verification.
+  if (error?.code === "PGRST205" || error?.code === "42P01") return null;
+  if (error) throw new Error(`Could not load user role: ${error.message}`);
+  return isAppRole(data?.role) ? data.role : null;
+}

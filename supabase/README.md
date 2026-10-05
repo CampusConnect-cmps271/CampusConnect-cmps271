@@ -66,8 +66,10 @@ Coordinate with the registration owner to display the returned Auth error.
 **SCRUM-94: verification email** passed its delivery test using Gmail custom SMTP
 and the saved code template. The recipient confirmed the expected subject and an
 eight-digit code; the email arrived in Junk. See
-[the verification email guide](VERIFICATION_EMAIL.md) for details. Next is the
-SCRUM-106 verification page, followed by SCRUM-116 unverified-account handling.
+[the verification email guide](VERIFICATION_EMAIL.md) for details. The SCRUM-106
+verification page is implemented at `/verify-email`; the user reported live
+verification success. Its return to the profile was fixed and regression-tested
+for projects missing the roles migration. SCRUM-106 is Done in Jira; SCRUM-116 follows it.
 
 References: [Supabase Before User Created hook](https://supabase.com/docs/guides/auth/auth-hooks/before-user-created-hook),
 [hook permissions and configuration](https://supabase.com/docs/guides/auth/auth-hooks),

@@ -38,12 +38,15 @@ The prepared HTML remains usable after custom SMTP is configured.
 The `{{ .Token }}` placeholder is replaced by Supabase's one-time verification
 code. Keep it exactly as written; do not replace it with a fixed number. This
 template uses a code instead of the default confirmation link, matching the
-upcoming SCRUM-106 code-entry page. The template file is stored locally for your
+SCRUM-106 code-entry page at `/verify-email`. The template file is stored locally for your
 team; saving it in the dashboard is what activates it in this cloud project.
 
-The code-entry and resend page is not implemented yet. The template's instructions
-describe that planned flow. During this task, check the received email's content;
-full verification and expired-code handling will be tested with SCRUM-106.
+The code-entry and resend page is implemented locally. Automated tests exercise
+success, invalid/expired codes, rate limits, and network failures with mocked Auth
+responses. The user reported successful live email verification. Returning to the
+profile exposed a missing `public.user_roles` table; the app now handles that
+case without granting role permissions. The complete return-to-profile test
+passed against a local fixture reproducing that error. SCRUM-106 is Done in Jira.
 
 ## Delivery and sender
 
@@ -84,18 +87,47 @@ confirmation enabled, a successful new signup has no authenticated session yet;
 the UI should prompt for the verification code. Signup errors, including the
 university-domain hook's rejection, must be displayed appropriately.
 
-The current checkout has no registration form. Code-entry, code verification,
-resend UI, and invalid/expired-code handling belong to SCRUM-106. Unverified-account
-access restrictions belong to SCRUM-116.
+The current checkout has no registration form. After a successful signup without
+a session, its owner should navigate to
+`/verify-email?email=${encodeURIComponent(email)}`. The page also accepts manual
+email entry. It calls `auth.verifyOtp({ email, token, type: 'email' })` for code
+submission and `auth.resend({ type: 'signup', email })` for resending; it does not
+call signup or create accounts. The browser client writes session cookies after
+verification. Success requires a confirmed matching user and a session, then
+offers navigation to `/`. Unverified-login redirects belong to SCRUM-116 and
+must be integrated with the login owner.
+
+## Live verification-page check
+
+1. Start the frontend with `npm run dev` from `frontend/`.
+2. Open `/verify-email` and enter the email of an existing unconfirmed university account.
+3. Click **Resend code** once. Check Inbox and Junk/Spam for the newest email.
+4. Enter the newest code and click **Verify email**. Expect **Email verified**.
+5. Click **Continue to CampusConnect**. In Supabase Authentication's Users view,
+   confirm the test user's email is verified. This consumes the code and confirms
+   the existing account; it does not change their Supabase organization membership.
+
+For a wrong or expired code, expect an error and a usable resend button. Supabase
+may use the same `otp_expired` response for an invalid or expired code, so the
+page explains both possibilities. Expiry and email rate limits are enforced by
+the cloud project's Auth settings. The 60-second countdown is a UI convenience,
+not a replacement for server rate limits.
+
+`VERIFICATION_CODE_LENGTH` in `frontend/lib/auth/verification.ts` is eight,
+matching the delivered code. If the project's OTP length changes, update this
+constant and its tests to match. Do not put actual codes into source files.
 
 No passwords, project keys, or recipient addresses are included in this template
 or guide. The local delivery test's generated password stays outside the repository.
 SCRUM-94's code-email delivery requirement passed for the tested AUB inbox. This
-does not verify account confirmation, code expiry, or access restrictions; those
-will be tested with SCRUM-106 and SCRUM-116. The next page should support the
-project's configured code length; the received code had eight digits.
+does not by itself verify account confirmation, code expiry, or access restrictions.
+SCRUM-106's live code submission succeeded according to the user; its return to
+the profile was fixed and regression-tested. SCRUM-106 is Done in Jira.
+The roles migration in the Supabase README is still needed to enable role features;
+SCRUM-116 is separate.
 
 References: [Supabase email templates](https://supabase.com/docs/guides/auth/auth-email-templates),
 [SMTP restrictions and sender configuration](https://supabase.com/docs/guides/auth/auth-smtp),
 [signup](https://supabase.com/docs/reference/javascript/auth-signup),
+[code verification](https://supabase.com/docs/reference/javascript/auth-verifyotp),
 [resending signup confirmation](https://supabase.com/docs/reference/javascript/auth-resend).

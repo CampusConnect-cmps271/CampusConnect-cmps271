@@ -2,6 +2,7 @@
 
 One shared Next.js application with Supabase, running from `frontend/`.
 The profile page is at `/`; the read-only Supabase connection checker is at `/setup`.
+The university verification page is at `/verify-email`.
 The current profile page uses mock data, as in the team's migration.
 
 ## Run locally
@@ -62,6 +63,36 @@ npm run typecheck
 npm run build
 ```
 
+Verification browser tests use mocked Auth responses and a separate local server
+with test-only connection values; they do not send real email or create accounts.
+From `frontend/`, install the test browser once and run:
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
+If Google Chrome is already installed, `PLAYWRIGHT_CHANNEL=chrome npm run test:e2e`
+uses that browser instead.
+
+## Verification page
+
+Open <http://localhost:3000/verify-email>. Enter the university email used at signup
+and the eight-digit code from the latest confirmation email. **Resend code** requests
+an existing signup confirmation and starts a 60-second countdown. Wrong/expired
+codes, rate limits, and connection failures show an error without leaving the page.
+Successful verification saves the Supabase session through the existing browser
+client, then offers **Continue to CampusConnect**.
+If the SCRUM-16 roles migration has not been applied yet, the profile still loads
+and role-protected features remain unavailable. Apply the migration using
+[the roles setup instructions](supabase/README.md#scrum-16-roles-and-permissions)
+to enable assigned roles.
+
+After successful signup with no session, the registration form should navigate to
+`/verify-email?email=${encodeURIComponent(email)}` to prefill the email. Direct
+visits also work. The page does not create accounts. See
+[the verification guide](supabase/VERIFICATION_EMAIL.md) for integration and live testing.
+
 ## Next task
 
 **SCRUM-82: university-domain restriction** is implemented locally for the agreed
@@ -71,8 +102,10 @@ You reported applying the migration, enabling the hook, and passing the SQL chec
 SCRUM-94's email delivery test passed using Gmail custom SMTP and the saved code
 template. The recipient confirmed the expected subject and an eight-digit code;
 the email arrived in Junk. See [the verification email guide](supabase/VERIFICATION_EMAIL.md)
-for setup and test details. Next is SCRUM-106: the verification-code entry page,
-resending, and invalid/expired-code handling. Keep email confirmation enabled.
+for setup and test details. SCRUM-106 is Done in Jira: the user reported live
+verification success, and the complete return-to-profile regression test passed
+after the missing-roles-table fix. Next is SCRUM-116's
+unverified-login redirect, coordinated with the login owner. Keep email confirmation enabled.
 
 See [SETUP_REPORT.md](SETUP_REPORT.md) for the setup and merge reconciliation report.
 

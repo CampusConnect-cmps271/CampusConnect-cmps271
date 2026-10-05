@@ -8,6 +8,99 @@ Date: October 4, 2026
 > SCRUM-82 is now prepared locally for `mail.aub.edu`; see
 > [the task setup and activation instructions](supabase/README.md).
 
+## SCRUM-106 verification page — October 5, 2026
+
+Fetched GitHub before starting: local `main` and `origin/main` both contained the
+user's SCRUM-94 commit `49543c7`, with no incoming changes or merge conflicts.
+Read the frontend's AGENTS.md and installed Next.js guides before implementing.
+
+Added `/verify-email` with a responsive, accessible email/code form and route
+metadata. It accepts the project's eight-digit code, preserves leading zeros,
+and allows codes pasted with spaces. The email can be entered manually or
+prefilled by the registration owner via an encoded `email` query parameter.
+Other domains and malformed codes are rejected before calling Auth.
+
+Added a shared verification helper that calls Supabase's existing browser client
+with `verifyOtp({ email, token, type: 'email' })` and
+`resend({ type: 'signup', email })`. Verification succeeds only with a confirmed,
+matching user and a session. The existing client persists session cookies;
+the success screen offers navigation to `/`. Resend uses the existing account,
+clears the entered code, and starts a 60-second countdown. Both actions and inputs
+are disabled during requests, with an additional guard against duplicate calls.
+Wrong/expired codes, rate limits, server timeouts, and network failures show
+recoverable messages without displaying upstream error details.
+
+Added nine Node tests and eight Playwright browser tests. Playwright was added as
+a development dependency with a `test:e2e` script and isolated test-server
+configuration. Browser tests use synthetic connection values and mocked Auth
+responses; they do not send real email or create accounts. Generated browser
+reports and screenshots are ignored by Git. Updated the READMEs and verification
+guide with teammate integration and live-test instructions.
+
+Validation passed: all **21 Node tests**, all **8 browser tests** in installed
+Chrome, ESLint, TypeScript checking, and the production build. Browser checks
+covered input validation, invalid/expired codes, resend/cooldown, rate limits,
+timeouts, network failure, session cookies, pending requests, and mobile layout.
+The mobile screenshot was also visually inspected. `git diff --check` passed.
+
+The dependency audit reports five existing high-severity findings in the Next.js
+ESLint dependency chain. Their package versions are unchanged by this task; no
+finding was reported for the new Playwright packages. No automatic dependency
+upgrade or downgrade was applied.
+
+The frontend was started locally at `http://localhost:3000/verify-email` for the
+user's real-code check. The user subsequently reported live verification success,
+and the profile issue was fixed and tested as recorded below. **SCRUM-106 is now
+Done in Jira.** Next, SCRUM-116 will connect unverified-login attempts to this page
+with the login owner.
+
+Environment-file checksums are unchanged; `.env` and `.env.backup` remain ignored
+and untracked. No SMTP settings, database migrations, or cloud accounts were
+modified for these automated tests. No actual verification code or credential
+was saved in the new files. Nothing was staged, committed, or pushed.
+
+### SCRUM-106 live verification and profile fix — October 5, 2026
+
+The user reported **Email verified** after submitting their real emailed code.
+Continuing to `/` then produced a runtime error. Server logs identified the
+failure in `getCurrentUserAndRole`: Supabase's schema cache could not find
+`public.user_roles`, whose SCRUM-16 migration has not been applied to this project.
+
+Added handling for missing-table codes `PGRST205` and `42P01`, returning no role
+instead of throwing on the profile's optional role gate. This grants no role
+permissions, and protected admin routes still reject access. Other lookup errors
+remain visible rather than being treated as missing tables. No cloud migration
+was applied; the existing roles setup instructions remain necessary to enable
+assigned-role features.
+
+Added three role-lookup regression tests and extended the browser success test
+through **Continue to CampusConnect**, server-side Auth validation, a realistic
+missing-table response, profile rendering, and denied admin navigation. A local
+Supabase fixture supports this test without reaching the real project. All
+**24 Node tests** and **8 browser tests** passed, including the complete return
+flow; ESLint, TypeScript checking, and the production build passed. The local app is restarted so
+the user can refresh `/` without requesting another verification code. Live code
+submission was confirmed by the user; the return-to-profile fix was confirmed by
+automated browser testing. No additional live-navigation result is claimed here.
+
+### SCRUM-106 completion and manual-push review — October 5, 2026
+
+Ran a fresh fetch and `git pull --ff-only origin main` before preparing the user's
+manual commit command. Git reported "Already up to date," with local `main` and
+`origin/main` both at `49543c7`, zero ahead/behind commits, and no unmerged files.
+`git diff --check` passed; environment files and generated test artifacts remain
+ignored. No application changes were introduced by this pull, so the previous
+24 Node tests, 8 browser tests, lint, type checking, and production-build results
+still apply.
+
+Transitioned SCRUM-106 to **Done** in Jira after implementation, live code-submission
+success, and the tested profile fix; Jira confirmed the resulting status. Remaining
+work is SCRUM-116's unverified-login redirect, SCRUM-87/SCRUM-99 feature tests, and
+SCRUM-111 automated GitHub test runs. The team's existing SCRUM-16 roles migration
+still needs cloud activation for role features. It is not part of the verification
+page's completion. Nothing was staged, committed, or pushed by the assistant.
+Another teammate can update GitHub after this synchronization check.
+
 ## SCRUM-82 implementation update
 
 The accepted domain is `mail.aub.edu`, matched case-insensitively. The new migration

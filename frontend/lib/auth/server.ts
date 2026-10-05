@@ -1,7 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAppRole, type AppRole } from "./roles";
+import { resolveRoleLookup, type AppRole } from "./roles";
 
 export async function getCurrentUserAndRole() {
   const supabase = await createClient();
@@ -17,9 +17,7 @@ export async function getCurrentUserAndRole() {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (error) throw new Error(`Could not load user role: ${error.message}`);
-
-  return { user, role: isAppRole(data?.role) ? data.role : null };
+  return { user, role: resolveRoleLookup(data, error) };
 }
 
 export async function requireRole(allowedRoles: readonly AppRole[]) {
