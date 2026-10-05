@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useId } from "react";
 import { login, type LoginFormState } from "../actions";
+import { REGISTER_PATH } from "../navigation";
 import { PasswordInput } from "./PasswordInput";
 
 const INITIAL_STATE: LoginFormState = {};
@@ -70,7 +72,15 @@ export function LoginForm({ next }: LoginFormProps) {
         {pending ? "Logging in…" : "Log in"}
       </button>
 
-      {/* SP1-17 (SCRUM-105, registration story) adds the sign-up link here. */}
+      <p className="text-sm opacity-80">
+        New to CampusConnect?{" "}
+        <Link
+          href={REGISTER_PATH}
+          className="font-medium text-sky-700 underline-offset-2 hover:underline dark:text-sky-400"
+        >
+          Sign up
+        </Link>
+      </p>
     </form>
   );
 }

@@ -1,5 +1,9 @@
 import Link from "next/link";
-import { DEFAULT_SIGNED_IN_PATH, LOGIN_PATH } from "../navigation";
+import {
+  DEFAULT_SIGNED_IN_PATH,
+  LOGIN_PATH,
+  REGISTER_PATH,
+} from "../navigation";
 import { getCurrentUser } from "../session";
 import { LogoutButton } from "./LogoutButton";
 
@@ -25,12 +29,17 @@ export async function AuthButtons() {
           <LogoutButton />
         </>
       ) : (
-        <Link
-          href={LOGIN_PATH}
-          className="rounded-md bg-sky-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
-        >
-          Log in
-        </Link>
+        <>
+          <Link href={LOGIN_PATH} className={LINK_CLASS}>
+            Log in
+          </Link>
+          <Link
+            href={REGISTER_PATH}
+            className="rounded-md bg-sky-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+          >
+            Sign up
+          </Link>
+        </>
       )}
     </nav>
   );
