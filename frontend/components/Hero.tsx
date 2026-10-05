@@ -1,7 +1,13 @@
 import Link from 'next/link'
 import { ArrowRight, BadgeCheck, CalendarDays, Repeat } from 'lucide-react'
+import {
+  DEFAULT_SIGNED_IN_PATH,
+  FORGOT_PASSWORD_PATH,
+  LOGIN_PATH,
+  REGISTER_PATH,
+} from '@/modules/auth/navigation'
 
-function Hero() {
+function Hero({ signedIn }: { signedIn: boolean }) {
   return (
     <section className="hero">
       <div className="hero-inner">
@@ -14,15 +20,26 @@ function Hero() {
             Find your clubs, get trusted answers, swap skills with classmates, and choose electives
             with confidence, alongside students who&apos;ve been exactly where you are.
           </p>
-          <div className="hero-actions">
-            <Link href="/login" className="btn btn-primary btn-lg">
-              Log in with your AUB email <ArrowRight size={18} aria-hidden="true" />
-            </Link>
-            <a href="#how-it-works" className="btn btn-ghost btn-lg">See how it works</a>
-          </div>
-          <p className="hero-help">
-            Locked out? <Link href="/forgot-password">Reset your password</Link>
-          </p>
+
+          {signedIn ? (
+            <div className="hero-actions">
+              <Link href={DEFAULT_SIGNED_IN_PATH} className="btn btn-primary btn-lg">
+                Go to your home <ArrowRight size={18} aria-hidden="true" />
+              </Link>
+            </div>
+          ) : (
+            <>
+              <div className="hero-actions">
+                <Link href={REGISTER_PATH} className="btn btn-primary btn-lg">
+                  Join with your AUB email <ArrowRight size={18} aria-hidden="true" />
+                </Link>
+                <Link href={LOGIN_PATH} className="btn btn-ghost btn-lg">I already have an account</Link>
+              </div>
+              <p className="hero-help">
+                Locked out? <Link href={FORGOT_PASSWORD_PATH}>Reset your password</Link>
+              </p>
+            </>
+          )}
         </div>
 
         {/* Illustrative preview of the app. Decorative, so hidden from screen readers. */}

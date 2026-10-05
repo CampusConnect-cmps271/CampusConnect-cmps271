@@ -1,19 +1,17 @@
 // Shared by the forgot-password page (instant feedback) and the API route
 // handlers (the source of truth), so both enforce exactly the same rules.
+//
+// The password policy itself lives in modules/auth/password.ts, the team's
+// single source of truth that mirrors Supabase Auth. It is reused here, not
+// copied, so registration, login and password reset can never drift apart.
 
-export const PASSWORD_MIN_LENGTH = 8
-
-export const PASSWORD_RULES: { label: string; test: (pw: string) => boolean }[] = [
-  { label: `At least ${PASSWORD_MIN_LENGTH} characters`, test: (pw) => pw.length >= PASSWORD_MIN_LENGTH },
-  { label: 'One uppercase letter', test: (pw) => /[A-Z]/.test(pw) },
-  { label: 'One lowercase letter', test: (pw) => /[a-z]/.test(pw) },
-  { label: 'One number', test: (pw) => /[0-9]/.test(pw) },
-  { label: 'One symbol (e.g. ! @ # $)', test: (pw) => /[^A-Za-z0-9]/.test(pw) },
-]
+import { passwordProblems } from '@/modules/auth/password'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-// Supabase email OTPs are 6 digits by default; the length is configurable up to 10.
+// Supabase email codes are 6 to 10 digits; the team's project uses 8
+// (otp_length in supabase/config.toml). Accepting the whole range means a
+// change to that setting never breaks password reset.
 const CODE_PATTERN = /^\d{6,10}$/
 
 export type FieldErrors = Partial<Record<'email' | 'code' | 'newPassword' | 'confirmPassword', string>>
@@ -30,16 +28,20 @@ export function validateEmail(email: unknown): string | undefined {
 
 export function validateCode(code: unknown): string | undefined {
   if (typeof code !== 'string' || code.trim() === '') return 'Reset code is required.'
-  if (!CODE_PATTERN.test(code.trim())) return 'The reset code is the 6-digit number from your email.'
+  if (!CODE_PATTERN.test(code.trim())) return 'Enter the code from your email, using digits only.'
   return undefined
+}
+
+/** "Be at least 8 characters long" -> "be at least 8 characters long" */
+function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1)
 }
 
 export function validateNewPassword(password: unknown): string | undefined {
   if (typeof password !== 'string' || password === '') return 'New password is required.'
-  if (password.length > 72) return 'Password must be at most 72 characters.'
-  const failed = PASSWORD_RULES.filter((rule) => !rule.test(password))
-  if (failed.length > 0) {
-    return `Password must include: ${failed.map((rule) => rule.label.toLowerCase()).join(', ')}.`
+  const problems = passwordProblems(password)
+  if (problems.length > 0) {
+    return `Password must ${problems.map(lowerFirst).join(', ')}.`
   }
   return undefined
 }

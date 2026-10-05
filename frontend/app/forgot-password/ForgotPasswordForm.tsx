@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
+import { LOGIN_PATH } from '@/modules/auth/navigation'
+import { PASSWORD_RULES } from '@/modules/auth/password'
 import {
-  PASSWORD_RULES,
   hasErrors,
   validateForgotPassword,
   validateResetPassword,
@@ -90,7 +91,7 @@ export default function ForgotPasswordForm() {
         <div className="auth-success-icon" aria-hidden="true">✓</div>
         <h1>Password updated</h1>
         <p>{notice}</p>
-        <Link href="/login" className="btn btn-primary btn-block">Back to log in</Link>
+        <Link href={LOGIN_PATH} className="btn btn-primary btn-block">Back to log in</Link>
         <Link href="/" className="btn btn-ghost btn-block auth-secondary">Go back home</Link>
       </div>
     )
@@ -132,7 +133,7 @@ export default function ForgotPasswordForm() {
         </button>
 
         <p className="auth-footer">
-          Remembered it? <Link href="/login">Back to log in</Link>
+          Remembered it? <Link href={LOGIN_PATH}>Back to log in</Link>
         </p>
       </form>
     )
@@ -154,7 +155,7 @@ export default function ForgotPasswordForm() {
           id="code"
           inputMode="numeric"
           autoComplete="one-time-code"
-          placeholder="6-digit code"
+          placeholder="Code from your email"
           maxLength={10}
           value={code}
           onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
@@ -176,8 +177,9 @@ export default function ForgotPasswordForm() {
           aria-describedby="password-rules"
         />
         <ul className="password-rules" id="password-rules">
-          {PASSWORD_RULES.map((rule) => (
-            <li key={rule.label} className={rule.test(newPassword) ? 'met' : ''}>
+          {/* The 72-character cap is enforced but not listed: it is met until it isn't. */}
+          {PASSWORD_RULES.filter((rule) => rule.id !== 'maxLength').map((rule) => (
+            <li key={rule.id} className={rule.isMet(newPassword) ? 'met' : ''}>
               {rule.label}
             </li>
           ))}

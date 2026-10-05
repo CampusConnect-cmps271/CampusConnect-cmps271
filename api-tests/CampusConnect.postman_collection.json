@@ -15,7 +15,7 @@
     },
     {
       "key": "code",
-      "value": "000000"
+      "value": "00000000"
     },
     {
       "key": "newPassword",
@@ -505,7 +505,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"code\": \"12ab56\",\n  \"newPassword\": \"{{newPassword}}\",\n  \"confirmPassword\": \"{{newPassword}}\"\n}"
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"code\": \"1234ab78\",\n  \"newPassword\": \"{{newPassword}}\",\n  \"confirmPassword\": \"{{newPassword}}\"\n}"
                 }
               },
               "event": [
@@ -709,7 +709,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"code\": \"000000\",\n  \"newPassword\": \"{{newPassword}}\",\n  \"confirmPassword\": \"{{newPassword}}\"\n}"
+                  "raw": "{\n  \"email\": \"{{email}}\",\n  \"code\": \"00000000\",\n  \"newPassword\": \"{{newPassword}}\",\n  \"confirmPassword\": \"{{newPassword}}\"\n}"
                 }
               },
               "event": [
@@ -787,7 +787,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"no-such-user-0001@mail.aub.edu\",\n  \"code\": \"123456\",\n  \"newPassword\": \"{{newPassword}}\",\n  \"confirmPassword\": \"{{newPassword}}\"\n}"
+                  "raw": "{\n  \"email\": \"no-such-user-0001@mail.aub.edu\",\n  \"code\": \"12345678\",\n  \"newPassword\": \"{{newPassword}}\",\n  \"confirmPassword\": \"{{newPassword}}\"\n}"
                 }
               },
               "event": [

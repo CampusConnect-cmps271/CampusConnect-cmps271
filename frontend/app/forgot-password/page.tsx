@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function ForgotPasswordPage() {
   return (
-    <main className="auth-page">
+    <main className="cc-page auth-page">
       <div className="auth-top">
         <Link href="/" className="back-link">
           <ArrowLeft size={18} aria-hidden="true" /> Go back home

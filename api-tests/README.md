@@ -19,7 +19,7 @@ They call the route handlers directly with a fake Supabase client, so they run o
 
 ## Running the manual collection
 
-1. Start the app with real Supabase keys in `frontend/.env` (see the [root README](../README.md)), then run `npm run dev`.
+1. Start the app with real Supabase keys in `frontend/.env.local` (see the [root README](../README.md)), then run `npm run dev`.
 2. In Postman, choose **Import** and pick `CampusConnect.postman_collection.json`.
 3. Open the collection's **Variables** tab and set:
    - `baseUrl`: `http://localhost:3000`, or the deployed URL.

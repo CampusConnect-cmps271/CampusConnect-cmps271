@@ -1,0 +1,107 @@
+import { describe, expect, it } from "vitest";
+import {
+  DEFAULT_SIGNED_IN_PATH,
+  LOGIN_PATH,
+  loginPathFor,
+  safeNextPath,
+  VERIFY_EMAIL_PATH,
+  verifyEmailPathFor,
+} from "./navigation";
+
+describe("safeNextPath", () => {
+  it("keeps a same-site relative path", () => {
+    expect(safeNextPath("/home")).toBe("/home");
+    expect(safeNextPath("/profile/settings?tab=email")).toBe(
+      "/profile/settings?tab=email",
+    );
+  });
+
+  it("falls back when there is nothing usable", () => {
+    expect(safeNextPath(undefined)).toBe(DEFAULT_SIGNED_IN_PATH);
+    expect(safeNextPath(null)).toBe(DEFAULT_SIGNED_IN_PATH);
+    expect(safeNextPath("")).toBe(DEFAULT_SIGNED_IN_PATH);
+    expect(safeNextPath("   ")).toBe(DEFAULT_SIGNED_IN_PATH);
+    expect(safeNextPath(42)).toBe(DEFAULT_SIGNED_IN_PATH);
+    expect(safeNextPath(["/home"])).toBe(DEFAULT_SIGNED_IN_PATH);
+  });
+
+  it("rejects an absolute URL on another origin", () => {
+    expect(safeNextPath("https://evil.test/steal")).toBe(
+      DEFAULT_SIGNED_IN_PATH,
+    );
+    expect(safeNextPath("http://evil.test")).toBe(DEFAULT_SIGNED_IN_PATH);
+    expect(safeNextPath("javascript:alert(1)")).toBe(DEFAULT_SIGNED_IN_PATH);
+  });
+
+  it("rejects a protocol-relative URL", () => {
+    expect(safeNextPath("//evil.test")).toBe(DEFAULT_SIGNED_IN_PATH);
+    expect(safeNextPath("//evil.test/path")).toBe(DEFAULT_SIGNED_IN_PATH);
+  });
+
+  it("rejects backslash variants browsers normalise to slashes", () => {
+    expect(safeNextPath("/\\evil.test")).toBe(DEFAULT_SIGNED_IN_PATH);
+    expect(safeNextPath("/path\\to")).toBe(DEFAULT_SIGNED_IN_PATH);
+  });
+
+  it("rejects a bare path with no leading slash", () => {
+    expect(safeNextPath("home")).toBe(DEFAULT_SIGNED_IN_PATH);
+  });
+
+  it("rejects control characters", () => {
+    expect(safeNextPath("/home\nLocation: https://evil.test")).toBe(
+      DEFAULT_SIGNED_IN_PATH,
+    );
+    expect(safeNextPath("/home\r\n")).toBe(DEFAULT_SIGNED_IN_PATH);
+    expect(safeNextPath("/home\x00")).toBe(DEFAULT_SIGNED_IN_PATH);
+  });
+
+  it("honours a caller-supplied fallback", () => {
+    expect(safeNextPath("https://evil.test", "")).toBe("");
+    expect(safeNextPath(undefined, "/elsewhere")).toBe("/elsewhere");
+  });
+});
+
+describe("loginPathFor", () => {
+  it("remembers where the visitor was headed", () => {
+    expect(loginPathFor("/home")).toBe("/login?next=%2Fhome");
+    expect(loginPathFor("/profile?tab=email")).toBe(
+      "/login?next=%2Fprofile%3Ftab%3Demail",
+    );
+  });
+
+  it("returns the bare login path when there is nothing to remember", () => {
+    expect(loginPathFor(null)).toBe(LOGIN_PATH);
+    expect(loginPathFor(undefined)).toBe(LOGIN_PATH);
+    expect(loginPathFor("")).toBe(LOGIN_PATH);
+  });
+
+  it("does not send the visitor back to the login page", () => {
+    expect(loginPathFor(LOGIN_PATH)).toBe(LOGIN_PATH);
+  });
+
+  it("drops an off-site destination rather than passing it on", () => {
+    expect(loginPathFor("https://evil.test")).toBe(LOGIN_PATH);
+    expect(loginPathFor("//evil.test")).toBe(LOGIN_PATH);
+  });
+});
+
+describe("verifyEmailPathFor", () => {
+  it("prefills the address on the code-entry page", () => {
+    expect(verifyEmailPathFor("student@mail.aub.edu")).toBe(
+      "/verify-email?email=student%40mail.aub.edu",
+    );
+  });
+
+  it("encodes an address that needs it", () => {
+    expect(verifyEmailPathFor("a+b@mail.aub.edu")).toBe(
+      "/verify-email?email=a%2Bb%40mail.aub.edu",
+    );
+  });
+
+  it("falls back to the bare page when there is no address", () => {
+    expect(verifyEmailPathFor(undefined)).toBe(VERIFY_EMAIL_PATH);
+    expect(verifyEmailPathFor(null)).toBe(VERIFY_EMAIL_PATH);
+    expect(verifyEmailPathFor("")).toBe(VERIFY_EMAIL_PATH);
+    expect(verifyEmailPathFor("   ")).toBe(VERIFY_EMAIL_PATH);
+  });
+});

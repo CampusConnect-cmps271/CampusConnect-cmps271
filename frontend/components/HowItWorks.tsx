@@ -1,7 +1,7 @@
 const STEPS = [
   {
-    title: 'Sign in with your university email',
-    description: 'No new username to remember. Your AUB account keeps the community students-only.',
+    title: 'Sign up with your university email',
+    description: 'Confirm it with the code we email you. University emails only, so the community stays students-only.',
   },
   {
     title: 'Tell us what you’re into',

@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST } from '@/app/api/auth/forgot-password/route'
 import { createSupabaseAuthClient, SupabaseNotConfiguredError } from '@/lib/supabase/auth-client'
 import { FORGOT_PASSWORD_MESSAGE } from '@/lib/auth/password-reset'
+import { log } from '@/modules/logging'
 import { authError, fakeSupabase, postRequest } from '../helpers'
+
+// The real logger is server-only and writes to Supabase; record calls instead.
+vi.mock('@/modules/logging', () => ({
+  log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}))
 
 vi.mock('@/lib/supabase/auth-client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/supabase/auth-client')>()),
@@ -13,9 +19,7 @@ const URL = '/api/auth/forgot-password'
 let supabase: ReturnType<typeof fakeSupabase>
 
 beforeEach(() => {
-  vi.spyOn(console, 'info').mockImplementation(() => {})
-  vi.spyOn(console, 'warn').mockImplementation(() => {})
-  vi.spyOn(console, 'error').mockImplementation(() => {})
+  vi.clearAllMocks()
   supabase = fakeSupabase()
   vi.mocked(createSupabaseAuthClient).mockReturnValue(supabase as never)
 })
@@ -37,6 +41,10 @@ describe('POST /api/auth/forgot-password', () => {
 
       expect(res.status).toBe(200)
       expect(await res.json()).toEqual({ message: FORGOT_PASSWORD_MESSAGE })
+      expect(log.info).toHaveBeenCalledWith(
+        'auth.password_reset.not_sent',
+        expect.objectContaining({ email: 'nobody@mail.aub.edu', code: 'user_not_found' }),
+      )
     })
   })
 

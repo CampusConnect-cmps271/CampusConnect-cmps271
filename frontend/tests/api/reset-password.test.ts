@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST } from '@/app/api/auth/reset-password/route'
 import { createSupabaseAuthClient } from '@/lib/supabase/auth-client'
+import { log } from '@/modules/logging'
 import { authError, fakeSupabase, postRequest } from '../helpers'
+
+// The real logger is server-only and writes to Supabase; record calls instead.
+vi.mock('@/modules/logging', () => ({
+  log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}))
 
 vi.mock('@/lib/supabase/auth-client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/supabase/auth-client')>()),
@@ -11,16 +17,14 @@ vi.mock('@/lib/supabase/auth-client', async (importOriginal) => ({
 const URL = '/api/auth/reset-password'
 const VALID = {
   email: 'student@mail.aub.edu',
-  code: '123456',
+  code: '12345678', // the team's project sends 8-digit codes (supabase/config.toml)
   newPassword: 'NewPass#2026',
   confirmPassword: 'NewPass#2026',
 }
 let supabase: ReturnType<typeof fakeSupabase>
 
 beforeEach(() => {
-  vi.spyOn(console, 'info').mockImplementation(() => {})
-  vi.spyOn(console, 'warn').mockImplementation(() => {})
-  vi.spyOn(console, 'error').mockImplementation(() => {})
+  vi.clearAllMocks()
   supabase = fakeSupabase()
   vi.mocked(createSupabaseAuthClient).mockReturnValue(supabase as never)
 })
@@ -34,11 +38,33 @@ describe('POST /api/auth/reset-password', () => {
       expect((await res.json()).message).toMatch(/password has been reset/i)
       expect(supabase.auth.verifyOtp).toHaveBeenCalledWith({
         email: 'student@mail.aub.edu',
-        token: '123456',
+        token: '12345678',
         type: 'recovery',
       })
       expect(supabase.auth.updateUser).toHaveBeenCalledWith({ password: 'NewPass#2026' })
       expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: 'global' })
+    })
+
+    it('logs the completed reset without the code or the password', async () => {
+      supabase.auth.verifyOtp.mockResolvedValue({
+        data: { session: { access_token: 't' }, user: { id: 'user-1' } },
+        error: null,
+      })
+
+      await POST(postRequest(URL, VALID))
+
+      expect(log.info).toHaveBeenCalledWith(
+        'auth.password_reset.completed',
+        { email: 'student@mail.aub.edu' },
+        { userId: 'user-1' },
+      )
+      const everyLogCall = JSON.stringify([
+        vi.mocked(log.info).mock.calls,
+        vi.mocked(log.warn).mock.calls,
+        vi.mocked(log.error).mock.calls,
+      ])
+      expect(everyLogCall).not.toContain(VALID.code)
+      expect(everyLogCall).not.toContain(VALID.newPassword)
     })
 
     it('still succeeds if revoking old sessions fails', async () => {
@@ -62,6 +88,9 @@ describe('POST /api/auth/reset-password', () => {
       ['password without lowercase', { ...VALID, newPassword: 'NEWPASS#2026', confirmPassword: 'NEWPASS#2026' }, 'newPassword'],
       ['password without number', { ...VALID, newPassword: 'NewPass#abcd', confirmPassword: 'NewPass#abcd' }, 'newPassword'],
       ['password without symbol', { ...VALID, newPassword: 'NewPass2026', confirmPassword: 'NewPass2026' }, 'newPassword'],
+      ['password whose only symbol is a space', { ...VALID, newPassword: 'New Pass2026', confirmPassword: 'New Pass2026' }, 'newPassword'],
+      ['password longer than 72 characters', { ...VALID, newPassword: `Aa1!${'x'.repeat(70)}`, confirmPassword: `Aa1!${'x'.repeat(70)}` }, 'newPassword'],
+      ['8-digit code with letters', { ...VALID, code: '1234567a' }, 'code'],
       ['missing confirmation', { ...VALID, confirmPassword: undefined }, 'confirmPassword'],
       ['mismatched confirmation', { ...VALID, confirmPassword: 'Different#2026' }, 'confirmPassword'],
     ])('rejects %s with 400 VALIDATION_FAILED', async (_name, body, field) => {

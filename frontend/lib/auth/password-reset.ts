@@ -1,6 +1,7 @@
 import type { AuthError } from '@supabase/supabase-js'
 import { createSupabaseAuthClient, SupabaseNotConfiguredError } from '@/lib/supabase/auth-client'
 import { normalizeEmail } from '@/lib/validation'
+import { log } from '@/modules/logging'
 
 export type PasswordResetErrorCode =
   | 'INVALID_OR_EXPIRED_CODE'
@@ -54,10 +55,9 @@ function isRateLimited(error: AuthError): boolean {
   return error.status === 429 || error.code === 'over_email_send_rate_limit' || error.code === 'over_request_rate_limit'
 }
 
-/** Masks an email for logs: "student@mail.aub.edu" -> "st***@mail.aub.edu". */
-export function maskEmail(email: string): string {
-  const [local, domain] = email.split('@')
-  return `${local.slice(0, 2)}***@${domain ?? ''}`
+/** Supabase error details worth logging. Never includes the code or password. */
+function errorContext(error: AuthError) {
+  return { code: error.code ?? null, status: error.status ?? null }
 }
 
 function getClient() {
@@ -65,12 +65,15 @@ function getClient() {
     return createSupabaseAuthClient()
   } catch (err) {
     if (err instanceof SupabaseNotConfiguredError) {
-      console.error('[password-reset] Supabase is not configured:', err.message)
+      log.error('auth.password_reset.not_configured', {}, { message: err.message })
       return null
     }
     throw err
   }
 }
+
+// Logging goes through modules/logging, which redacts emails and secrets
+// before anything is printed or stored in app_logs.
 
 /** Step 1: ask Supabase to email a recovery code. */
 export async function requestPasswordReset(rawEmail: string): Promise<PasswordResetResult> {
@@ -80,20 +83,20 @@ export async function requestPasswordReset(rawEmail: string): Promise<PasswordRe
 
   const { error } = await supabase.auth.resetPasswordForEmail(email)
   if (!error) {
-    console.info(`[password-reset] reset code requested for ${maskEmail(email)}`)
+    log.info('auth.password_reset.requested', { email })
     return { ok: true }
   }
   if (isRateLimited(error)) {
-    console.warn(`[password-reset] rate limited for ${maskEmail(email)}`)
+    log.warn('auth.password_reset.rate_limited', { email, step: 'request', ...errorContext(error) })
     return fail('RATE_LIMITED')
   }
   if (!error.status || error.status >= 500) {
-    console.error('[password-reset] Supabase error while sending code:', error.code, error.message)
+    log.error('auth.password_reset.provider_error', { step: 'request', ...errorContext(error) }, { message: error.message })
     return fail('SERVICE_UNAVAILABLE')
   }
   // Any other 4xx (e.g. an unknown or unconfirmed user) is reported as success
   // so the response never reveals whether the email is registered.
-  console.info(`[password-reset] request not sent for ${maskEmail(email)} (${error.code ?? error.status})`)
+  log.info('auth.password_reset.not_sent', { email, ...errorContext(error) })
   return { ok: true }
 }
 
@@ -105,31 +108,35 @@ export async function resetPassword(rawEmail: string, code: string, newPassword:
 
   const { data, error: verifyError } = await supabase.auth.verifyOtp({ email, token: code.trim(), type: 'recovery' })
   if (verifyError || !data.session) {
-    if (verifyError && isRateLimited(verifyError)) return fail('RATE_LIMITED')
+    if (verifyError && isRateLimited(verifyError)) {
+      log.warn('auth.password_reset.rate_limited', { email, step: 'verify', ...errorContext(verifyError) })
+      return fail('RATE_LIMITED')
+    }
     if (verifyError && (!verifyError.status || verifyError.status >= 500)) {
-      console.error('[password-reset] Supabase error while verifying code:', verifyError.code, verifyError.message)
+      log.error('auth.password_reset.provider_error', { step: 'verify', ...errorContext(verifyError) }, { message: verifyError.message })
       return fail('SERVICE_UNAVAILABLE')
     }
     // Wrong code, expired code and unknown email all look the same to the caller.
-    console.info(`[password-reset] invalid or expired code for ${maskEmail(email)}`)
+    log.warn('auth.password_reset.invalid_code', { email, ...(verifyError ? errorContext(verifyError) : {}) })
     return fail('INVALID_OR_EXPIRED_CODE')
   }
 
+  const userId = data.user?.id ?? null
   const { error: updateError } = await supabase.auth.updateUser({ password: newPassword })
   if (updateError) {
     if (updateError.code === 'same_password') return fail('SAME_PASSWORD')
     if (updateError.code === 'weak_password') return fail('WEAK_PASSWORD')
     if (isRateLimited(updateError)) return fail('RATE_LIMITED')
-    console.error('[password-reset] Supabase error while updating password:', updateError.code, updateError.message)
+    log.error('auth.password_reset.provider_error', { step: 'update', ...errorContext(updateError) }, { message: updateError.message, userId })
     return fail('SERVICE_UNAVAILABLE')
   }
 
   // Revoke every existing session so anyone holding the old password is logged out.
   const { error: signOutError } = await supabase.auth.signOut({ scope: 'global' })
   if (signOutError) {
-    console.warn('[password-reset] could not revoke sessions after reset:', signOutError.code, signOutError.message)
+    log.warn('auth.password_reset.revoke_failed', errorContext(signOutError), { userId })
   }
 
-  console.info(`[password-reset] password updated for ${maskEmail(email)}`)
+  log.info('auth.password_reset.completed', { email }, { userId })
   return { ok: true }
 }

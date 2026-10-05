@@ -1,39 +1,37 @@
-import type { Metadata } from 'next'
-import Link from 'next/link'
-import { ArrowLeft, KeyRound } from 'lucide-react'
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import {
+  DEFAULT_SIGNED_IN_PATH,
+  getCurrentUser,
+  LoginForm,
+  safeNextPath,
+} from "@/modules/auth";
 
 export const metadata: Metadata = {
-  title: 'Log in · CampusConnect',
-}
+  title: "Log in · CampusConnect",
+  description: "Log in to your CampusConnect account.",
+};
 
-// Placeholder so the landing page's "Log in" buttons don't 404.
-// Replace this file with the real login page (SCRUM-107 / SCRUM-117 / SCRUM-120).
-export default function LoginPage() {
+export default async function LoginPage({ searchParams }: PageProps<"/login">) {
+  // A signed-in student has no use for this page.
+  if (await getCurrentUser()) {
+    redirect(DEFAULT_SIGNED_IN_PATH);
+  }
+
+  const { next } = await searchParams;
+
   return (
-    <main className="auth-page">
-      <div className="auth-top">
-        <Link href="/" className="back-link">
-          <ArrowLeft size={18} aria-hidden="true" /> Go back home
-        </Link>
-      </div>
-      <Link href="/" className="brand auth-brand">
-        <span className="brand-mark" aria-hidden="true">C</span>
-        CampusConnect
-      </Link>
-      <div className="auth-card auth-placeholder">
-        <div className="auth-placeholder-icon" aria-hidden="true">
-          <KeyRound size={26} />
-        </div>
-        <h1>Log in is almost here</h1>
-        <p className="auth-subtitle">
-          We&apos;re putting the finishing touches on signing in with your university email.
-          Check back soon.
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-8 px-4 py-12 sm:px-6">
+      <header className="flex flex-col gap-2">
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          Log in
+        </h1>
+        <p className="text-sm opacity-80">
+          Welcome back to CampusConnect. Use your university email.
         </p>
-        <Link href="/" className="btn btn-primary btn-block">Go back home</Link>
-        <p className="auth-footer">
-          Locked out? <Link href="/forgot-password">Reset your password</Link>
-        </p>
-      </div>
+      </header>
+
+      <LoginForm next={safeNextPath(next)} />
     </main>
-  )
+  );
 }

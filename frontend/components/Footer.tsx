@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { LOGIN_PATH, REGISTER_PATH } from '@/modules/auth/navigation'
 
 function Footer() {
   return (
@@ -11,7 +12,8 @@ function Footer() {
         <nav className="footer-links" aria-label="Footer">
           <a href="#how-it-works">How it works</a>
           <a href="#faq">FAQ</a>
-          <Link href="/login">Log in</Link>
+          <Link href={LOGIN_PATH}>Log in</Link>
+          <Link href={REGISTER_PATH}>Sign up</Link>
         </nav>
       </div>
       <p className="footer-copy">&copy; 2026 CampusConnect · CMPS 271</p>

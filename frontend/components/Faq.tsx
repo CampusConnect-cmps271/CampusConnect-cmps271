@@ -1,7 +1,7 @@
 const QUESTIONS = [
   {
     q: 'Who can join CampusConnect?',
-    a: 'Any student with a university email account. Signing in with your university email keeps the community limited to students.',
+    a: 'Any student with a university email address. Sign up with it and confirm the code we email you; only university emails are accepted, which keeps the community limited to students.',
   },
   {
     q: 'How is this different from our group chats?',
@@ -17,7 +17,7 @@ const QUESTIONS = [
   },
   {
     q: 'I forgot my password. What do I do?',
-    a: 'Use “Reset your password” on the login page. We’ll email you a code so you can choose a new password.',
+    a: 'Choose “Forgot password?” on the login page. We’ll email you a code so you can choose a new password, and any devices still signed in with your old password are signed out.',
   },
 ]
 

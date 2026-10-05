@@ -11,8 +11,9 @@ restriction as the future registration page. No registration UI is added here.
 
 ## Activate in your Supabase project
 
-You reported applying the migration and enabling the cloud hook. The domain checks
-and an end-to-end signup check still need to confirm its behavior in your project.
+You reported applying the migration, enabling the cloud hook, and successfully
+running all SQL checks. A real AUB signup also succeeded during email delivery
+testing. A rejected non-university signup through the API/UI still needs checking.
 For another project, use the installation steps below.
 
 1. In your project's **SQL Editor**, run the complete contents of
@@ -61,11 +62,44 @@ This restriction applies when creating **new users**. It does not remove existin
 accounts or enforce email changes on existing accounts. It does not prove inbox
 ownership; keep email confirmation enabled for the verification work.
 
-After activation, coordinate with the registration owner to display the returned
-Auth error. Then continue with **SCRUM-94: verification email**, followed by the
-verification page and unverified-account handling. Verify confirmation settings,
-redirect URLs, and SMTP before testing real university email delivery.
+Coordinate with the registration owner to display the returned Auth error.
+**SCRUM-94: verification email** passed its delivery test using Gmail custom SMTP
+and the saved code template. The recipient confirmed the expected subject and an
+eight-digit code; the email arrived in Junk. See
+[the verification email guide](VERIFICATION_EMAIL.md) for details. The SCRUM-106
+verification page is implemented at `/verify-email`; the user reported live
+verification success. Its return to the profile was fixed and regression-tested
+for projects missing the roles migration. SCRUM-106 is Done in Jira; SCRUM-116 follows it.
 
 References: [Supabase Before User Created hook](https://supabase.com/docs/guides/auth/auth-hooks/before-user-created-hook),
 [hook permissions and configuration](https://supabase.com/docs/guides/auth/auth-hooks),
 [PGlite documentation](https://pglite.dev/docs/).
+
+## SCRUM-16: roles and permissions
+
+Run `migrations/20261005010000_roles_and_permissions.sql` in the Supabase SQL
+Editor after the signup-domain migration. It creates the four application roles,
+assigns `student` to new and existing accounts, enables row-level security, and
+adds administrator-only functions for listing users and changing roles.
+
+The migration intentionally does not guess who the first administrator is. After
+reviewing the target account in **Authentication → Users**, bootstrap exactly one
+trusted administrator by running this once with the real account email:
+
+```sql
+update public.user_roles as roles
+set role = 'administrator', updated_at = now()
+from auth.users as users
+where roles.user_id = users.id
+  and lower(users.email) = lower('ADMIN_EMAIL@mail.aub.edu');
+```
+
+Confirm that the statement reports one updated row. Administrators can then use
+`/admin` to assign the `student`, `club_representative`, `moderator`, or
+`administrator` role. Do not use a service-role key in the frontend; authorization
+is enforced by Supabase RLS and security-definer functions using the signed-in user.
+
+Run `tests/roles_permissions.sql` in the SQL Editor for non-destructive schema and
+permission checks. The local Node test suite additionally verifies new-user defaults,
+role lookup, rejected non-admin changes, administrator search/assignment, and safe
+migration reapplication in PGlite.
