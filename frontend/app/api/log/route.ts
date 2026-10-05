@@ -54,7 +54,12 @@ function clientKey(request: NextRequest): string {
   return request.headers.get("x-real-ip") ?? "unknown";
 }
 
-const NO_CONTENT = new Response(null, { status: 204 });
+/**
+ * A fresh Response per call, never a shared module-level one: a Response is a
+ * stateful object, and the runtime may set headers on it, so reusing a single
+ * instance leaks state between requests.
+ */
+const noContent = () => new Response(null, { status: 204 });
 
 export async function POST(request: NextRequest): Promise<Response> {
   if (isRateLimited(clientKey(request))) {
@@ -70,7 +75,7 @@ export async function POST(request: NextRequest): Promise<Response> {
   try {
     raw = await request.text();
   } catch {
-    return NO_CONTENT;
+    return noContent();
   }
 
   // content-length can lie or be absent, so check the body we actually read.
@@ -111,5 +116,5 @@ export async function POST(request: NextRequest): Promise<Response> {
   console.log(JSON.stringify({ ts: new Date().toISOString(), ...entry }));
   after(() => persistEntry(entry));
 
-  return NO_CONTENT;
+  return noContent();
 }
