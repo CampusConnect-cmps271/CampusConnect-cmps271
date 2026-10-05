@@ -2,8 +2,16 @@
 
 An AI-powered campus community platform for AUB. CMPS 271 team project.
 
-One deployable Next.js app, organised as a modular monolith. The app lives in
-`frontend/`, so **every command below runs from `frontend/`**.
+One deployable Next.js app, organised as a modular monolith.
+
+| Folder | Holds |
+| --- | --- |
+| `frontend/` | the Next.js app — pages, modules, and all server-side code |
+| `supabase/` | database config, migrations and SQL tests |
+| `backend/` | reserved; App Router server code lives in `frontend/` for now |
+
+**Run npm commands from `frontend/`.** The Supabase CLI works from there too —
+it searches upward and finds `supabase/` at the repository root.
 
 Stack: Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 ·
 Supabase (Postgres + Auth).
@@ -25,6 +33,8 @@ npm install
 
 ### 3. Point the Supabase CLI at your local URLs
 
+From the repository root:
+
 ```bash
 cp supabase/.env.example supabase/.env
 ```
@@ -33,7 +43,7 @@ cp supabase/.env.example supabase/.env
 same file can configure both local and the hosted project. Do this **before**
 starting Supabase — the CLI reads it at start-up.
 
-This file is for the CLI only. The app's own variables go in `.env.local`
+This file is for the CLI only. The app's own variables go in `frontend/.env.local`
 (step 5).
 
 ### 4. Start Supabase locally
@@ -96,8 +106,10 @@ npm run dev
 | `npm run dev` | Development server |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `next typegen` then `tsc --noEmit` |
-| `npm test` | Unit tests (Vitest, single run) |
+| `npm test` | Everything: unit tests then database tests |
+| `npm run test:unit` | Unit tests only (Vitest) |
 | `npm run test:watch` | Unit tests in watch mode |
+| `npm run test:db` | SQL/migration tests (pglite, no Docker needed) |
 | `npm run build` | Production build |
 | `npm run seed:test-user` | Create/reset the local test student |
 | `npx supabase start` / `stop` | Local Supabase stack |
@@ -119,8 +131,14 @@ frontend/
     headers.ts        request headers the proxy adds
     supabase/         client.ts, server.ts, proxy.ts, config.ts
   scripts/            one-off maintenance scripts
-  supabase/           config.toml and migrations/
-  proxy.ts            root proxy; refreshes the session per request
+  tests/              database tests that run against pglite
+  proxy.ts            app proxy; refreshes the session per request
+supabase/
+  config.toml         local stack and auth settings
+  .env.example        values config.toml reads through env(...)
+  migrations/         every schema change, in order
+  tests/              SQL checks you can paste into the SQL Editor
+  README.md           SCRUM-82 university-domain hook: how to activate it
 ```
 
 ### Import rules
@@ -160,6 +178,23 @@ npx supabase db reset               # replay all migrations locally
 
 Never edit the local database by hand without a migration, or teammates cannot
 reproduce it.
+
+### University-domain restriction (SCRUM-82)
+
+Sign-up is limited to `@mail.aub.edu` by a Before User Created hook. The
+migration creates `public.hook_restrict_university_email`; activating it as the
+hook is a separate step, covered in [supabase/README.md](supabase/README.md).
+
+It is enabled on the hosted project. **It is not yet wired up locally** —
+`config.toml` does not declare `[auth.hook.before_user_created]`, so the
+function exists locally but does not run. Until it does, local sign-up is
+restricted only by the app's own validation, and local and hosted behave
+differently.
+
+## Background
+
+[SETUP_REPORT.md](SETUP_REPORT.md) records the original Supabase setup and the
+merge that combined the two app folders.
 
 ## AI assistance
 
