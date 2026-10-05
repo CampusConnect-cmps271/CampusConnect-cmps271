@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useId } from "react";
+import { useActionState, useEffect, useId } from "react";
+import { logClient } from "@/modules/logging/client";
 import { register, type RegisterFormState } from "../actions";
+import { GENERIC_AUTH_ERROR_MESSAGE } from "../errors";
 import { LOGIN_PATH, verifyEmailPathFor } from "../navigation";
 import { PASSWORD_HINT } from "../password";
 import { PasswordInput } from "./PasswordInput";
@@ -21,6 +23,14 @@ export function RegisterForm() {
   const values = state.status === "error" ? state.values : undefined;
   const nameError = errors?.fullName?.[0];
   const emailError = errors?.email?.[0];
+
+  // Only the failures we cannot account for. A taken address or a weak
+  // password is a normal outcome and is already logged server-side.
+  useEffect(() => {
+    if (state.status === "error" && state.message === GENERIC_AUTH_ERROR_MESSAGE) {
+      logClient("auth.signup.client_failure", { form: "register" });
+    }
+  }, [state]);
 
   // Account created: the form is done, so replace it rather than leave a
   // filled-in form the student might submit again.

@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useId } from "react";
+import { useActionState, useEffect, useId } from "react";
+import { logClient } from "@/modules/logging/client";
 import { login, type LoginFormState } from "../actions";
+import { GENERIC_AUTH_ERROR_MESSAGE } from "../errors";
 import { REGISTER_PATH } from "../navigation";
 import { PasswordInput } from "./PasswordInput";
 
@@ -18,6 +20,15 @@ export function LoginForm({ next }: LoginFormProps) {
   const emailId = useId();
   const emailErrorId = `${emailId}-error`;
   const emailError = state?.errors?.email?.[0];
+
+  // Report only the unexplained failures. A wrong password is a normal outcome
+  // and is already logged server-side; this catches the ones we cannot explain,
+  // such as the action failing to reach Supabase.
+  useEffect(() => {
+    if (state?.message === GENERIC_AUTH_ERROR_MESSAGE) {
+      logClient("auth.login.client_failure", { form: "login" });
+    }
+  }, [state]);
 
   return (
     <form action={formAction} noValidate className="flex flex-col gap-5">
