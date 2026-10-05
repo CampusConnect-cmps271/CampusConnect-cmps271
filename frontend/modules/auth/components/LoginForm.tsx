@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState, useId } from "react";
 import { isFrameworkNavigation, logClient } from "@/modules/logging/client";
 import { login, type LoginFormState } from "../actions";
-import { REGISTER_PATH } from "../navigation";
+import { FORGOT_PASSWORD_PATH, REGISTER_PATH } from "../navigation";
 import { PasswordInput } from "./PasswordInput";
 
 const INITIAL_STATE: LoginFormState = {};
@@ -79,7 +79,15 @@ export function LoginForm({ next }: LoginFormProps) {
         ) : null}
       </div>
 
-      <PasswordInput errors={state?.errors?.password} />
+      <div className="flex flex-col gap-2">
+        <PasswordInput errors={state?.errors?.password} />
+        <Link
+          href={FORGOT_PASSWORD_PATH}
+          className="self-end text-sm font-medium text-sky-700 underline-offset-2 hover:underline dark:text-sky-400"
+        >
+          Forgot password?
+        </Link>
+      </div>
 
       <button
         type="submit"

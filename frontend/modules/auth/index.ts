@@ -26,6 +26,7 @@ export {
   VERIFY_EMAIL_PATH,
   verifyEmailPathFor,
   DEFAULT_SIGNED_IN_PATH,
+  FORGOT_PASSWORD_PATH,
   LOGIN_PATH,
   loginPathFor,
   REGISTER_PATH,

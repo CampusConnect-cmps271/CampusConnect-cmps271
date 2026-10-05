@@ -255,6 +255,13 @@ otp_expiry = 3600
 subject = "Your CampusConnect verification code"
 content_path = "./supabase/templates/confirmation.html"
 
+# Reset-password email. Sends the 8-digit recovery code, not a link: the code is
+# entered on /forgot-password (SCRUM-26 / SCRUM-96). Mirrors the template saved
+# on the hosted project (Authentication -> Emails -> Reset Password).
+[auth.email.template.recovery]
+subject = "Your CampusConnect password reset code"
+content_path = "./supabase/templates/recovery.html"
+
 # [auth.email.template.invite]
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"

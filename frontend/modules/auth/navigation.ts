@@ -1,6 +1,8 @@
 export const LOGIN_PATH = "/login";
 export const REGISTER_PATH = "/register";
 export const DEFAULT_SIGNED_IN_PATH = "/home";
+/** Password recovery by emailed code (SCRUM-26). Public: a locked-out student has no session. */
+export const FORGOT_PASSWORD_PATH = "/forgot-password";
 
 /**
  * Code-entry page a new student is sent to after signing up (SCRUM-106).

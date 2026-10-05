@@ -27,7 +27,7 @@ export async function requireRole(allowedRoles: readonly AppRole[]) {
   const session = await getCurrentUserAndRole();
 
   if (!session.user || !session.role || !allowedRoles.includes(session.role)) {
-    redirect("/");
+    redirect("/profile");
   }
 
   return session;

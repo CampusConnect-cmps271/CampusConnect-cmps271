@@ -94,10 +94,12 @@ refuses to run against anything but a local Supabase.
 npm run dev
 ```
 
-- http://localhost:3000 — profile page (mock data)
+- http://localhost:3000 — landing page
 - http://localhost:3000/register — sign up
 - http://localhost:3000/verify-email — enter the verification code
 - http://localhost:3000/login — log in
+- http://localhost:3000/forgot-password — reset a forgotten password
+- http://localhost:3000/profile — profile page (mock data)
 - http://localhost:3000/home — protected placeholder home
 - http://localhost:3000/setup — Supabase connection checker
 
@@ -112,6 +114,23 @@ countdown. Only then can the account log in.
 `supabase/templates/confirmation.html`, the same template saved on the hosted
 project, so local and hosted send the same thing.
 
+### Resetting a password
+
+Password recovery is also by **8-digit code** (SCRUM-26). From **Forgot
+password?** on `/login` (or **Reset your password** on the landing page), a
+student enters their email, receives a code, and sets a new password on
+`/forgot-password`. Every existing session for that account is then signed out.
+
+- The API is `POST /api/auth/forgot-password` and `POST /api/auth/reset-password`
+  (`frontend/app/api/auth/`, logic in `frontend/lib/auth/password-reset.ts`).
+- Responses never reveal whether an email is registered.
+- The new password is checked against `modules/auth/password.ts`, the same
+  policy as sign-up.
+- `supabase/config.toml` points the reset email at
+  `supabase/templates/recovery.html`. The hosted project's **Authentication →
+  Emails → Reset Password** template must also contain `{{ .Token }}`. It does
+  now; without it Supabase sends a link instead of a code.
+
 ### Everyday commands
 
 | Command | What it does |
@@ -120,7 +139,7 @@ project, so local and hosted send the same thing.
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `next typegen` then `tsc --noEmit` |
 | `npm test` | Everything: unit tests then database tests |
-| `npm run test:unit` | Unit tests only (Vitest) |
+| `npm run test:unit` | Unit tests only (Vitest), including the password-reset API tests in `tests/api/` |
 | `npm run test:watch` | Unit tests in watch mode |
 | `npm run test:db` | SQL/migration tests (pglite, no Docker needed) |
 | `npm run test:e2e` | Browser tests (Playwright); not part of `npm test` |
@@ -169,7 +188,9 @@ frontend/
     headers.ts        request headers the proxy adds
     supabase/         client.ts, server.ts, proxy.ts, config.ts
   scripts/            one-off maintenance scripts
-  tests/              database tests that run against pglite
+  components/         landing-page sections (Navbar, Hero, FAQ, …)
+  lib/auth/           password-reset logic behind /api/auth/*
+  tests/              database tests (pglite) and API route tests (tests/api/)
   proxy.ts            app proxy; refreshes the session per request
 supabase/
   config.toml         local stack and auth settings
@@ -261,6 +282,25 @@ It is enabled on the hosted project. **It is not yet wired up locally** —
 function exists locally but does not run. Until it does, local sign-up is
 restricted only by the app's own validation, and local and hosted behave
 differently.
+
+## API tests (SCRUM-22)
+
+- **Automated:** `npm run test:unit` runs `frontend/tests/api/`. These tests
+  call the route handlers with Supabase mocked, so they need no keys and send
+  no email.
+- **Manual:** [`api-tests/`](api-tests/README.md) has a Postman collection
+  with 20 cases and the expected result of each. Point its `baseUrl` at a local
+  or deployed app.
+
+## Deployment (SCRUM-115)
+
+- **Vercel:** import the repo, set **Root Directory** to `frontend`, and add
+  the `NEXT_PUBLIC_*` and `SUPABASE_SECRET_KEY` variables from
+  `frontend/.env.example`.
+- **AWS Amplify:** [`amplify.yml`](amplify.yml) builds `frontend/` and runs the
+  tests first. Set the same environment variables in the console.
+
+Then add the deployed URL under Supabase **Authentication → URL Configuration**.
 
 ## Background
 

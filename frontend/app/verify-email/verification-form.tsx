@@ -70,7 +70,8 @@ export default function VerificationForm({ initialEmail, configured }: { initial
         <h2>Email verified</h2>
         <p>{result?.message}</p>
         <button type="button" className={styles.primary} onClick={() => {
-          router.push("/");
+          // The profile moved from "/" to "/profile" when "/" became the landing page.
+          router.push("/profile");
           router.refresh();
         }}>Continue to CampusConnect</button>
       </div>
