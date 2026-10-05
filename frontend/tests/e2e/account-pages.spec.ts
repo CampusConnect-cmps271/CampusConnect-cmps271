@@ -4,10 +4,22 @@ test("the current landing page renders without granting admin access to a visito
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1, name: /Your campus/ })).toBeVisible();
+  // A signed-out visitor is offered the auth entry points, not signed-in ones.
+  const nav = page.getByRole("navigation", { name: "Main" });
+  await expect(nav.getByRole("link", { name: "Log in", exact: true })).toHaveAttribute("href", "/login");
+  await expect(nav.getByRole("link", { name: "Sign up", exact: true })).toHaveAttribute("href", "/register");
+  await expect(page.getByRole("button", { name: "Log out" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Manage user roles" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Reset your password" })).toHaveAttribute("href", "/forgot-password");
+  expect(errors).toEqual([]);
+});
+
+test("the mock profile lives at /profile without granting admin access to a visitor", async ({ page }) => {
+  await page.goto("/profile");
   await expect(page.getByRole("heading", { name: "Student Profile", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Edit Profile" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Manage user roles" })).toHaveCount(0);
-  expect(errors).toEqual([]);
 });
 
 test("signed-out protected visits go to login and link to registration", async ({ page }) => {
@@ -73,7 +85,7 @@ test("registration validates names, password policy and matching confirmation", 
 });
 
 test("the current mock profile validates edits and displays saved local values", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/profile");
   await page.getByRole("button", { name: "Edit Profile" }).click();
   // The existing mock profile has visual labels without input associations.
   // Select its actual fields without changing the teammate's UI in a test task.
