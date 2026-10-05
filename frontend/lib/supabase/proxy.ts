@@ -27,7 +27,6 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  // Validate and refresh existing sessions. Access rules are a later task.
   await supabase.auth.getClaims();
   response.headers.set("Cache-Control", "private, no-store");
   cacheHeaders.forEach((value, name) => response.headers.set(name, value));

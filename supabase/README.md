@@ -69,3 +69,32 @@ redirect URLs, and SMTP before testing real university email delivery.
 References: [Supabase Before User Created hook](https://supabase.com/docs/guides/auth/auth-hooks/before-user-created-hook),
 [hook permissions and configuration](https://supabase.com/docs/guides/auth/auth-hooks),
 [PGlite documentation](https://pglite.dev/docs/).
+
+## SCRUM-16: roles and permissions
+
+Run `migrations/20261005010000_roles_and_permissions.sql` in the Supabase SQL
+Editor after the signup-domain migration. It creates the four application roles,
+assigns `student` to new and existing accounts, enables row-level security, and
+adds administrator-only functions for listing users and changing roles.
+
+The migration intentionally does not guess who the first administrator is. After
+reviewing the target account in **Authentication → Users**, bootstrap exactly one
+trusted administrator by running this once with the real account email:
+
+```sql
+update public.user_roles as roles
+set role = 'administrator', updated_at = now()
+from auth.users as users
+where roles.user_id = users.id
+  and lower(users.email) = lower('ADMIN_EMAIL@mail.aub.edu');
+```
+
+Confirm that the statement reports one updated row. Administrators can then use
+`/admin` to assign the `student`, `club_representative`, `moderator`, or
+`administrator` role. Do not use a service-role key in the frontend; authorization
+is enforced by Supabase RLS and security-definer functions using the signed-in user.
+
+Run `tests/roles_permissions.sql` in the SQL Editor for non-destructive schema and
+permission checks. The local Node test suite additionally verifies new-user defaults,
+role lookup, rejected non-admin changes, administrator search/assignment, and safe
+migration reapplication in PGlite.
