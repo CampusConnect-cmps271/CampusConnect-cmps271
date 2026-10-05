@@ -6,9 +6,15 @@
  * builds fine and then fails on first request. Only the variable NAMES are
  * logged, never their values.
  *
- * onRequestError is deliberately not implemented here: per-request error
- * tracking is SCRUM-25 (Housari).
  */
+
+import type { Instrumentation } from "next";
+import { ACCOUNT_ID_HEADER } from "@/lib/headers";
+import {
+  accountIdFromHeaders,
+  describeError,
+  pathnameOnly,
+} from "@/modules/logging";
 
 /**
  * Read with literal keys, not `process.env[name]`.
@@ -90,3 +96,36 @@ export async function register(): Promise<void> {
     );
   }
 }
+
+export const onRequestError: Instrumentation.onRequestError = async (
+  error,
+  request,
+  context,
+) => {
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+
+  const { buildEntry, persistEntry } = await import("@/modules/logging");
+  const details = describeError(error);
+  const userId = accountIdFromHeaders({
+    [ACCOUNT_ID_HEADER]: request.headers[ACCOUNT_ID_HEADER],
+  });
+  const entry = buildEntry(
+    "error",
+    "backend.error.unexpected",
+    {
+      method: request.method,
+      path: pathnameOnly(request.path),
+      route: context.routePath,
+      route_type: context.routeType,
+      router: context.routerKind,
+      render_source: context.renderSource,
+      error_name: details.name,
+      stack: details.stack,
+      ...(details.digest ? { digest: details.digest } : {}),
+    },
+    { message: details.message, userId, source: "server" },
+  );
+
+  console.error(JSON.stringify({ ts: new Date().toISOString(), ...entry }));
+  await persistEntry(entry);
+};
