@@ -43,6 +43,85 @@ The migration, signup restriction, and grants are unchanged. Rerun the updated
 SQL checks to validate the installed function; live signup testing is still pending.
 All six updated local tests and ESLint passed after this correction.
 
+## SCRUM-94 delivery test and template preparation — October 5, 2026
+
+Supabase's public Auth settings confirmed that email signup was enabled, automatic
+confirmation was disabled, and new signups were allowed. One authorized signup
+request to the user's accepted AUB organization-member address succeeded. Supabase
+returned an unconfirmed user without a session and a confirmation-sent timestamp.
+The user confirmed receiving a confirmation link in the inbox.
+
+The team has no custom SMTP service or sending domain. This test used the built-in
+sender, whose recipients and sending rate are limited. It proves initial inbox
+delivery, not delivery to students outside the organization's member accounts.
+The generated test password is stored outside the repository, with restricted
+file permissions. No project keys or passwords are recorded in this report.
+
+Prepared `supabase/templates/confirmation.html` using the `{{ .Token }}` placeholder
+and `supabase/VERIFICATION_EMAIL.md` with dashboard activation, sender limitations,
+registration integration, and resend test instructions. Updated the READMEs to
+reflect the successful SQL checks and email delivery test. The code template has
+not yet been saved in the cloud dashboard or tested in a received email; the
+code-entry page remains SCRUM-106. No commits, staging, or pushes were performed.
+Local inspection confirmed balanced HTML, one Supabase code placeholder, and no
+confirmation-link placeholder or personal recipient address in the template.
+
+### Template customization prerequisite correction
+
+The dashboard screenshot subsequently showed that custom SMTP is required to
+edit the subject and body. Supabase's June 3, 2026 policy restricts template
+customization for new Free-plan projects using its default sender. Earlier guidance
+to apply the code template before configuring SMTP was incorrect; the verification
+guide and READMEs now put working custom SMTP first. The prepared HTML remains
+usable after setup. No further email was sent and no cloud setting was changed.
+
+### SMTP resend and Git synchronization — October 5, 2026
+
+You reported saving Gmail custom SMTP and the code email template. The first
+authorized signup-confirmation resend timed out locally. After you reported no
+new email, one controlled retry with a longer timeout returned HTTP 504 (Gateway
+Timeout). The Auth log reported `request_timeout` and `context deadline exceeded`.
+You then corrected the SMTP port from `560` to `587`. One authorized resend after
+that correction was accepted by Supabase without an error. You provided a received
+email screenshot showing the expected subject, CampusConnect sender and template,
+and an eight-digit verification code with no confirmation link. It arrived in
+Junk. SCRUM-94's email delivery requirement passed for this AUB inbox. No actual
+verification code or sender credentials were saved in the repository.
+
+Next is SCRUM-106: code entry, submission, resending, and invalid/expired-code
+handling. The page should match the project's code length (eight digits in this
+test). Account verification and SCRUM-116 access restrictions are not yet tested.
+
+Fetched GitHub and fast-forwarded local `main` from `fcb97bb` to `91dbabe`, bringing
+in the SCRUM-16 roles and permissions commit and its pull-request merge. Local
+email-template and documentation changes were backed up, temporarily stashed,
+and restored. The overlapping Supabase README merged cleanly, preserving the
+teammate's full roles setup section and our verification email instructions.
+
+All 12 automated tests, ESLint, TypeScript checking, and the production build
+passed with the combined work. Local environment file checksums remained unchanged,
+and Git still ignores them. No project migration was applied to the cloud during
+this sync, and no commit or push was performed. GitHub can change after this check;
+fetch again before pushing if another teammate publishes more work.
+
+### Final review before manual commit — October 5, 2026
+
+Ran a fresh fetch and `git pull --ff-only origin main`; Git reported "Already up
+to date." Local `main` and `origin/main` both pointed to `91dbabe`, with no ahead
+or behind commits and no unmerged files. Whitespace checks passed. The current
+task adds the confirmation template and verification email guide, and updates
+both READMEs and this report. No application code changed in this final review.
+
+Checked SCRUM-94's email-template and sender requirement against the successful
+code-email delivery test using the agreed Supabase architecture. The Jira ticket
+still mentions Cognito from the earlier plan. Transitioned SCRUM-94 to **Done**;
+Jira confirmed that status. SCRUM-106 remains **To Do** and is the next task.
+
+The local environment files remain ignored and untracked. No SMTP credentials or
+verification code were added to the task files. Nothing was staged, committed,
+or pushed; the user will perform those actions manually. Future teammate pushes
+can change the remote branch after this check.
+
 ## What happened
 
 Local `main` had commit `08cd36e` (the Supabase setup), while `origin/main` had

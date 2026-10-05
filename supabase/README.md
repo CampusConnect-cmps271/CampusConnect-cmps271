@@ -11,8 +11,9 @@ restriction as the future registration page. No registration UI is added here.
 
 ## Activate in your Supabase project
 
-You reported applying the migration and enabling the cloud hook. The domain checks
-and an end-to-end signup check still need to confirm its behavior in your project.
+You reported applying the migration, enabling the cloud hook, and successfully
+running all SQL checks. A real AUB signup also succeeded during email delivery
+testing. A rejected non-university signup through the API/UI still needs checking.
 For another project, use the installation steps below.
 
 1. In your project's **SQL Editor**, run the complete contents of
@@ -61,10 +62,12 @@ This restriction applies when creating **new users**. It does not remove existin
 accounts or enforce email changes on existing accounts. It does not prove inbox
 ownership; keep email confirmation enabled for the verification work.
 
-After activation, coordinate with the registration owner to display the returned
-Auth error. Then continue with **SCRUM-94: verification email**, followed by the
-verification page and unverified-account handling. Verify confirmation settings,
-redirect URLs, and SMTP before testing real university email delivery.
+Coordinate with the registration owner to display the returned Auth error.
+**SCRUM-94: verification email** passed its delivery test using Gmail custom SMTP
+and the saved code template. The recipient confirmed the expected subject and an
+eight-digit code; the email arrived in Junk. See
+[the verification email guide](VERIFICATION_EMAIL.md) for details. Next is the
+SCRUM-106 verification page, followed by SCRUM-116 unverified-account handling.
 
 References: [Supabase Before User Created hook](https://supabase.com/docs/guides/auth/auth-hooks/before-user-created-hook),
 [hook permissions and configuration](https://supabase.com/docs/guides/auth/auth-hooks),

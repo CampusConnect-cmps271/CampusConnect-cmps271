@@ -67,9 +67,12 @@ npm run build
 **SCRUM-82: university-domain restriction** is implemented locally for the agreed
 `mail.aub.edu` domain. Apply the SQL migration and enable the Before User Created
 hook in Supabase using [the activation instructions](supabase/README.md).
-You reported applying the migration and enabling the hook. Rerun the updated
-SQL checks to validate the function, then test through the signup flow when ready.
-Keep email confirmation enabled for the subsequent verification tasks.
+You reported applying the migration, enabling the hook, and passing the SQL checks.
+SCRUM-94's email delivery test passed using Gmail custom SMTP and the saved code
+template. The recipient confirmed the expected subject and an eight-digit code;
+the email arrived in Junk. See [the verification email guide](supabase/VERIFICATION_EMAIL.md)
+for setup and test details. Next is SCRUM-106: the verification-code entry page,
+resending, and invalid/expired-code handling. Keep email confirmation enabled.
 
 See [SETUP_REPORT.md](SETUP_REPORT.md) for the setup and merge reconciliation report.
 
