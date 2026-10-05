@@ -23,8 +23,8 @@ export {
 } from "./errors";
 
 export {
-  CONFIRM_PATH,
-  confirmRedirectUrl,
+  VERIFY_EMAIL_PATH,
+  verifyEmailPathFor,
   DEFAULT_SIGNED_IN_PATH,
   LOGIN_PATH,
   loginPathFor,

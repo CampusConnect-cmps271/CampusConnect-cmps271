@@ -8,7 +8,7 @@ import {
   isExistingAccount,
   messageForAuthError,
 } from "./errors";
-import { confirmRedirectUrl, safeNextPath } from "./navigation";
+import { safeNextPath } from "./navigation";
 import { loginSchema, registerSchema } from "./schema";
 
 export type LoginFormState = {
@@ -135,7 +135,8 @@ export async function register(
     options: {
       // Reachable later as user_metadata.full_name.
       data: { full_name: parsed.data.fullName },
-      emailRedirectTo: confirmRedirectUrl(),
+      // No emailRedirectTo on purpose: the confirmation email carries an
+      // 8-digit code, not a link, and is entered at /verify-email (SCRUM-106).
     },
   });
 

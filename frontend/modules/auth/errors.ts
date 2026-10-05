@@ -27,26 +27,32 @@ export type AuthErrorLike = {
   status?: number;
 };
 
-const MESSAGES_BY_CODE: Record<string, string> = {
-  // --- login ---
-  invalid_credentials: "Incorrect email or password",
-  // SP1-21 (Ghosn) will add a verification page to link to from here.
-  email_not_confirmed:
-    "Confirm your email address before logging in. Check your inbox for the confirmation link.",
-  over_request_rate_limit: "Too many attempts. Please try again shortly.",
+// Null-prototype: a lookup for a code like "constructor" or "toString" must
+// miss and fall back, not return an inherited Object.prototype member, which
+// would hand a function to React and crash the form.
+const MESSAGES_BY_CODE: Record<string, string> = Object.assign(
+  Object.create(null) as Record<string, string>,
+  {
+    // --- login ---
+    invalid_credentials: "Incorrect email or password",
+    // Verification is by 8-digit code at /verify-email (SCRUM-106).
+    email_not_confirmed:
+      "Verify your email address before logging in. Enter the code we emailed you.",
+    over_request_rate_limit: "Too many attempts. Please try again shortly.",
 
-  // --- registration ---
-  weak_password: `That password is too weak. ${PASSWORD_HINT}`,
-  over_email_send_rate_limit:
-    "Too many confirmation emails sent. Please wait a few minutes and try again.",
-  email_address_invalid: "Enter a valid email address",
-  // Raised when the project refuses the address, which for us means the
-  // university-domain hook (SCRUM-82) turned it down.
-  email_address_not_authorized:
-    "That email address cannot be used to sign up. Use your university email.",
-  user_already_exists: ALREADY_REGISTERED_MESSAGE,
-  email_exists: ALREADY_REGISTERED_MESSAGE,
-};
+    // --- registration ---
+    weak_password: `That password is too weak. ${PASSWORD_HINT}`,
+    over_email_send_rate_limit:
+      "Too many verification emails sent. Please wait a few minutes and try again.",
+    email_address_invalid: "Enter a valid email address",
+    // Raised when the project refuses the address, which for us means the
+    // university-domain hook (SCRUM-82) turned it down.
+    email_address_not_authorized:
+      "That email address cannot be used to sign up. Use your university email.",
+    user_already_exists: ALREADY_REGISTERED_MESSAGE,
+    email_exists: ALREADY_REGISTERED_MESSAGE,
+  },
+);
 
 export function messageForAuthError(
   error: AuthErrorLike | null | undefined,

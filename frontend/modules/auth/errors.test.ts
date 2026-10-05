@@ -16,7 +16,7 @@ describe("messageForAuthError", () => {
 
   it("maps an unconfirmed email", () => {
     expect(messageForAuthError({ code: "email_not_confirmed" })).toContain(
-      "Confirm your email address",
+      "Verify your email address",
     );
   });
 
@@ -79,7 +79,7 @@ describe("registration error mappings", () => {
 
   it("maps the confirmation-email rate limit", () => {
     expect(messageForAuthError({ code: "over_email_send_rate_limit" })).toBe(
-      "Too many confirmation emails sent. Please wait a few minutes and try again.",
+      "Too many verification emails sent. Please wait a few minutes and try again.",
     );
   });
 
@@ -120,5 +120,17 @@ describe("isExistingAccount", () => {
     expect(isExistingAccount({})).toBe(false);
     expect(isExistingAccount({ identities: null })).toBe(false);
     expect(isExistingAccount(null)).toBe(false);
+  });
+});
+
+describe("messageForAuthError lookup safety", () => {
+  // A plain object literal would return an inherited Object.prototype member
+  // here, handing React a function and crashing the form.
+  it("falls back for codes that collide with Object.prototype", () => {
+    for (const code of ["constructor", "toString", "valueOf", "__proto__", "hasOwnProperty"]) {
+      const message = messageForAuthError({ code });
+      expect(typeof message, `${code} should map to a string`).toBe("string");
+      expect(message).toBe(GENERIC_AUTH_ERROR_MESSAGE);
+    }
   });
 });

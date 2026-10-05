@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState, useId } from "react";
 import { register, type RegisterFormState } from "../actions";
-import { LOGIN_PATH } from "../navigation";
+import { LOGIN_PATH, verifyEmailPathFor } from "../navigation";
 import { PASSWORD_HINT } from "../password";
 import { PasswordInput } from "./PasswordInput";
 
@@ -31,21 +31,31 @@ export function RegisterForm() {
         className="flex flex-col gap-4 rounded-md border border-emerald-600/30 bg-emerald-600/10 px-4 py-5"
       >
         <h2 className="text-lg font-semibold">
-          Check your university email to confirm your account
+          Check your university email for your code
         </h2>
         <p className="text-sm opacity-90">
-          We sent a confirmation link to <strong>{state.email}</strong>. Open it
-          to activate your account, then log in.
+          We sent an 8-digit verification code to <strong>{state.email}</strong>
+          . Enter it to activate your account, then log in.
         </p>
         <p className="text-sm opacity-80">
-          Nothing in your inbox? Check the spam folder before trying again.
+          Nothing in your inbox? Check the spam folder. You can ask for a new
+          code on the next page.
         </p>
         <Link
-          href={LOGIN_PATH}
+          href={verifyEmailPathFor(state.email)}
           className="self-start rounded-md bg-sky-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
         >
-          Go to log in
+          Enter your code
         </Link>
+        <p className="text-sm opacity-80">
+          Already verified?{" "}
+          <Link
+            href={LOGIN_PATH}
+            className="font-medium text-sky-700 underline-offset-2 hover:underline dark:text-sky-400"
+          >
+            Log in
+          </Link>
+        </p>
       </div>
     );
   }

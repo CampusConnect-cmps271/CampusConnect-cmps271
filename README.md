@@ -95,9 +95,22 @@ npm run dev
 ```
 
 - http://localhost:3000 — profile page (mock data)
+- http://localhost:3000/register — sign up
+- http://localhost:3000/verify-email — enter the verification code
 - http://localhost:3000/login — log in
 - http://localhost:3000/home — protected placeholder home
 - http://localhost:3000/setup — Supabase connection checker
+
+### Signing up
+
+Verification is by **8-digit code**, not a confirmation link. Sign up at
+`/register`, open the email in Mailpit, then enter the code at `/verify-email`
+(the address is carried across for you). **Resend code** starts a 60-second
+countdown. Only then can the account log in.
+
+`supabase/config.toml` points the confirm-signup email at
+`supabase/templates/confirmation.html`, the same template saved on the hosted
+project, so local and hosted send the same thing.
 
 ### Everyday commands
 
@@ -110,12 +123,25 @@ npm run dev
 | `npm run test:unit` | Unit tests only (Vitest) |
 | `npm run test:watch` | Unit tests in watch mode |
 | `npm run test:db` | SQL/migration tests (pglite, no Docker needed) |
+| `npm run test:e2e` | Browser tests (Playwright); not part of `npm test` |
 | `npm run build` | Production build |
 | `npm run seed:test-user` | Create/reset the local test student |
 | `npx supabase start` / `stop` | Local Supabase stack |
 | `npx supabase status` | Local URLs and keys |
 
 Run lint, typecheck, tests and build before pushing.
+
+The browser tests use mocked Auth responses and a separate local server with
+test-only connection values; they send no email and create no accounts. Install
+the browser once, then run them:
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
+If Google Chrome is already installed,
+`PLAYWRIGHT_CHANNEL=chrome npm run test:e2e` uses that instead.
 
 ## Project structure
 
@@ -178,6 +204,13 @@ npx supabase db reset               # replay all migrations locally
 
 Never edit the local database by hand without a migration, or teammates cannot
 reproduce it.
+
+### Roles and permissions (SCRUM-16)
+
+Roles live in `user_roles`, with helpers in `frontend/lib/auth/`. If that
+migration has not been applied, the profile still loads and role-protected
+features stay unavailable; apply it with
+[the roles setup instructions](supabase/README.md).
 
 ### University-domain restriction (SCRUM-82)
 
