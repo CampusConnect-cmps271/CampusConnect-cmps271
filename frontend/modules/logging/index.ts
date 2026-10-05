@@ -25,3 +25,19 @@ export {
   type ClientLogInput,
   type LogLevel,
 } from "./schema";
+
+export {
+  accountIdFromHeaders,
+  clientErrorContext,
+  describeError,
+  pathnameOnly,
+  type ErrorDetails,
+} from "./error-details";
+
+export {
+  groupErrorLogs,
+  type ErrorGroup,
+  type ErrorLogRow,
+} from "./dashboard";
+
+export { loadRecentErrors } from "./dashboard-server";

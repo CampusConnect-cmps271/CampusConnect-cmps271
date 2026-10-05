@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { PATHNAME_HEADER } from "@/lib/headers";
+import { ACCOUNT_ID_HEADER, PATHNAME_HEADER } from "@/lib/headers";
 import { getSupabaseConfig } from "./config";
 
 /**
@@ -19,12 +19,17 @@ import { getSupabaseConfig } from "./config";
  * expired token, and the render downstream would reject the very session this
  * response is refreshing.
  */
-function requestHeadersFor(request: NextRequest): Headers {
+function requestHeadersFor(
+  request: NextRequest,
+  accountId?: string,
+): Headers {
   const headers = new Headers(request.headers);
   headers.set(
     PATHNAME_HEADER,
     `${request.nextUrl.pathname}${request.nextUrl.search}`,
   );
+  headers.delete(ACCOUNT_ID_HEADER);
+  if (accountId) headers.set(ACCOUNT_ID_HEADER, accountId);
   return headers;
 }
 
@@ -66,7 +71,23 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  await supabase.auth.getClaims();
+  const { data } = await supabase.auth.getClaims();
+  const accountId = data?.claims?.sub;
+
+  if (typeof accountId === "string") {
+    // NextResponse serializes request headers when it is created, so rebuild
+    // it after verification and retain any refreshed session cookies.
+    const previousResponse = response;
+    response = NextResponse.next({
+      request: { headers: requestHeadersFor(request, accountId) },
+    });
+    previousResponse.headers.forEach((value, name) => {
+      if (name !== "set-cookie" && !name.startsWith("x-middleware-")) {
+        response.headers.set(name, value);
+      }
+    });
+    previousResponse.cookies.getAll().forEach((cookie) => response.cookies.set(cookie));
+  }
 
   // Unconditional, not only when cookies are written: a response can render
   // signed-in content without refreshing anything, and a shared cache must

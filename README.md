@@ -200,6 +200,11 @@ server for anything the browser sends. Passwords, tokens, cookies, secrets and
 message bodies are dropped, emails are masked, and long strings truncated.
 Never defeat that by pasting a secret into an event name or message.
 
+Unexpected browser errors and unhandled promise rejections are captured before
+hydration, while Next.js `onRequestError` records unexpected server failures.
+Administrators can triage grouped, redacted entries at `/admin/errors`; the page
+shows 24-hour, 7-day, and 14-day windows and never queries logs from the browser.
+
 ### Supabase clients
 
 Pick by where the code runs:

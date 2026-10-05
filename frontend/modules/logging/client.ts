@@ -1,5 +1,6 @@
 import { redact } from "./redact";
 import type { LogLevel } from "./schema";
+import { clientErrorContext, describeError } from "./error-details";
 
 /**
  * Browser-side logging. Posts to /api/log, which validates, redacts again and
@@ -80,4 +81,26 @@ export function logClient(
   } catch {
     // Same here: swallow it.
   }
+}
+
+export function reportClientError(
+  event: string,
+  error: unknown,
+  extra: Record<string, unknown> = {},
+): void {
+  if (typeof window === "undefined") return;
+
+  const details = describeError(error);
+  logClient(
+    event,
+    clientErrorContext(
+      error,
+      {
+        page: window.location.href,
+        browser: window.navigator.userAgent,
+      },
+      extra,
+    ),
+    { level: "error", message: details.message },
+  );
 }
