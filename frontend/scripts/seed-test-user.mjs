@@ -92,8 +92,12 @@ if (!createError) {
 
 // Already seeded: reset the password and make sure it is still confirmed, so
 // the script is safe to re-run.
+// Branch on the code only. Supabase also returns 422 for a weak password and
+// an invalid address, and treating those as "already exists" sends the reader
+// hunting through the users table instead of at their own .env.local.
 const alreadyExists =
-  createError.code === "email_exists" || createError.status === 422;
+  createError.code === "email_exists" ||
+  createError.code === "user_already_exists";
 
 if (!alreadyExists) {
   fail(`${createError.message} (code: ${createError.code ?? "unknown"})`);

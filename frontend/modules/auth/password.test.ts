@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isAcceptablePassword,
+  MAX_PASSWORD_LENGTH,
   MIN_PASSWORD_LENGTH,
   PASSWORD_SYMBOLS,
   passwordProblems,
@@ -77,6 +78,23 @@ describe("password policy", () => {
     expect(passwordProblems("Abcdefgh١!")).toEqual(["Contain a digit"]);
     expect(passwordProblems("Abcdefg1€")).toEqual([
       "Contain a symbol, for example ! ? @ #",
+    ]);
+  });
+});
+
+describe("maximum password length", () => {
+  it("accepts the longest password Supabase will take", () => {
+    // Confirmed against the running server: 72 is accepted, 73 is not.
+    const atLimit = `Aa1!${"x".repeat(MAX_PASSWORD_LENGTH - 4)}`;
+    expect(atLimit).toHaveLength(MAX_PASSWORD_LENGTH);
+    expect(passwordProblems(atLimit)).toEqual([]);
+  });
+
+  it("rejects one character past the limit, rather than letting the server do it", () => {
+    const tooLong = `Aa1!${"x".repeat(MAX_PASSWORD_LENGTH - 3)}`;
+    expect(tooLong).toHaveLength(MAX_PASSWORD_LENGTH + 1);
+    expect(passwordProblems(tooLong)).toEqual([
+      `Be at most ${MAX_PASSWORD_LENGTH} characters long`,
     ]);
   });
 });

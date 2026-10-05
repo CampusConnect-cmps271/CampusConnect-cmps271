@@ -9,11 +9,34 @@
 const PUBLISHABLE_KEY_PREFIX = "sb_publishable_";
 const LOCAL_HOSTNAMES = ["localhost", "127.0.0.1", "[::1]"];
 
+/**
+ * Legacy anon keys and service_role keys are both three-part JWTs that start
+ * the same way, so shape alone cannot tell them apart. Decode the payload and
+ * insist on the anon role: a service_role key here would be inlined into the
+ * browser bundle, handing every visitor a key that bypasses row-level
+ * security.
+ */
+function isAnonJwt(key: string) {
+  const parts = key.split(".");
+  if (parts.length !== 3 || !parts[0].startsWith("eyJ")) return false;
+
+  try {
+    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const decoded: unknown = JSON.parse(atob(payload));
+    return (
+      typeof decoded === "object" &&
+      decoded !== null &&
+      (decoded as { role?: unknown }).role === "anon"
+    );
+  } catch {
+    return false;
+  }
+}
+
 function isAcceptableKey(key: string) {
   if (key.startsWith(PUBLISHABLE_KEY_PREFIX)) return true;
-  // Legacy anon key: a three-part JWT. Guard against a secret key being pasted
-  // here by mistake, since anything in this file reaches the browser.
-  return /^eyJ[\w-]*\.[\w-]+\.[\w-]+$/.test(key);
+  // A secret key (sb_secret_...) never matches either branch.
+  return isAnonJwt(key);
 }
 
 export function getSupabaseConfig() {

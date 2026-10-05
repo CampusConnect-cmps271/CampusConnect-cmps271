@@ -10,14 +10,28 @@ import { getSupabaseConfig } from "./config";
  * Access rules are not enforced here. Proxy runs on prefetches too, so it only
  * touches the session cookie; `modules/auth` guards pages and Server Actions.
  */
-export async function updateSession(request: NextRequest) {
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set(
+
+/**
+ * Snapshot of the request headers, plus the pathname.
+ *
+ * Taken fresh each time, because `request.cookies.set()` rewrites the live
+ * `cookie` header: a snapshot taken before a token refresh still carries the
+ * expired token, and the render downstream would reject the very session this
+ * response is refreshing.
+ */
+function requestHeadersFor(request: NextRequest): Headers {
+  const headers = new Headers(request.headers);
+  headers.set(
     PATHNAME_HEADER,
     `${request.nextUrl.pathname}${request.nextUrl.search}`,
   );
+  return headers;
+}
 
-  let response = NextResponse.next({ request: { headers: requestHeaders } });
+export async function updateSession(request: NextRequest) {
+  let response = NextResponse.next({
+    request: { headers: requestHeadersFor(request) },
+  });
 
   const config = getSupabaseConfig();
   if (!config) return response;
@@ -30,11 +44,13 @@ export async function updateSession(request: NextRequest) {
       setAll(cookiesToSet, headers) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
 
-        // Rebuild the response so it carries the updated request cookies,
-        // keeping anything already written by an earlier call.
+        // Rebuild the response so it carries the refreshed cookies, keeping
+        // anything an earlier call already wrote.
         const previousCookies = response.cookies.getAll();
         const previousHeaders = response.headers;
-        response = NextResponse.next({ request: { headers: requestHeaders } });
+        response = NextResponse.next({
+          request: { headers: requestHeadersFor(request) },
+        });
         previousHeaders.forEach((value, name) => response.headers.set(name, value));
         previousCookies.forEach((cookie) => response.cookies.set(cookie));
 
@@ -42,8 +58,7 @@ export async function updateSession(request: NextRequest) {
           response.cookies.set(name, value, options);
         });
 
-        // Responses that set auth cookies must not be cached by a CDN or proxy,
-        // otherwise one user's tokens could be served to another.
+        // Extra no-cache headers the library supplies with a cookie write.
         Object.entries(headers ?? {}).forEach(([name, value]) => {
           response.headers.set(name, value);
         });
@@ -52,6 +67,12 @@ export async function updateSession(request: NextRequest) {
   });
 
   await supabase.auth.getClaims();
+
+  // Unconditional, not only when cookies are written: a response can render
+  // signed-in content without refreshing anything, and a shared cache must
+  // never hand that to the next visitor. The library's own headers arrive only
+  // on the first cookie write, so they cannot carry this on their own.
+  response.headers.set("Cache-Control", "private, no-store");
 
   return response;
 }

@@ -17,15 +17,35 @@
 
 export const MIN_PASSWORD_LENGTH = 8;
 
+/**
+ * Supabase hashes with bcrypt, which only reads the first 72 bytes, so it
+ * rejects anything longer outright. Confirmed against the running server: 72
+ * characters is accepted, 73 comes back as validation_failed. Without this
+ * rule a long passphrase passes the form and then fails on the server with a
+ * code we do not map, showing the student a generic error on a clean form.
+ */
+export const MAX_PASSWORD_LENGTH = 72;
+
 const LOWERCASE = "abcdefghijklmnopqrstuvwxyz";
 const UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const DIGITS = "0123456789";
 /** Exactly what Supabase Auth counts as a symbol. Space is not included. */
 export const PASSWORD_SYMBOLS = "!@#$%^&*()_+-=[]{};':\"|<>?,./\\~`";
 
-/** Membership tests, so no regex escaping can quietly change the rule. */
+/**
+ * Membership tests, so no regex escaping can quietly change the rule. The sets
+ * are built once: they are module constants in disguise, and rebuilding them
+ * per check is pure waste on the auth path.
+ */
+const CHARACTER_SETS = new Map<string, Set<string>>();
+
 function containsAny(value: string, allowed: string): boolean {
-  const set = new Set(allowed);
+  let set = CHARACTER_SETS.get(allowed);
+  if (!set) {
+    set = new Set(allowed);
+    CHARACTER_SETS.set(allowed, set);
+  }
+
   for (const character of value) {
     if (set.has(character)) return true;
   }
@@ -33,7 +53,7 @@ function containsAny(value: string, allowed: string): boolean {
 }
 
 export type PasswordRule = {
-  id: "length" | "lowercase" | "uppercase" | "digit" | "symbol";
+  id: "length" | "maxLength" | "lowercase" | "uppercase" | "digit" | "symbol";
   /** Shown to the student, both as a hint and as an error. */
   label: string;
   isMet: (value: string) => boolean;
@@ -44,6 +64,11 @@ export const PASSWORD_RULES: PasswordRule[] = [
     id: "length",
     label: `Be at least ${MIN_PASSWORD_LENGTH} characters long`,
     isMet: (value) => value.length >= MIN_PASSWORD_LENGTH,
+  },
+  {
+    id: "maxLength",
+    label: `Be at most ${MAX_PASSWORD_LENGTH} characters long`,
+    isMet: (value) => value.length <= MAX_PASSWORD_LENGTH,
   },
   {
     id: "lowercase",

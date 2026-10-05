@@ -19,6 +19,9 @@ export function parseAllowedEmailDomains(
   return domains.length > 0 ? domains : [...DEFAULT_ALLOWED_EMAIL_DOMAINS];
 }
 
+/** Built once, not per submission. */
+const EMAIL_FORMAT = z.email();
+
 export function emailDomainMessage(domains: string[]): string {
   const list = domains.map((domain) => `@${domain}`).join(" or ");
   return `Use your university email (${list})`;
@@ -41,7 +44,7 @@ function universityEmailField(domains: string[]) {
         return;
       }
 
-      if (!z.email().safeParse(value).success) {
+      if (!EMAIL_FORMAT.safeParse(value).success) {
         ctx.addIssue({
           code: "custom",
           message: "Enter a valid email address",
