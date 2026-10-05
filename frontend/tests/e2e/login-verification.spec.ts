@@ -36,6 +36,7 @@ test("the teammate's login sends an unverified student to code entry without aut
   await page.getByRole("button", { name: "Verify email", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Email verified", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Continue to CampusConnect" }).click();
+  await expect(page).toHaveURL(/\/profile$/);
   await expect(page.getByRole("heading", { name: "Student Profile", exact: true })).toBeVisible();
   await page.goto("/home");
   await expect(page.getByRole("heading", { name: "Welcome, student+test" })).toBeVisible();
@@ -84,7 +85,7 @@ test("direct unverified sessions cannot enter protected pages or assign roles", 
     user: { id, email, email_confirmed_at: "pretend-confirmed", user_metadata: { email_verified: true } },
   };
   await context.addCookies([{ name: "sb-127-auth-token", value: `base64-${encode(session)}`, domain: "127.0.0.1", path: "/" }]);
-  for (const path of ["/home", "/login", "/admin", "/"]) {
+  for (const path of ["/home", "/login", "/admin", "/profile", "/"]) {
     await page.goto(path);
     await expect(page).toHaveURL(/\/verify-email\?email=student%40mail.aub.edu$/);
     await expect(page.getByLabel("Verification code")).toBeVisible();

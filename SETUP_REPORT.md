@@ -8,6 +8,77 @@ Date: October 4, 2026
 > SCRUM-82 is now prepared locally for `mail.aub.edu`; see
 > [the task setup and activation instructions](supabase/README.md).
 
+## Latest pull and manual-push preparation — October 5, 2026
+
+Pulled two new commits by fast-forward to `ee5b43c` (PR #5). The initial pull
+paused because both the teammate and local work edited the landing browser test.
+Preserved tracked and new test files in a temporary stash, pulled, restored the
+work and resolved that single overlap by retaining both sets of assertions.
+All changes are left unstaged for the user's manual commit; no commit or push
+was performed. Ignored environment files stayed in place.
+
+The teammate's fix rethrows Next.js redirects from the landing page. The
+unverified-session browser test now covers both `/` and `/profile`. All
+**29 browser tests** and lint passed after this integration. Together with the
+unchanged suites already validated (178 unit and 24 database/helper tests), the
+current shared suite has **231 passing tests**. The final production build also
+passed. There are no unresolved Git conflict entries or conflict markers.
+
+## SCRUM-99 password-recovery test completion — October 5, 2026
+
+Pulled the teammate's merged password-recovery and landing-page work with
+`git pull --ff-only`: `c9e034a` to `0dcabd4` (PR #2). There were no conflicts.
+A final `git fetch origin` confirmed no further incoming commits at handoff.
+
+### Changes in this follow-up
+
+- Preserved Ameera's recovery APIs, page, shared password policy and existing
+  API/validation tests. Added API checks for absent sessions/configuration,
+  non-object bodies, service failures, throttling, normalization, exact password
+  preservation, request ordering and no session cookie from reset.
+- Added tests for fresh stateless Supabase clients, disabled session persistence
+  and rejection of public secret-key configuration.
+- Added eight browser tests against the local Auth fixture: request/reset,
+  consumed-code replay, old-password rejection/new-password login, unknown
+  accounts, mobile validation, provider/rate errors, resend, network retry,
+  email switching and locked pending requests. The fixture stores only
+  synthetic per-email state and exposes only operation counts for assertions.
+- Fixed the recovery form to clear password/confirmation/visibility state when
+  switching accounts, clear the previous code after resend, keep resend text
+  neutral, and disable field edits/account switching while a request is pending.
+- Updated earlier browser tests for the new landing page at `/` and the mock
+  profile at `/profile`. Verification now continues to `/profile`, as changed
+  by the teammate's merge. This supersedes the root-profile references below
+  and in the presentation PDF generated before this merge.
+- Clarified that global sign-out revokes refresh tokens; existing access JWTs
+  remain valid until expiry. A failed revocation is logged after a successful
+  password change rather than falsely reporting that the password was unchanged.
+
+### Validation and current status
+
+- **178 Vitest tests**, **24 Node database/helper tests**, and **28 Playwright
+  browser tests passed: 230 shared-suite tests total**. Totals include teammate
+  tests; they are not all newly authored in this follow-up.
+- Lint, type checking and the production build passed. The build used synthetic
+  Supabase settings. The new checks are picked up by the existing CI workflow;
+  hosted execution of these uncommitted changes awaits the user's manual push.
+- The first browser attempt needed the existing Next dev server stopped to
+  release its shared lock. The next run exposed ambiguous test alert selectors
+  matching Next's route announcer; scoping them to `main` resolved that test
+  issue. The complete final browser run passed.
+- Jira **SCRUM-99 is Done**. Its password-recovery testing dependency is now
+  present and covered. Earlier pending statements below are historical.
+- Hosted email delivery/settings and real account changes were not tested or
+  modified. Profile checks still cover mock local state rather than persistence.
+- `npm ci` retained the pulled lockfile and reported five high-severity
+  dependency advisories; no forced upgrades/downgrades were performed.
+- No `.env` changes, staging, commits or pushes were performed. The PDF remains
+  outside the repository, as requested.
+
+Next: manually commit/push the changes and check the new GitHub Actions run.
+An optional hosted recovery smoke test should use an approved test account;
+the safe automated fixture tests do not send real email or change real users.
+
 ## Login integration and remaining test tasks — October 5, 2026
 
 Confirmed that the user's pull includes the teammate's login/registration

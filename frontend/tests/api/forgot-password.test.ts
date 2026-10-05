@@ -101,6 +101,22 @@ describe('POST /api/auth/forgot-password', () => {
       expect((await res.json()).error).toBe('SERVICE_UNAVAILABLE')
     })
 
+    it('handles an email limit by error code even without an HTTP 429 status', async () => {
+      supabase.auth.resetPasswordForEmail.mockResolvedValue({ data: null, error: authError(400, 'over_email_send_rate_limit') })
+      const res = await POST(postRequest(URL, { email: 'student@mail.aub.edu' }))
+      expect(res.status).toBe(429)
+      expect((await res.json()).error).toBe('RATE_LIMITED')
+    })
+
+    it('returns a safe error for a transport failure without leaking provider details', async () => {
+      supabase.auth.resetPasswordForEmail.mockResolvedValue({ data: null, error: authError(0, 'request_timeout', 'private provider detail') })
+      const res = await POST(postRequest(URL, { email: 'student@mail.aub.edu' }))
+      expect(res.status).toBe(503)
+      const json = await res.json()
+      expect(json.error).toBe('SERVICE_UNAVAILABLE')
+      expect(JSON.stringify(json)).not.toContain('private provider detail')
+    })
+
     it('returns 503 SERVICE_UNAVAILABLE when Supabase is not configured', async () => {
       vi.mocked(createSupabaseAuthClient).mockImplementation(() => {
         throw new SupabaseNotConfiguredError()

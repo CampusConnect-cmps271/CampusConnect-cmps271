@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST } from '@/app/api/auth/reset-password/route'
-import { createSupabaseAuthClient } from '@/lib/supabase/auth-client'
+import { createSupabaseAuthClient, SupabaseNotConfiguredError } from '@/lib/supabase/auth-client'
 import { log } from '@/modules/logging'
 import { authError, fakeSupabase, postRequest } from '../helpers'
 
@@ -43,6 +43,23 @@ describe('POST /api/auth/reset-password', () => {
       })
       expect(supabase.auth.updateUser).toHaveBeenCalledWith({ password: 'NewPass#2026' })
       expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: 'global' })
+      expect(supabase.auth.verifyOtp.mock.invocationCallOrder[0]).toBeLessThan(supabase.auth.updateUser.mock.invocationCallOrder[0])
+      expect(supabase.auth.updateUser.mock.invocationCallOrder[0]).toBeLessThan(supabase.auth.signOut.mock.invocationCallOrder[0])
+      expect(res.headers.get('set-cookie')).toBeNull()
+    })
+
+    it('normalizes email and code without changing the chosen password', async () => {
+      const password = '  NewPass#2026  '
+      const res = await POST(postRequest(URL, {
+        ...VALID, email: ' STUDENT@MAIL.AUB.EDU ', code: ' 01234567 ',
+        newPassword: password, confirmPassword: password,
+      }))
+
+      expect(res.status).toBe(200)
+      expect(supabase.auth.verifyOtp).toHaveBeenCalledWith({
+        email: 'student@mail.aub.edu', token: '01234567', type: 'recovery',
+      })
+      expect(supabase.auth.updateUser).toHaveBeenCalledWith({ password })
     })
 
     it('logs the completed reset without the code or the password', async () => {
@@ -73,6 +90,8 @@ describe('POST /api/auth/reset-password', () => {
       const res = await POST(postRequest(URL, VALID))
 
       expect(res.status).toBe(200)
+      expect(log.warn).toHaveBeenCalledWith('auth.password_reset.revoke_failed',
+        { code: 'unexpected_failure', status: 500 }, { userId: null })
     })
   })
 
@@ -117,9 +136,53 @@ describe('POST /api/auth/reset-password', () => {
       expect(res.status).toBe(400)
       expect((await res.json()).error).toBe('INVALID_JSON')
     })
+
+    it.each([null, [], 'not an object', 42])('rejects a non-object JSON body: %j', async (body) => {
+      const res = await POST(postRequest(URL, body))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe('INVALID_JSON')
+      expect(supabase.auth.verifyOtp).not.toHaveBeenCalled()
+    })
   })
 
   describe('error handling', () => {
+    it('refuses to update a password when verification returns no session', async () => {
+      supabase.auth.verifyOtp.mockResolvedValue({ data: { session: null, user: null }, error: null })
+      const res = await POST(postRequest(URL, VALID))
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toBe('INVALID_OR_EXPIRED_CODE')
+      expect(supabase.auth.updateUser).not.toHaveBeenCalled()
+      expect(supabase.auth.signOut).not.toHaveBeenCalled()
+    })
+
+    it.each([500, 504, 0])('maps verification failure %s to a safe service error', async (status) => {
+      supabase.auth.verifyOtp.mockResolvedValue({
+        data: { session: null, user: null }, error: authError(status, 'request_timeout', 'private provider detail'),
+      })
+      const res = await POST(postRequest(URL, VALID))
+      expect(res.status).toBe(503)
+      expect(await res.json()).toMatchObject({ error: 'SERVICE_UNAVAILABLE' })
+      expect(supabase.auth.updateUser).not.toHaveBeenCalled()
+      expect(supabase.auth.signOut).not.toHaveBeenCalled()
+    })
+
+    it('returns a controlled configuration error before any Auth call', async () => {
+      vi.mocked(createSupabaseAuthClient).mockImplementation(() => { throw new SupabaseNotConfiguredError() })
+      const res = await POST(postRequest(URL, VALID))
+      expect(res.status).toBe(503)
+      expect((await res.json()).error).toBe('SERVICE_UNAVAILABLE')
+      expect(supabase.auth.verifyOtp).not.toHaveBeenCalled()
+    })
+
+    it('does not sign out or report success when the update is throttled', async () => {
+      supabase.auth.updateUser.mockResolvedValue({ data: null, error: authError(429, 'over_request_rate_limit') })
+      const res = await POST(postRequest(URL, VALID))
+      expect(res.status).toBe(429)
+      expect((await res.json()).error).toBe('RATE_LIMITED')
+      expect(supabase.auth.signOut).not.toHaveBeenCalled()
+      expect(log.info).not.toHaveBeenCalledWith('auth.password_reset.completed', expect.anything(), expect.anything())
+    })
+
     it('returns 400 INVALID_OR_EXPIRED_CODE for a wrong or expired code', async () => {
       supabase.auth.verifyOtp.mockResolvedValue({
         data: { session: null, user: null },

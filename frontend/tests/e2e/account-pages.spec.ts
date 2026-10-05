@@ -5,6 +5,7 @@ test("the current landing page renders without granting admin access to a visito
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: /Your campus/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Join with your AUB email" })).toBeVisible();
   // A signed-out visitor is offered the auth entry points, not signed-in ones.
   const nav = page.getByRole("navigation", { name: "Main" });
   await expect(nav.getByRole("link", { name: "Log in", exact: true })).toHaveAttribute("href", "/login");

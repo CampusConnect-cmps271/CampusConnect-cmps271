@@ -9,6 +9,24 @@ const user = {
 };
 let roleLookups = 0;
 let resends = 0;
+// Test-only state, isolated by email so parallel recovery cases cannot affect
+// each other or the existing login/verification fixtures. Never real users.
+const recoveryAccounts = new Map();
+
+function authFailure(response, status, code) {
+  response.statusCode = status;
+  return response.end(JSON.stringify({ code, msg: "Test-only Auth rejection" }));
+}
+
+function bearerEmail(request) {
+  const token = request.headers.authorization?.slice(7);
+  if (!token) return null;
+  try {
+    return JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString()).email;
+  } catch {
+    return null;
+  }
+}
 
 function sessionFor(email, confirmed) {
   const id = confirmed ? user.id : "00000000-0000-4000-8000-000000000002";
@@ -18,16 +36,66 @@ function sessionFor(email, confirmed) {
 }
 
 createServer(async (request, response) => {
-  const path = new URL(request.url, "http://127.0.0.1:3101").pathname;
+  const url = new URL(request.url, "http://127.0.0.1:3101");
+  const path = url.pathname;
   response.setHeader("Content-Type", "application/json");
   response.setHeader("x-supabase-api-version", "2024-01-01");
   if (path === "/health") return response.end("{}");
   if (path === "/test/role-lookups") return response.end(JSON.stringify({ roleLookups }));
   if (path === "/test/resends") return response.end(JSON.stringify({ resends }));
+  if (path === "/test/recovery") {
+    const account = recoveryAccounts.get(url.searchParams.get("email"));
+    const { requests = 0, verifications = 0, updates = 0, revocations = 0 } = account ?? {};
+    // Only counts are observable; no passwords or session tokens are exposed.
+    return response.end(JSON.stringify({ requests, verifications, updates, revocations }));
+  }
+  if (path === "/auth/v1/recover" && request.method === "POST") {
+    let raw = "";
+    for await (const chunk of request) raw += chunk;
+    const { email } = JSON.parse(raw);
+    if (email.startsWith("recovery-limit@")) return authFailure(response, 429, "over_email_send_rate_limit");
+    if (email.startsWith("recovery-unavailable@")) return authFailure(response, 500, "unexpected_failure");
+    if (email.startsWith("recovery-unknown@")) return response.end("{}");
+    const account = recoveryAccounts.get(email) ?? { password: "test-verified-password", requests: 0, verifications: 0, updates: 0, revocations: 0 };
+    account.requests++;
+    account.used = false;
+    recoveryAccounts.set(email, account);
+    return response.end("{}");
+  }
+  if (path === "/auth/v1/verify" && request.method === "POST") {
+    let raw = "";
+    for await (const chunk of request) raw += chunk;
+    const { email, token, type } = JSON.parse(raw);
+    const account = recoveryAccounts.get(email);
+    if (account) account.verifications++;
+    if (type !== "recovery" || !account || account.used) return authFailure(response, 403, "otp_expired");
+    if (token === "33333333") return authFailure(response, 429, "over_request_rate_limit");
+    if (token === "44444444") return authFailure(response, 500, "unexpected_failure");
+    if (token !== "01234567") return authFailure(response, 403, "otp_expired");
+    account.used = true;
+    return response.end(JSON.stringify(sessionFor(email, true)));
+  }
+  if (path === "/auth/v1/user" && request.method === "PUT") {
+    const account = recoveryAccounts.get(bearerEmail(request));
+    if (!account?.used) return authFailure(response, 401, "session_not_found");
+    let raw = "";
+    for await (const chunk of request) raw += chunk;
+    const { password } = JSON.parse(raw);
+    if (password === account.password) return authFailure(response, 422, "same_password");
+    if (password === "LeakedPass#2026") return authFailure(response, 422, "weak_password");
+    account.password = password;
+    account.updates++;
+    return response.end(JSON.stringify({ ...user, email: bearerEmail(request) }));
+  }
   if (path === "/auth/v1/token" && request.method === "POST") {
     let raw = "";
     for await (const chunk of request) raw += chunk;
     const { email, password } = JSON.parse(raw);
+    const recovered = recoveryAccounts.get(email);
+    if (recovered) {
+      if (password === recovered.password) return response.end(JSON.stringify(sessionFor(email, true)));
+      return authFailure(response, 400, "invalid_credentials");
+    }
     if (password === "test-unverified-password") {
       response.statusCode = 400;
       return response.end(JSON.stringify({ code: "email_not_confirmed", msg: "Email not confirmed" }));
@@ -38,7 +106,11 @@ createServer(async (request, response) => {
     response.statusCode = password === "test-rate-limit" ? 429 : 400;
     return response.end(JSON.stringify({ code: password === "test-rate-limit" ? "over_request_rate_limit" : "invalid_credentials", msg: "Test-only Auth rejection" }));
   }
-  if (path === "/auth/v1/logout") return response.end("{}");
+  if (path === "/auth/v1/logout") {
+    const account = recoveryAccounts.get(bearerEmail(request));
+    if (account && url.searchParams.get("scope") === "global") account.revocations++;
+    return response.end("{}");
+  }
   if (path === "/auth/v1/resend") { resends++; return response.end("{}"); }
   if (path === "/auth/v1/user" && request.headers.authorization?.startsWith("Bearer ")) {
     const token = request.headers.authorization.slice(7);

@@ -131,7 +131,8 @@ export async function resetPassword(rawEmail: string, code: string, newPassword:
     return fail('SERVICE_UNAVAILABLE')
   }
 
-  // Revoke every existing session so anyone holding the old password is logged out.
+  // Revoke refresh tokens across sessions. Already-issued access JWTs remain
+  // valid until expiry; sign-out cannot immediately revoke those tokens.
   const { error: signOutError } = await supabase.auth.signOut({ scope: 'global' })
   if (signOutError) {
     log.warn('auth.password_reset.revoke_failed', errorContext(signOutError), { userId })

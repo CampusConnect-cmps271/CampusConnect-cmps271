@@ -61,7 +61,8 @@ export default function ForgotPasswordForm() {
       setFormError(data.message ?? 'Something went wrong. Please try again.')
       return
     }
-    setNotice(isResend ? 'A new code is on its way. Use the most recent code you received.' : (data.message ?? ''))
+    if (isResend) setCode('')
+    setNotice(isResend ? 'If an account exists for that email, a new code has been requested. Use the most recent code you received.' : (data.message ?? ''))
     setStep('reset')
   }
 
@@ -121,6 +122,7 @@ export default function ForgotPasswordForm() {
             autoComplete="email"
             placeholder="you@mail.aub.edu"
             value={email}
+            disabled={submitting}
             onChange={(e) => setEmail(e.target.value)}
             aria-invalid={!!fieldErrors.email}
             aria-describedby={fieldErrors.email ? 'email-error' : undefined}
@@ -158,6 +160,7 @@ export default function ForgotPasswordForm() {
           placeholder="Code from your email"
           maxLength={10}
           value={code}
+          disabled={submitting}
           onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
           aria-invalid={!!fieldErrors.code}
           aria-describedby={fieldErrors.code ? 'code-error' : undefined}
@@ -172,6 +175,7 @@ export default function ForgotPasswordForm() {
           type={showPassword ? 'text' : 'password'}
           autoComplete="new-password"
           value={newPassword}
+          disabled={submitting}
           onChange={(e) => setNewPassword(e.target.value)}
           aria-invalid={!!fieldErrors.newPassword}
           aria-describedby="password-rules"
@@ -194,6 +198,7 @@ export default function ForgotPasswordForm() {
           type={showPassword ? 'text' : 'password'}
           autoComplete="new-password"
           value={confirmPassword}
+          disabled={submitting}
           onChange={(e) => setConfirmPassword(e.target.value)}
           aria-invalid={!!fieldErrors.confirmPassword}
           aria-describedby={fieldErrors.confirmPassword ? 'confirm-error' : undefined}
@@ -204,7 +209,7 @@ export default function ForgotPasswordForm() {
       </div>
 
       <label className="checkbox">
-        <input type="checkbox" checked={showPassword} onChange={(e) => setShowPassword(e.target.checked)} />
+        <input type="checkbox" checked={showPassword} disabled={submitting} onChange={(e) => setShowPassword(e.target.checked)} />
         Show passwords
       </label>
 
@@ -219,9 +224,13 @@ export default function ForgotPasswordForm() {
         <button
           type="button"
           className="link-button"
+          disabled={submitting}
           onClick={() => {
             setStep('request')
             setCode('')
+            setNewPassword('')
+            setConfirmPassword('')
+            setShowPassword(false)
             setFieldErrors({})
             setFormError('')
             setNotice('')
