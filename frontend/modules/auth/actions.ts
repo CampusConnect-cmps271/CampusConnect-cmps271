@@ -3,6 +3,7 @@
 import * as z from "zod";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { log } from "@/modules/logging";
 import {
   ALREADY_REGISTERED_MESSAGE,
   isExistingAccount,
@@ -54,17 +55,30 @@ export async function login(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email: parsed.data.email,
     password: parsed.data.password,
   });
 
   if (error) {
+    // The email is masked by redact(); the password never leaves this scope.
+    log.warn("auth.login.failure", {
+      email: parsed.data.email,
+      code: error.code ?? null,
+      status: error.status ?? null,
+    });
+
     return {
       message: messageForAuthError(error),
       email: parsed.data.email,
     };
   }
+
+  log.info(
+    "auth.login.success",
+    { email: parsed.data.email },
+    { userId: data.user?.id ?? null },
+  );
 
   // `redirect` throws, so nothing below it runs.
   redirect(safeNextPath(formData.get("next")));
@@ -141,6 +155,12 @@ export async function register(
   });
 
   if (error) {
+    log.warn("auth.signup.failure", {
+      email: parsed.data.email,
+      code: error.code ?? null,
+      status: error.status ?? null,
+    });
+
     return {
       status: "error",
       message: messageForAuthError(error),
@@ -149,6 +169,11 @@ export async function register(
   }
 
   if (isExistingAccount(data.user)) {
+    log.warn("auth.signup.failure", {
+      email: parsed.data.email,
+      code: "already_registered",
+    });
+
     return {
       status: "error",
       message: ALREADY_REGISTERED_MESSAGE,
@@ -156,13 +181,26 @@ export async function register(
     };
   }
 
+  log.info(
+    "auth.signup.success",
+    { email: parsed.data.email },
+    { userId: data.user?.id ?? null },
+  );
+
   return { status: "sent", email: parsed.data.email };
 }
 
 /** Signs the current student out and returns them to the landing page. */
 export async function logout(): Promise<void> {
   const supabase = await createClient();
+
+  // Read the identity before signing out, or there is nothing left to log.
+  const { data } = await supabase.auth.getClaims();
+  const userId = typeof data?.claims?.sub === "string" ? data.claims.sub : null;
+
   await supabase.auth.signOut();
+
+  log.info("auth.logout", {}, { userId });
 
   redirect("/");
 }

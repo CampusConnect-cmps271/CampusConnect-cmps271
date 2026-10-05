@@ -178,6 +178,27 @@ supabase/
 - A Client Component must not import a module barrel that re-exports
   server-only code. Inside a module, client files import their siblings
   directly.
+- One exception, for `logging`: its barrel is server-only, so a Client
+  Component imports **`@/modules/logging/client`** instead. That is a second
+  public entry, not a reach into private files.
+
+### Logging
+
+Every entry lands in `public.app_logs`, which has RLS on and no policies, so
+only server code holding the secret key can read or write it. Rows older than
+14 days are removed nightly by a `pg_cron` job.
+
+```ts
+import { log } from "@/modules/logging";          // server
+log.info("auth.login.success", { email }, { userId });
+
+import { logClient } from "@/modules/logging/client"; // browser -> POST /api/log
+```
+
+Context is redacted before it is stored — on the client, and again on the
+server for anything the browser sends. Passwords, tokens, cookies, secrets and
+message bodies are dropped, emails are masked, and long strings truncated.
+Never defeat that by pasting a secret into an event name or message.
 
 ### Supabase clients
 
