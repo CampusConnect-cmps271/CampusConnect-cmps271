@@ -31,12 +31,12 @@ export function PasswordInput({
   const fieldId = useId();
   const errorId = `${fieldId}-error`;
   const hintId = `${fieldId}-hint`;
-  const errorMessage = errors?.[0];
+  const messages = errors ?? [];
+  const hasError = messages.length > 0;
 
   const describedBy =
-    [errorMessage ? errorId : null, hint ? hintId : null]
-      .filter(Boolean)
-      .join(" ") || undefined;
+    [hasError ? errorId : null, hint ? hintId : null].filter(Boolean).join(" ") ||
+    undefined;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -51,7 +51,7 @@ export function PasswordInput({
           type={visible ? "text" : "password"}
           autoComplete={autoComplete}
           required={required}
-          aria-invalid={errorMessage ? true : undefined}
+          aria-invalid={hasError ? true : undefined}
           aria-describedby={describedBy}
           className="w-full rounded-md border border-black/15 bg-transparent px-3 py-2 pr-20 text-base outline-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-sky-600 aria-[invalid]:border-red-600 dark:border-white/20"
         />
@@ -73,10 +73,22 @@ export function PasswordInput({
         </p>
       ) : null}
 
-      {errorMessage ? (
+      {/* The password policy can fail several rules at once, so list them. */}
+      {messages.length === 1 ? (
         <p id={errorId} className="text-sm text-red-700 dark:text-red-400">
-          {errorMessage}
+          {messages[0]}
         </p>
+      ) : null}
+
+      {messages.length > 1 ? (
+        <div id={errorId} className="text-sm text-red-700 dark:text-red-400">
+          <p>Your password must:</p>
+          <ul className="list-disc pl-5">
+            {messages.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
+        </div>
       ) : null}
     </div>
   );
