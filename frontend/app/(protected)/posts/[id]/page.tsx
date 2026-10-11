@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/modules/auth";
 import { createClient } from "@/lib/supabase/server";
 import DeletePostButton from "./delete-post-button";
+import UpvoteButton from "./upvote-button";
 
 type PostPageProps = {
   params: Promise<{
@@ -38,6 +39,30 @@ export default async function PostPage({
   }
 
   const isAuthor = post.author_id === user.id;
+
+  const { count: upvoteCount, error: countError } =
+    await supabase
+      .from("post_upvotes")
+      .select("*", { count: "exact", head: true })
+      .eq("post_id", post.id);
+
+  if (countError) {
+    console.error("Failed to load upvote count:", countError);
+    throw new Error("Failed to load upvotes.");
+  }
+
+  const { data: myUpvote, error: myUpvoteError } =
+    await supabase
+      .from("post_upvotes")
+      .select("post_id")
+      .eq("post_id", post.id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+  if (myUpvoteError) {
+    console.error("Failed to load upvote status:", myUpvoteError);
+    throw new Error("Failed to load upvote status.");
+  }
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
@@ -79,9 +104,16 @@ export default async function PostPage({
           </p>
         )}
 
-        <div className="mt-8 flex flex-wrap gap-4 border-t border-gray-700 pt-5 text-sm text-gray-400">
-          <span>0 upvotes</span>
-          <span>0 comments</span>
+        <div className="mt-8 flex flex-wrap items-center gap-4 border-t border-gray-700 pt-5">
+          <UpvoteButton
+            postId={post.id}
+            initialCount={upvoteCount ?? 0}
+            initiallyUpvoted={Boolean(myUpvote)}
+          />
+
+          <span className="text-sm text-gray-400">
+            0 comments
+          </span>
         </div>
 
         {isAuthor && (

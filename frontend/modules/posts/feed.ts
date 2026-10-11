@@ -26,6 +26,17 @@ export type FeedResult = {
   nextPage: number | null;
 };
 
+type RankedPost = {
+  id: string;
+  author_id: string;
+  title: string;
+  body: string;
+  category: string;
+  created_at: string;
+  edited_at: string | null;
+  upvote_count: number;
+};
+
 export async function getFeedPosts(
   page = 1,
   sort: FeedSort = "newest",
@@ -40,42 +51,44 @@ export async function getFeedPosts(
       ? Math.floor(page)
       : 1;
 
-  const from = (safePage - 1) * POSTS_PER_PAGE;
-  const to = from + POSTS_PER_PAGE;
+  const safeSort: FeedSort =
+    sort === "top" ? "top" : "newest";
 
-  let query = supabase
-    .from("posts")
-    .select(
-      "id, author_id, title, body, category, created_at, edited_at"
-    )
-    .eq("status", "published");
-
-  if (category) {
-    query = query.eq("category", category);
-  }
-
-  // Top sorting will use upvote counts once voting exists.
-  // For now both modes use a stable newest-first order.
-  void sort;
-
-  const { data, error } = await query
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false })
-    .range(from, to);
+  const { data, error } = await supabase.rpc(
+    "get_ranked_feed_posts",
+    {
+      p_page: safePage,
+      p_page_size: POSTS_PER_PAGE,
+      p_sort: safeSort,
+      p_category: category || null,
+    }
+  );
 
   if (error) {
+    console.error("Failed to load feed:", error.message);
     throw new Error("Failed to load posts.");
   }
 
-  const rows = data ?? [];
+  const rows = (data ?? []) as RankedPost[];
+
   const hasMore = rows.length > POSTS_PER_PAGE;
 
-  return {
-    posts: rows.slice(0, POSTS_PER_PAGE).map((post) => ({
-      ...post,
+  const posts: FeedPost[] = rows
+    .slice(0, POSTS_PER_PAGE)
+    .map((post) => ({
+      id: post.id,
+      author_id: post.author_id,
+      title: post.title,
+      body: post.body,
+      category: post.category,
+      created_at: post.created_at,
+      edited_at: post.edited_at,
+      upvote_count: Number(post.upvote_count ?? 0),
       comment_count: 0,
-      upvote_count: 0,
-    })),
+    }));
+
+  return {
+    posts,
     hasMore,
     nextPage: hasMore ? safePage + 1 : null,
   };

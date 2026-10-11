@@ -2,7 +2,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LogoutButton, requireUser } from "@/modules/auth";
-import { getFeedPosts, POSTS_PER_PAGE } from "@/modules/posts/feed";
+import {
+  getFeedPosts,
+  POSTS_PER_PAGE,
+} from "@/modules/posts/feed";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -25,10 +28,15 @@ export default async function HomePage({
 
   const page = Math.max(
     1,
-    Math.min(100, Number.parseInt(params.page ?? "1", 10) || 1)
+    Math.min(
+      100,
+      Number.parseInt(params.page ?? "1", 10) || 1
+    )
   );
 
-  const sort = params.sort === "top" ? "top" : "newest";
+  const sort =
+    params.sort === "top" ? "top" : "newest";
+
   const category = params.category ?? "";
 
   const supabase = await createClient();
@@ -38,10 +46,13 @@ export default async function HomePage({
     .select("name")
     .order("id", { ascending: true });
 
-  const validCategories = categories?.map((item) => item.name) ?? [];
-  const selectedCategory = validCategories.includes(category)
-    ? category
-    : "";
+  const validCategories =
+    categories?.map((item) => item.name) ?? [];
+
+  const selectedCategory =
+    validCategories.includes(category)
+      ? category
+      : "";
 
   const { posts, hasMore } = await getFeedPosts(
     page,
@@ -54,13 +65,22 @@ export default async function HomePage({
     nextSort = sort,
     nextCategory = selectedCategory
   ) {
-    const params = new URLSearchParams();
+    const urlParams = new URLSearchParams();
 
-    if (nextPage > 1) params.set("page", String(nextPage));
-    if (nextSort !== "newest") params.set("sort", nextSort);
-    if (nextCategory) params.set("category", nextCategory);
+    if (nextPage > 1) {
+      urlParams.set("page", String(nextPage));
+    }
 
-    const query = params.toString();
+    if (nextSort !== "newest") {
+      urlParams.set("sort", nextSort);
+    }
+
+    if (nextCategory) {
+      urlParams.set("category", nextCategory);
+    }
+
+    const query = urlParams.toString();
+
     return query ? `/home?${query}` : "/home";
   }
 
@@ -96,48 +116,63 @@ export default async function HomePage({
           </Link>
         </div>
 
-        <div className="flex flex-wrap gap-3">
-          <form action="/home" className="flex flex-wrap gap-3">
-            <label className="sr-only" htmlFor="category">
-              Filter by category
-            </label>
+        <form
+          action="/home"
+          className="flex flex-wrap gap-3"
+        >
+          <label
+            className="sr-only"
+            htmlFor="category"
+          >
+            Filter by category
+          </label>
 
-            <select
-              id="category"
-              name="category"
-              defaultValue={selectedCategory}
-              className="rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white"
-            >
-              <option value="">All categories</option>
-              {validCategories.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
+          <select
+            id="category"
+            name="category"
+            defaultValue={selectedCategory}
+            className="rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white"
+          >
+            <option value="">
+              All categories
+            </option>
 
-            <label className="sr-only" htmlFor="sort">
-              Sort posts
-            </label>
+            {validCategories.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
 
-            <select
-              id="sort"
-              name="sort"
-              defaultValue={sort}
-              className="rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white"
-            >
-              <option value="newest">Newest</option>
-              <option value="top">Top (coming soon)</option>
-            </select>
+          <label
+            className="sr-only"
+            htmlFor="sort"
+          >
+            Sort posts
+          </label>
 
-            <button
-              type="submit"
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white"
-            >
-              Apply
-            </button>
-          </form>
-        </div>
+          <select
+            id="sort"
+            name="sort"
+            defaultValue={sort}
+            className="rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white"
+          >
+            <option value="newest">
+              Newest
+            </option>
+
+            <option value="top">
+              Top
+            </option>
+          </select>
+
+          <button
+            type="submit"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white"
+          >
+            Apply
+          </button>
+        </form>
       </section>
 
       {posts.length === 0 ? (
@@ -159,7 +194,9 @@ export default async function HomePage({
                 </span>
 
                 <time className="text-xs text-gray-400">
-                  {new Date(post.created_at).toLocaleDateString()}
+                  {new Date(
+                    post.created_at
+                  ).toLocaleDateString()}
                 </time>
               </div>
 
@@ -174,8 +211,13 @@ export default async function HomePage({
               </p>
 
               <div className="mt-4 flex gap-4 text-xs text-gray-400">
-                <span>{post.upvote_count} upvotes</span>
-                <span>{post.comment_count} comments</span>
+                <span>
+                  {post.upvote_count} upvotes
+                </span>
+
+                <span>
+                  {post.comment_count} comments
+                </span>
               </div>
             </article>
           ))}
