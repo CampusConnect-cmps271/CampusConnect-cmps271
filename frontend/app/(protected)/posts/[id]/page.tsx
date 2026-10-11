@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/modules/auth";
 import { createClient } from "@/lib/supabase/server";
+import DeletePostButton from "./delete-post-button";
 
 type PostPageProps = {
   params: Promise<{
@@ -84,15 +85,17 @@ export default async function PostPage({
         </div>
 
         {isAuthor && (
-  <div className="mt-6 border-t border-gray-700 pt-5">
-    <Link
-      href={`/posts/${post.id}/edit`}
-      className="inline-block rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white"
-    >
-      Edit post
-    </Link>
-  </div>
-)}
+          <div className="mt-6 flex flex-wrap gap-3 border-t border-gray-700 pt-5">
+            <Link
+              href={`/posts/${post.id}/edit`}
+              className="inline-block rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              Edit post
+            </Link>
+
+            <DeletePostButton postId={post.id} />
+          </div>
+        )}
       </article>
     </main>
   );
