@@ -6,6 +6,7 @@ import { requireUser } from "@/modules/auth";
 import { createClient } from "@/lib/supabase/server";
 import DeletePostButton from "./delete-post-button";
 import UpvoteButton from "./upvote-button";
+import CommentSection, { loadComments } from "./comment-section";
 
 type PostPageProps = {
   params: Promise<{
@@ -64,6 +65,8 @@ export default async function PostPage({
     throw new Error("Failed to load upvote status.");
   }
 
+  const comments = await loadComments(post.id);
+
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
       <Link
@@ -112,7 +115,8 @@ export default async function PostPage({
           />
 
           <span className="text-sm text-gray-400">
-            0 comments
+            {comments.length}{" "}
+            {comments.length === 1 ? "comment" : "comments"}
           </span>
         </div>
 
@@ -128,6 +132,12 @@ export default async function PostPage({
             <DeletePostButton postId={post.id} />
           </div>
         )}
+
+        <CommentSection
+          postId={post.id}
+          userId={user.id}
+          comments={comments}
+        />
       </article>
     </main>
   );
