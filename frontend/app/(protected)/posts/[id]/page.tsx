@@ -6,6 +6,7 @@ import { requireUser } from "@/modules/auth";
 import { createClient } from "@/lib/supabase/server";
 import DeletePostButton from "./delete-post-button";
 import UpvoteButton from "./upvote-button";
+import SaveButton from "./save-button";
 import CommentSection, { loadComments } from "./comment-section";
 
 type PostPageProps = {
@@ -65,6 +66,18 @@ export default async function PostPage({
     throw new Error("Failed to load upvote status.");
   }
 
+  const { data: mySave, error: mySaveError } = await supabase
+    .from("saved_posts")
+    .select("post_id")
+    .eq("post_id", post.id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (mySaveError) {
+    console.error("Failed to load saved status:", mySaveError);
+    throw new Error("Failed to load saved status.");
+  }
+
   const comments = await loadComments(post.id);
 
   return (
@@ -112,6 +125,11 @@ export default async function PostPage({
             postId={post.id}
             initialCount={upvoteCount ?? 0}
             initiallyUpvoted={Boolean(myUpvote)}
+          />
+
+          <SaveButton
+            postId={post.id}
+            initiallySaved={Boolean(mySave)}
           />
 
           <span className="text-sm text-gray-400">
