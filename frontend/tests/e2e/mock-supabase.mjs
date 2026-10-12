@@ -124,6 +124,21 @@ createServer(async (request, response) => {
     response.statusCode = 201;
     return response.end("{}");
   }
+    if (path === "/rest/v1/categories" && request.method === "GET") {
+    return response.end(JSON.stringify([
+      { name: "General" },
+      { name: "Questions" },
+      { name: "Announcements" },
+      { name: "Events" }
+    ]));
+  }
+
+  if (
+    path === "/rest/v1/rpc/get_ranked_feed_posts" &&
+    request.method === "POST"
+  ) {
+    return response.end(JSON.stringify([]));
+  }
   if (path === "/rest/v1/user_roles") {
     roleLookups++;
     response.statusCode = 404;
