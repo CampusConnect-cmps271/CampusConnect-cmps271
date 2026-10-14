@@ -23,6 +23,25 @@ describe("server-side email confirmation", () => {
     expect(await getCurrentUser()).toEqual({ id: "student", email: "student@mail.aub.edu", name: "Test Student" });
   });
 
+  it("prefers the profile name to the registration metadata", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: { id: "student", email: "student@mail.aub.edu", email_confirmed_at: "confirmed", user_metadata: { full_name: "Old Name" } } }, error: null });
+    const eq = vi.fn().mockReturnValue({ maybeSingle: async () => ({ data: { full_name: " Edited Name " }, error: null }) });
+    mocks.from.mockReturnValueOnce({ select: () => ({ eq }) });
+    expect(await getCurrentUser()).toEqual({ id: "student", email: "student@mail.aub.edu", name: "Edited Name" });
+    expect(mocks.from).toHaveBeenCalledWith("profiles");
+    expect(eq).toHaveBeenCalledWith("id", "student");
+  });
+
+  it("falls back to the metadata name when the profile lookup fails or is blank", async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: { id: "student", email: "student@mail.aub.edu", email_confirmed_at: "confirmed", user_metadata: { full_name: "Test Student" } } }, error: null });
+    for (const result of [{ data: null, error: { code: "PGRST205" } }, { data: { full_name: "  " }, error: null }, { data: null, error: null }]) {
+      mocks.from.mockReturnValueOnce({ select: () => ({ eq: () => ({ maybeSingle: async () => result }) }) });
+      expect((await getCurrentUser())?.name).toBe("Test Student");
+    }
+    mocks.from.mockImplementationOnce(() => { throw new Error("network down"); });
+    expect((await getCurrentUser())?.name).toBe("Test Student");
+  });
+
   it("treats rejected sessions as signed out", async () => {
     mocks.getUser.mockResolvedValue({ data: { user: null }, error: { code: "bad_jwt" } });
     expect(await getCurrentUser()).toBeNull();

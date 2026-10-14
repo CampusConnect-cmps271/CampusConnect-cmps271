@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 test("the current landing page renders without granting admin access to a visitor", async ({ page }) => {
   const errors: string[] = [];
@@ -16,10 +16,9 @@ test("the current landing page renders without granting admin access to a visito
   expect(errors).toEqual([]);
 });
 
-test("the mock profile lives at /profile without granting admin access to a visitor", async ({ page }) => {
+test("signed-out visits to /profile go to login", async ({ page }) => {
   await page.goto("/profile");
-  await expect(page.getByRole("heading", { name: "Student Profile", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Edit Profile" })).toBeVisible();
+  await expect(page).toHaveURL(/\/login\?next=%2Fprofile$/);
   await expect(page.getByRole("link", { name: "Manage user roles" })).toHaveCount(0);
 });
 
@@ -85,26 +84,74 @@ test("registration validates names, password policy and matching confirmation", 
   await expect(page).toHaveURL(/\/register$/);
 });
 
-test("the current mock profile validates edits and displays saved local values", async ({ page }) => {
+async function logIn(page: Page, email: string) {
+  await page.goto("/login");
+  await page.getByLabel("University email", { exact: true }).fill(email);
+  await page.getByLabel("Password", { exact: true }).fill("test-verified-password");
+  await page.getByRole("button", { name: "Log in", exact: true }).click();
+  await expect(page).toHaveURL(/\/home$/);
+}
+
+test("the profile saves validated edits to the database and fits a phone", async ({ page }) => {
+  // SP2-60: its own fixture account, so these edits stay out of other tests.
+  await page.setViewportSize({ width: 375, height: 812 });
+  await logIn(page, "profile-editor@mail.aub.edu");
+  await page.goto("/profile");
+  await expect(page.getByRole("heading", { name: "Student Profile", exact: true })).toBeVisible();
+  // A new profile starts with the name the account signed up with.
+  await expect(page.getByText("profile-editor", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Edit Profile" }).click();
+  await page.getByLabel("Full name").fill(" ");
+  await page.getByLabel("Graduation year").fill("27");
+  await page.getByRole("button", { name: "Save Changes" }).click();
+  await expect(page.getByText("Full name is required", { exact: true })).toBeVisible();
+  await expect(page.getByText("Enter a year between 2020 and 2035", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Full name")).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByLabel("Graduation year")).toHaveValue("27");
+
+  await page.getByLabel("Full name").fill("Test Student");
+  await page.getByLabel("Major").fill("Computer Science");
+  await page.getByLabel("Graduation year").fill("2027");
+  await page.getByLabel("Bio").fill("Hello from the profile test.");
+  await page.getByLabel("Interests").fill("Chess, Python");
+  await page.getByRole("button", { name: "Save Changes" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Profile saved." })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit Profile" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  await page.reload();
+  await expect(page.getByText("Test Student", { exact: true })).toBeVisible();
+  await expect(page.getByText("Computer Science", { exact: true })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Interests" }).getByRole("listitem")).toHaveText(["Chess", "Python"]);
+
+  // The welcome on /home reads the edited profile name.
+  await page.goto("/home");
+  await expect(page.getByRole("heading", { name: "Welcome, Test Student" })).toBeVisible();
+
+  // Cancel discards unsaved edits.
   await page.goto("/profile");
   await page.getByRole("button", { name: "Edit Profile" }).click();
-  // The existing mock profile has visual labels without input associations.
-  // Select its actual fields without changing the teammate's UI in a test task.
-  const fields = page.locator("main input");
-  await fields.nth(0).fill("");
-  let message = "";
-  page.once("dialog", async (dialog) => { message = dialog.message(); await dialog.accept(); });
-  await page.getByRole("button", { name: "Save Changes" }).click();
-  expect(message).toContain("First Name and Last Name cannot be empty");
-  await fields.nth(0).fill("Test Student");
-  await fields.nth(3).fill("27");
-  page.once("dialog", async (dialog) => { message = dialog.message(); await dialog.accept(); });
-  await page.getByRole("button", { name: "Save Changes" }).click();
-  expect(message).toContain("valid 4-digit Graduation Year");
-  await fields.nth(3).fill("2027");
-  page.once("dialog", async (dialog) => { message = dialog.message(); await dialog.accept(); });
-  await page.getByRole("button", { name: "Save Changes" }).click();
-  await expect(page.getByRole("button", { name: "Edit Profile" })).toBeVisible();
+  await page.getByLabel("Full name").fill("Not Saved");
+  await page.getByRole("button", { name: "Cancel" }).click();
   await expect(page.getByText("Test Student", { exact: true })).toBeVisible();
-  expect(message).toContain("Mocked");
+  await expect(page.getByText("Not Saved")).toHaveCount(0);
+});
+
+test("students view each other's profiles read-only", async ({ page }) => {
+  await logIn(page, "profile-viewer@mail.aub.edu");
+  await page.goto("/profile/00000000-0000-4000-8000-000000000004");
+  await expect(page.getByRole("heading", { name: "Other Student", exact: true })).toBeVisible();
+  await expect(page.getByText("Biology", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit Profile" })).toHaveCount(0);
+  await expect(page.locator("main input, main textarea")).toHaveCount(0);
+
+  // Your own id opens your editable profile; unknown ids are a 404.
+  await page.goto("/profile/00000000-0000-4000-8000-000000000005");
+  await expect(page).toHaveURL(/\/profile$/);
+  await expect(page.getByRole("button", { name: "Edit Profile" })).toBeVisible();
+  for (const id of ["00000000-0000-4000-8000-0000000000ff", "not-a-profile"]) {
+    const response = await page.goto(`/profile/${id}`);
+    expect(response?.status()).toBe(404);
+  }
 });

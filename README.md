@@ -99,7 +99,8 @@ npm run dev
 - http://localhost:3000/verify-email — enter the verification code
 - http://localhost:3000/login — log in
 - http://localhost:3000/forgot-password — reset a forgotten password
-- http://localhost:3000/profile — profile page (mock data)
+- http://localhost:3000/profile — your profile (sign-in required)
+- http://localhost:3000/profile/<id> — another student's profile, read-only
 - http://localhost:3000/home — protected placeholder home
 - http://localhost:3000/setup — Supabase connection checker
 

@@ -9,9 +9,42 @@ import { loginPathFor, verifyEmailPathFor } from "./navigation";
 export type CurrentUser = {
   id: string;
   email: string | null;
-  /** Display name: the profile name when set, otherwise the email local part. */
+  /**
+   * Display name: the profile's full_name, else the registration name in Auth
+   * metadata, else the email local part.
+   */
   name: string;
 };
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * The student's name from their profile row (SP2-60), or null when it cannot
+ * be read. Never throws: a missing row or a failed lookup falls back to the
+ * Auth metadata name, and must never stand between a student and the app.
+ *
+ * Queries the table directly rather than through @/modules/profiles, which
+ * itself depends on this module.
+ */
+async function readProfileName(
+  supabase: SupabaseServerClient,
+  userId: string,
+): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", userId)
+      .maybeSingle<{ full_name: string | null }>();
+
+    if (error || typeof data?.full_name !== "string") return null;
+
+    const name = data.full_name.trim();
+    return name.length > 0 ? name : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Returns the verified current user, or null when signed out.
@@ -36,10 +69,12 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     .map((value) => value.trim())
     .find((value) => value.length > 0);
 
+  const profileName = await readProfileName(supabase, user.id);
+
   return {
     id: user.id,
     email,
-    name: metadataName ?? email?.split("@")[0] ?? "student",
+    name: profileName ?? metadataName ?? email?.split("@")[0] ?? "student",
   };
 });
 
