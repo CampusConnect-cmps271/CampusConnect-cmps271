@@ -21,6 +21,9 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   timeout: 60_000,
+  // A cold serverless start plus several database round trips can take
+  // longer than the 5s default before a page settles on the live site.
+  expect: { timeout: 15_000 },
   reporter: "list",
   use: {
     baseURL: process.env.SMOKE_BASE_URL,
