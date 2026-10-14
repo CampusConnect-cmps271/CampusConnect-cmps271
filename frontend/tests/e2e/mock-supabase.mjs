@@ -15,9 +15,15 @@ const profileAccounts = {
 };
 // Another student whose public profile the tests visit.
 const otherStudentId = "00000000-0000-4000-8000-000000000004";
+// SP2-11: the post that student has pinned.
+const pinnedPost = {
+  id: "00000000-0000-4000-8000-0000000000a1", author_id: otherStudentId, status: "published",
+  title: "Study group tonight", body: "Library, third floor, 7pm. Bring past exams.",
+  category: "Academics", created_at: "2026-10-12T09:00:00Z",
+};
 const profiles = new Map([[otherStudentId, {
   id: otherStudentId, full_name: "Other Student", major: "Biology", graduation_year: 2026,
-  bio: "Pre-med and coffee enthusiast.", interests: ["Biology", "Running"], pinned_post_id: null,
+  bio: "Pre-med and coffee enthusiast.", interests: ["Biology", "Running"], pinned_post_id: pinnedPost.id,
 }]]);
 let roleLookups = 0;
 let resends = 0;
@@ -171,6 +177,11 @@ createServer(async (request, response) => {
     const updated = { ...profileFor(id, claims), ...JSON.parse(raw) };
     profiles.set(id, updated);
     return response.end(JSON.stringify([updated]));
+  }
+  if (path === "/rest/v1/posts" && request.method === "GET") {
+    const matches = (key, value) => !url.searchParams.has(key) || url.searchParams.get(key) === `eq.${value}`;
+    const found = [pinnedPost].filter((post) => ["id", "author_id", "status"].every((key) => matches(key, post[key])));
+    return response.end(JSON.stringify(found));
   }
   if (path === "/rest/v1/app_logs" && request.method === "POST") {
     response.statusCode = 201;

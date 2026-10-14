@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/modules/auth";
+import { PinPostButton } from "@/modules/profiles";
 import { createClient } from "@/lib/supabase/server";
 import DeletePostButton from "./delete-post-button";
 import UpvoteButton from "./upvote-button";
@@ -126,6 +127,8 @@ export default async function PostPage({
             </Link>
 
             <DeletePostButton postId={post.id} />
+
+            <PinPostButton postId={post.id} />
           </div>
         )}
       </article>

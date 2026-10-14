@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import RoleGate from "@/components/role-gate";
-import { getMyProfile, ProfileCard } from "@/modules/profiles";
+import {
+  getMyProfile,
+  getPinnedPost,
+  PinnedPostCard,
+  ProfileCard,
+} from "@/modules/profiles";
 
 export const metadata: Metadata = {
   title: "Profile · CampusConnect",
@@ -9,6 +14,7 @@ export const metadata: Metadata = {
 
 export default async function ProfilePage() {
   const profile = await getMyProfile();
+  const pinnedPost = profile ? await getPinnedPost(profile) : null;
 
   return (
     <main className="flex-1 bg-gray-100 px-4 py-8 sm:py-12">
@@ -27,6 +33,8 @@ export default async function ProfilePage() {
             </Link>
           </RoleGate>
         </div>
+
+        {pinnedPost ? <PinnedPostCard post={pinnedPost} /> : null}
 
         {profile ? (
           <ProfileCard profile={profile} />

@@ -145,6 +145,12 @@ test("students view each other's profiles read-only", async ({ page }) => {
   await expect(page.getByText("Biology", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Edit Profile" })).toHaveCount(0);
   await expect(page.locator("main input, main textarea")).toHaveCount(0);
+  // SP2-11: their pinned post sits above the profile and links to the post.
+  const pinned = page.getByRole("region", { name: "Pinned post" });
+  await expect(pinned.getByRole("heading", { name: "Study group tonight" })).toBeVisible();
+  await expect(pinned).toContainText("Academics");
+  await expect(pinned).toContainText("Oct 12, 2026");
+  await expect(pinned.getByRole("link")).toHaveAttribute("href", "/posts/00000000-0000-4000-8000-0000000000a1");
 
   // Your own id opens your editable profile; unknown ids are a 404.
   await page.goto("/profile/00000000-0000-4000-8000-000000000005");

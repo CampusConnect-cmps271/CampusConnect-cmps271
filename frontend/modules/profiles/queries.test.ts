@@ -15,7 +15,7 @@ vi.mock("@/modules/auth", () => ({ requireUser: mocks.requireUser }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ from: mocks.from }) }));
 vi.mock("@/modules/logging", () => ({ log: { error: mocks.error } }));
 
-import { getDisplayNames, getProfile } from "./queries";
+import { getDisplayNames, getPinnedPost, getProfile } from "./queries";
 
 const studentId = "00000000-0000-4000-8000-000000000001";
 const otherId = "00000000-0000-4000-8000-000000000002";
@@ -24,7 +24,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.from.mockReturnValue({ select: mocks.select });
   mocks.select.mockReturnValue({ eq: mocks.eq, in: mocks.in });
-  mocks.eq.mockReturnValue({ maybeSingle: mocks.maybeSingle });
+  mocks.eq.mockReturnValue({ eq: mocks.eq, maybeSingle: mocks.maybeSingle });
 });
 
 describe("getProfile", () => {
@@ -100,5 +100,59 @@ describe("getDisplayNames", () => {
 
     expect(await getDisplayNames([studentId])).toEqual({});
     expect(mocks.error).toHaveBeenCalledWith("profiles.display_names.read_failure", { count: 1, code: "57014" });
+  });
+});
+
+describe("getPinnedPost", () => {
+  const postId = "00000000-0000-4000-8000-0000000000aa";
+  const profile = {
+    id: studentId,
+    fullName: "Test Student",
+    major: null,
+    graduationYear: null,
+    bio: null,
+    interests: [],
+    pinnedPostId: postId,
+  };
+
+  it("loads the pinned post only while it is the owner's and published", async () => {
+    mocks.maybeSingle.mockResolvedValue({
+      data: {
+        id: postId,
+        title: "Exam tips",
+        body: "Start early.\n\nSleep well.",
+        category: "Academics",
+        created_at: "2026-10-12T09:00:00Z",
+      },
+      error: null,
+    });
+
+    expect(await getPinnedPost(profile)).toEqual({
+      id: postId,
+      title: "Exam tips",
+      category: "Academics",
+      excerpt: "Start early. Sleep well.",
+      createdAt: "2026-10-12T09:00:00Z",
+    });
+    expect(mocks.from).toHaveBeenCalledWith("posts");
+    expect(mocks.eq).toHaveBeenCalledWith("id", postId);
+    expect(mocks.eq).toHaveBeenCalledWith("author_id", studentId);
+    expect(mocks.eq).toHaveBeenCalledWith("status", "published");
+  });
+
+  it("skips the query when nothing is pinned", async () => {
+    expect(await getPinnedPost({ ...profile, pinnedPostId: null })).toBeNull();
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it("shows no pin rather than failing the profile", async () => {
+    mocks.maybeSingle.mockResolvedValue({ data: null, error: { code: "57014", message: "timeout" } });
+
+    expect(await getPinnedPost(profile)).toBeNull();
+    expect(mocks.error).toHaveBeenCalledWith("profiles.pinned_post.read_failure", {
+      profileId: studentId,
+      postId,
+      code: "57014",
+    });
   });
 });

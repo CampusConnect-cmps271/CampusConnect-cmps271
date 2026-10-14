@@ -9,3 +9,11 @@ export type Profile = {
   pinnedPostId: string | null;
 };
 
+/** A pinned post, shaped for the card at the top of a profile. */
+export type PinnedPost = {
+  id: string;
+  title: string;
+  category: string;
+  excerpt: string;
+  createdAt: string;
+};

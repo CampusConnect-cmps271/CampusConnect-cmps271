@@ -3,8 +3,9 @@ import { cache } from "react";
 import { requireUser } from "@/modules/auth";
 import { log } from "@/modules/logging";
 import { createClient } from "@/lib/supabase/server";
+import { excerpt } from "./pinned-post";
 import { profileIdSchema } from "./schema";
-import type { Profile } from "./types";
+import type { PinnedPost, Profile } from "./types";
 
 const PROFILE_COLUMNS =
   "id, full_name, major, graduation_year, bio, interests, pinned_post_id";
@@ -17,6 +18,14 @@ type ProfileRow = {
   bio: string | null;
   interests: string[] | null;
   pinned_post_id: string | null;
+};
+
+type PinnedPostRow = {
+  id: string;
+  title: string;
+  body: string;
+  category: string;
+  created_at: string;
 };
 
 function toProfile(row: ProfileRow): Profile {
@@ -61,6 +70,42 @@ export const getProfile = cache(async (id: string): Promise<Profile | null> => {
 export async function getMyProfile(): Promise<Profile | null> {
   const user = await requireUser();
   return getProfile(user.id);
+}
+
+/**
+ * The post a profile has pinned, if it is still published. A pin that fails
+ * to load is logged and left out: the rest of the profile still renders.
+ */
+export async function getPinnedPost(profile: Profile): Promise<PinnedPost | null> {
+  if (!profile.pinnedPostId) return null;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("posts")
+    .select("id, title, body, category, created_at")
+    .eq("id", profile.pinnedPostId)
+    .eq("author_id", profile.id)
+    .eq("status", "published")
+    .maybeSingle<PinnedPostRow>();
+
+  if (error) {
+    log.error("profiles.pinned_post.read_failure", {
+      profileId: profile.id,
+      postId: profile.pinnedPostId,
+      code: error.code ?? null,
+    });
+    return null;
+  }
+
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    title: data.title,
+    category: data.category,
+    excerpt: excerpt(data.body),
+    createdAt: data.created_at,
+  };
 }
 
 /**

@@ -151,3 +151,6 @@ export function validateProfileForm(
 
 /** A profile is named by its owner's Auth user id: a UUID. */
 export const profileIdSchema = z.uuid();
+
+/** A pinned post is named by its id: a UUID. */
+export const postIdSchema = z.uuid();

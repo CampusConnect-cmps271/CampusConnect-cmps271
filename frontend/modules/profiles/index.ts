@@ -6,12 +6,21 @@
  * barrel. Client Components inside the module import their siblings directly.
  */
 
-export { getDisplayNames, getMyProfile, getProfile } from "./queries";
+export {
+  getDisplayNames,
+  getMyProfile,
+  getPinnedPost,
+  getProfile,
+} from "./queries";
 
 export { updateMyProfile, type ProfileFormState } from "./actions";
+export { pinPost, unpinPost, type PinResult } from "./pin-actions";
+
+export { excerpt, EXCERPT_LENGTH, formatPostDate } from "./pinned-post";
 
 export {
   parseInterests,
+  postIdSchema,
   PROFILE_LIMITS,
   profileFormSchema,
   profileFormValues,
@@ -23,8 +32,10 @@ export {
   type ProfileInput,
 } from "./schema";
 
-export type { Profile } from "./types";
+export type { PinnedPost, Profile } from "./types";
 
 export { InterestTags } from "./components/InterestTags";
+export { PinnedPostCard } from "./components/PinnedPostCard";
+export { PinPostButton } from "./components/PinPostButton";
 export { ProfileCard } from "./components/ProfileCard";
 export { ProfileView } from "./components/ProfileView";
