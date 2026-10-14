@@ -319,6 +319,11 @@ project (Sprint 1's Amplify setup above is kept for reference).
   never `NEXT_PUBLIC_`), `NEXT_PUBLIC_SITE_URL` and
   `NEXT_PUBLIC_ALLOWED_EMAIL_DOMAINS=mail.aub.edu`. Values come from the
   Supabase dashboard; they are never committed.
+- **Region:** the server code runs in Tokyo (`hnd1`, set in
+  `frontend/vercel.json`), next to the Supabase project (`ap-northeast-1`).
+  A signed-in page makes several database calls in a row; from Vercel's
+  default Washington region each one crossed the Pacific, and pages took
+  1.5–3 s. If either side ever moves, move the other with it.
 - **Check a deployment:** each server start writes an `app.start` row to
   `app_logs` with the deployed commit, and an `app.start.missing_env` error
   naming any variable that is missing.
