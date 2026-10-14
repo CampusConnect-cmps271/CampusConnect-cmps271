@@ -87,6 +87,8 @@ test("continues to the profile after verification even when the roles migration 
   await page.getByRole("button", { name: "Continue to CampusConnect" }).click();
   await expect(page).toHaveURL("http://127.0.0.1:3100/profile");
   await expect(page.getByRole("heading", { name: "Student Profile", exact: true })).toBeVisible();
+  // SP2-60: the profile row's name, not mock data.
+  await expect(page.getByText("student", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Manage user roles" })).toHaveCount(0);
   expect((await (await request.get("http://127.0.0.1:3101/test/role-lookups")).json()).roleLookups).toBeGreaterThan(roleLookupsBefore);
   expect(pageErrors).toEqual([]);

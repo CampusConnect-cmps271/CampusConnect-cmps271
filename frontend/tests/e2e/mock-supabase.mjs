@@ -7,6 +7,24 @@ const user = {
   aud: "authenticated",
   role: "authenticated",
 };
+// SP2-60: accounts of their own for the profile tests, so profile edits never
+// leak into the login and verification fixtures that share student@'s id.
+const profileAccounts = {
+  "profile-editor@mail.aub.edu": "00000000-0000-4000-8000-000000000003",
+  "profile-viewer@mail.aub.edu": "00000000-0000-4000-8000-000000000005",
+};
+// Another student whose public profile the tests visit.
+const otherStudentId = "00000000-0000-4000-8000-000000000004";
+// SP2-11: the post that student has pinned.
+const pinnedPost = {
+  id: "00000000-0000-4000-8000-0000000000a1", author_id: otherStudentId, status: "published",
+  title: "Study group tonight", body: "Library, third floor, 7pm. Bring past exams.",
+  category: "Academics", created_at: "2026-10-12T09:00:00Z",
+};
+const profiles = new Map([[otherStudentId, {
+  id: otherStudentId, full_name: "Other Student", major: "Biology", graduation_year: 2026,
+  bio: "Pre-med and coffee enthusiast.", interests: ["Biology", "Running"], pinned_post_id: pinnedPost.id,
+}]]);
 let roleLookups = 0;
 let resends = 0;
 // Test-only state, isolated by email so parallel recovery cases cannot affect
@@ -28,8 +46,33 @@ function bearerEmail(request) {
   }
 }
 
+function bearerClaims(request) {
+  const token = request.headers.authorization?.slice(7);
+  if (!token) return {};
+  try {
+    return JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString());
+  } catch {
+    return {};
+  }
+}
+
+// Like the sign-up trigger: a profile starts with the email's local part.
+// Unsaved defaults follow the caller's email, since several fixtures share an id.
+function profileFor(id, claims) {
+  if (profiles.has(id)) return profiles.get(id);
+  if (id !== claims.sub) return null;
+  return { id, full_name: (claims.email ?? user.email).split("@")[0], major: null, graduation_year: null, bio: null, interests: [], pinned_post_id: null };
+}
+
+function requestedIds(url) {
+  const filter = url.searchParams.get("id") ?? "";
+  if (filter.startsWith("eq.")) return [filter.slice(3)];
+  if (filter.startsWith("in.(")) return filter.slice(4, -1).split(",").map((id) => id.replaceAll('"', ""));
+  return [];
+}
+
 function sessionFor(email, confirmed) {
-  const id = confirmed ? user.id : "00000000-0000-4000-8000-000000000002";
+  const id = confirmed ? (profileAccounts[email] ?? user.id) : "00000000-0000-4000-8000-000000000002";
   const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const access_token = `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ sub: id, aud: "authenticated", role: "authenticated", email, exp: Math.floor(Date.now() / 1000) + 3600 })}.test-signature`;
   return { access_token, refresh_token: "test-refresh-token", expires_in: 3600, token_type: "bearer", user: { ...user, id, email, email_confirmed_at: confirmed ? user.email_confirmed_at : null } };
@@ -118,7 +161,27 @@ createServer(async (request, response) => {
     if (claims.sub === "00000000-0000-4000-8000-000000000002") {
       return response.end(JSON.stringify({ ...user, id: claims.sub, email: claims.email, email_confirmed_at: null, user_metadata: { email_verified: true } }));
     }
-    return response.end(JSON.stringify({ ...user, email: claims.email ?? user.email }));
+    return response.end(JSON.stringify({ ...user, id: claims.sub ?? user.id, email: claims.email ?? user.email }));
+  }
+  if (path === "/rest/v1/profiles" && request.method === "GET") {
+    const claims = bearerClaims(request);
+    return response.end(JSON.stringify(requestedIds(url).map((id) => profileFor(id, claims)).filter(Boolean)));
+  }
+  if (path === "/rest/v1/profiles" && request.method === "PATCH") {
+    // RLS: a student may update only their own row.
+    const claims = bearerClaims(request);
+    const [id] = requestedIds(url);
+    if (!id || id !== claims.sub) return response.end("[]");
+    let raw = "";
+    for await (const chunk of request) raw += chunk;
+    const updated = { ...profileFor(id, claims), ...JSON.parse(raw) };
+    profiles.set(id, updated);
+    return response.end(JSON.stringify([updated]));
+  }
+  if (path === "/rest/v1/posts" && request.method === "GET") {
+    const matches = (key, value) => !url.searchParams.has(key) || url.searchParams.get(key) === `eq.${value}`;
+    const found = [pinnedPost].filter((post) => ["id", "author_id", "status"].every((key) => matches(key, post[key])));
+    return response.end(JSON.stringify(found));
   }
   if (path === "/rest/v1/app_logs" && request.method === "POST") {
     response.statusCode = 201;

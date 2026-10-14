@@ -28,12 +28,9 @@ memory and need no Docker or hosted Supabase credentials.
 | --- | --- | --- |
 | SCRUM-116 | The existing login Server Action redirects `email_not_confirmed` to code entry; normal credential errors stay on login; verified users reach `/home`; unverified sessions cannot access protected home, role pages or role assignment | Optional manual smoke test with an existing unverified AUB account |
 | SCRUM-87 | Current landing page, login form and password toggle, required-field/domain validation, login/logout, protected visits, safe destinations, confirmed/unconfirmed authentication | Revisit assertions when these pages change |
-| SCRUM-99 | Registration, email verification, password-recovery APIs/client isolation and browser flow, current mock profile edits at `/profile`, role lookup fallback and roles/RLS migrations | Profile checks cover local mock state, not future database persistence; hosted recovery delivery is a separate manual smoke test |
+| SCRUM-99 | Registration, email verification, password-recovery APIs/client isolation and browser flow, role lookup fallback and roles/RLS migrations | Hosted recovery delivery is a separate manual smoke test |
 | SCRUM-111 | GitHub workflow for all unit, database and browser suites, plus lint, types and build | The workflow's earlier run passed on `c9e034a`; these new checks will run after the user's manual push |
-
-The existing profile labels are not associated with their inputs. Its browser
-test selects the current fields by position without changing that teammate's
-implementation. Update those selectors when profile accessibility is improved.
+| SCRUM-183 | Signed-out `/profile` redirect; profile edits validated inline, saved and kept after reload; name shown on `/home`; labelled fields at phone width; read-only `/profile/[id]`, own-id redirect and 404s | The mock fixture stands in for PostgREST; RLS, grants and triggers are covered by `tests/profiles.test.mjs` |
 
 ## Password recovery (SCRUM-99)
 

@@ -38,6 +38,8 @@ test("the teammate's login sends an unverified student to code entry without aut
   await page.getByRole("button", { name: "Continue to CampusConnect" }).click();
   await expect(page).toHaveURL(/\/profile$/);
   await expect(page.getByRole("heading", { name: "Student Profile", exact: true })).toBeVisible();
+  // SP2-60: the profile row's name, not mock data.
+  await expect(page.getByText("student+test", { exact: true })).toBeVisible();
   await page.goto("/home");
   await expect(page.getByRole("heading", { name: "Welcome, student+test" })).toBeVisible();
   await expect(page).toHaveURL(/\/home$/);
