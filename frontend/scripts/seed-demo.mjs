@@ -5,7 +5,7 @@
  *
  * Usage:
  *   npm run seed:demo                local Supabase, from .env.local
- *   npm run seed:demo -- --hosted    the hosted project, after you type its ref
+ *   npm run seed:demo:hosted         the hosted project (--hosted), after you type its ref
  *
  * Local mode reads NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY and
  * refuses anything but a local Supabase, like seed:test-user.

@@ -147,7 +147,8 @@ student enters their email, receives a code, and sets a new password on
 | `npm run test:smoke` | Smoke test of the live site; see [Deploying](#deploying) |
 | `npm run build` | Production build |
 | `npm run seed:test-user` | Create/reset the local test student |
-| `npm run seed:demo` | Create/reset the demo accounts and sample posts (local, or `-- --hosted`) |
+| `npm run seed:demo` | Create/reset the demo accounts and sample posts on local Supabase |
+| `npm run seed:demo:hosted` | The same on the hosted project, after you type its ref |
 | `npx supabase start` / `stop` | Local Supabase stack |
 | `npx supabase status` | Local URLs and keys |
 
@@ -344,8 +345,8 @@ anyway, but check with the team first, since it runs out of order.
 ### Demo accounts and smoke test
 
 - `npm run seed:demo` creates or resets a demo student, moderator and
-  administrator with profiles and sample posts, on local Supabase. Add
-  `-- --hosted` to seed the hosted project: it reads `HOSTED_SUPABASE_URL`,
+  administrator with profiles and sample posts, on local Supabase.
+  `npm run seed:demo:hosted` seeds the hosted project instead: it reads `HOSTED_SUPABASE_URL`,
   `HOSTED_SUPABASE_SECRET_KEY` and the `DEMO_*` accounts from
   `.env.hosted.local` (never committed), prints the project ref and waits for
   you to type it. Re-running it creates no duplicates.
