@@ -268,6 +268,15 @@ npx supabase db reset               # replay all migrations locally
 Never edit the local database by hand without a migration, or teammates cannot
 reproduce it.
 
+### Course catalogue (SCRUM-166)
+
+The course schema and CSV importer are ready for local use. Follow
+[the catalogue guide](supabase/COURSES.md) to apply the migration, validate a CSV
+offline, and import it into local or hosted Supabase. From `frontend/`, run
+`npm run import:courses -- /path/to/catalogue.csv --dry-run` to validate without
+credentials or writes. The bundled example is synthetic, not an official AUB
+catalogue. See [the task report](TASK_REPORT.md) for implementation and validation.
+
 ### Roles and permissions (SCRUM-16)
 
 Roles live in `user_roles`, with helpers in `frontend/lib/auth/`. If that

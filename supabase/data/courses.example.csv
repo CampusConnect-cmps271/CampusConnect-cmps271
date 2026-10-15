@@ -1,0 +1,3 @@
+code,name,description,credits,prerequisites,department
+DEMO 101,Example introductory course,"Synthetic fixture only, not an official AUB course.",3,,Example Department
+DEMO 201,Example advanced course,"Synthetic fixture demonstrating an ""advanced"" description.",3,DEMO 101,Example Department

@@ -15,6 +15,7 @@
     "test:e2e": "playwright test",
     "test:smoke": "playwright test --config playwright.smoke.config.ts",
     "seed:test-user": "node --env-file-if-exists=.env.local scripts/seed-test-user.mjs",
+    "import:courses": "node --env-file-if-exists=.env.local scripts/import-courses.mjs",
     "seed:demo": "node --env-file-if-exists=.env.local scripts/seed-demo.mjs",
     "seed:demo:hosted": "node --env-file-if-exists=.env.local scripts/seed-demo.mjs --hosted"
   },
