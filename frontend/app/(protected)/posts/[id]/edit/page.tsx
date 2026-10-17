@@ -42,7 +42,7 @@ export default async function EditPostPage({
     <main className="mx-auto max-w-2xl px-4 py-10">
       <Link
         href={`/posts/${post.id}`}
-        className="mb-6 inline-block text-sm text-blue-400 hover:underline"
+        className="mb-6 inline-block text-sm text-[var(--maroon)] hover:underline"
       >
         ← Back to post
       </Link>

@@ -111,14 +111,14 @@ export default async function HomePage({
           <div className="flex items-center gap-3">
             <Link
               href="/saved"
-              className="rounded-lg border border-gray-600 px-4 py-2 text-sm font-medium"
+              className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-medium"
             >
               Saved
             </Link>
 
             <Link
               href="/posts/new"
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white"
+              className="rounded-lg bg-[var(--maroon)] px-4 py-2 text-sm font-medium text-white"
             >
               New post
             </Link>
@@ -140,7 +140,7 @@ export default async function HomePage({
             id="category"
             name="category"
             defaultValue={selectedCategory}
-            className="rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white"
+            className="rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--ink)]"
           >
             <option value="">
               All categories
@@ -164,7 +164,7 @@ export default async function HomePage({
             id="sort"
             name="sort"
             defaultValue={sort}
-            className="rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white"
+            className="rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--ink)]"
           >
             <option value="newest">
               Newest
@@ -177,7 +177,7 @@ export default async function HomePage({
 
           <button
             type="submit"
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white"
+            className="rounded-lg bg-[var(--maroon)] px-4 py-2 text-sm font-medium text-white"
           >
             Apply
           </button>
@@ -185,8 +185,8 @@ export default async function HomePage({
       </section>
 
       {posts.length === 0 ? (
-        <div className="rounded-lg border border-gray-700 p-8 text-center">
-          <p className="text-gray-400">
+        <div className="rounded-lg border border-[var(--border)] p-8 text-center">
+          <p className="text-[var(--ink-soft)]">
             No posts found.
           </p>
         </div>
@@ -195,14 +195,14 @@ export default async function HomePage({
           {posts.map((post) => (
             <article
               key={post.id}
-              className="rounded-xl border border-gray-700 p-5"
+              className="rounded-xl border border-[var(--border)] p-5"
             >
               <div className="mb-3 flex items-center justify-between gap-3">
-                <span className="rounded-full bg-blue-600/20 px-3 py-1 text-xs font-medium text-blue-400">
+                <span className="rounded-full bg-[var(--maroon-100)] px-3 py-1 text-xs font-medium text-[var(--maroon)]">
                   {post.category}
                 </span>
 
-                <time className="text-xs text-gray-400">
+                <time className="text-xs text-[var(--ink-soft)]">
                   {new Date(
                     post.created_at
                   ).toLocaleDateString()}
@@ -219,7 +219,7 @@ export default async function HomePage({
                 {post.body}
               </p>
 
-              <div className="mt-4 flex gap-4 text-xs text-gray-400">
+              <div className="mt-4 flex gap-4 text-xs text-[var(--ink-soft)]">
                 <span>
                   {post.upvote_count} upvotes
                 </span>
@@ -237,7 +237,7 @@ export default async function HomePage({
         {page > 1 ? (
           <Link
             href={feedUrl(page - 1)}
-            className="rounded-lg border border-gray-600 px-4 py-2 text-sm"
+            className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm"
           >
             Previous
           </Link>
@@ -252,7 +252,7 @@ export default async function HomePage({
         {hasMore && (
           <Link
             href={feedUrl(page + 1)}
-            className="rounded-lg border border-gray-600 px-4 py-2 text-sm"
+            className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm"
           >
             Load more
           </Link>

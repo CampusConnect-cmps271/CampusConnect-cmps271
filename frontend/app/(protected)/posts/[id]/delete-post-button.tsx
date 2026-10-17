@@ -61,18 +61,18 @@ export default function DeletePostButton({
             aria-modal="true"
             aria-labelledby="delete-post-title"
             aria-describedby="delete-post-description"
-            className="w-full max-w-md rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-xl"
+            className="w-full max-w-md rounded-xl border border-[var(--border)] bg-white p-6 shadow-xl"
           >
             <h2
               id="delete-post-title"
-              className="text-xl font-semibold text-white"
+              className="text-xl font-semibold text-[var(--ink)]"
             >
               Delete this post?
             </h2>
 
             <p
               id="delete-post-description"
-              className="mt-3 text-sm text-gray-300"
+              className="mt-3 text-sm text-[var(--ink-soft)]"
             >
               This post will disappear from the feed and will
               no longer be visible to other students.
@@ -81,7 +81,7 @@ export default function DeletePostButton({
             {error && (
               <p
                 role="alert"
-                className="mt-4 text-sm text-red-400"
+                className="mt-4 text-sm text-[var(--danger)]"
               >
                 {error}
               </p>
@@ -92,7 +92,7 @@ export default function DeletePostButton({
                 type="button"
                 disabled={deleting}
                 onClick={() => setConfirming(false)}
-                className="rounded-lg border border-gray-600 px-4 py-2 text-sm text-gray-200 hover:bg-gray-800 disabled:opacity-50"
+                className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-[var(--ink-soft)] hover:bg-[var(--maroon-50)] disabled:opacity-50"
               >
                 Cancel
               </button>

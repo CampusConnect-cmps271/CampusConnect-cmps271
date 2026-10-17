@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import {
   DEFAULT_SIGNED_IN_PATH,
   getCurrentUser,
@@ -21,17 +23,25 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const { next } = await searchParams;
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-8 px-4 py-12 sm:px-6">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          Log in
-        </h1>
-        <p className="text-sm opacity-80">
+    <main className="cc-page auth-page">
+      <div className="auth-top">
+        <Link href="/" className="back-link">
+          <ArrowLeft size={18} aria-hidden="true" /> Go back home
+        </Link>
+      </div>
+      <Link href="/" className="brand auth-brand">
+        <span className="brand-mark" aria-hidden="true">
+          C
+        </span>
+        CampusConnect
+      </Link>
+      <div className="auth-card">
+        <h1>Log in</h1>
+        <p className="auth-subtitle">
           Welcome back to CampusConnect. Use your university email.
         </p>
-      </header>
-
-      <LoginForm next={safeNextPath(next)} />
+        <LoginForm next={safeNextPath(next)} />
+      </div>
     </main>
   );
 }

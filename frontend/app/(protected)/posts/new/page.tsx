@@ -23,7 +23,7 @@ export default async function NewPostPage() {
         Create a post
       </h1>
 
-      <p className="mb-8 text-gray-500">
+      <p className="mb-8 text-[var(--ink-soft)]">
         Share a question, announcement, or update with your
         campus community.
       </p>
