@@ -39,12 +39,12 @@ export function PasswordInput({
     undefined;
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={fieldId} className="text-sm font-medium">
+    <div className="field">
+      <label htmlFor={fieldId}>
         {label}
       </label>
 
-      <div className="relative">
+      <div className="password-wrap">
         <input
           id={fieldId}
           name={name}
@@ -53,7 +53,6 @@ export function PasswordInput({
           required={required}
           aria-invalid={hasError ? true : undefined}
           aria-describedby={describedBy}
-          className="w-full rounded-md border border-black/15 bg-transparent px-3 py-2 pr-20 text-base outline-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-sky-600 aria-[invalid]:border-red-600 dark:border-white/20"
         />
 
         <button
@@ -61,29 +60,29 @@ export function PasswordInput({
           onClick={() => setVisible((current) => !current)}
           aria-pressed={visible}
           aria-controls={fieldId}
-          className="absolute inset-y-0 right-0 px-3 text-sm font-medium text-sky-700 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 dark:text-sky-400"
+          className="link-button password-toggle"
         >
           {visible ? "Hide" : "Show"}
         </button>
       </div>
 
       {hint ? (
-        <p id={hintId} className="text-xs opacity-70">
+        <p id={hintId} className="field-hint">
           {hint}
         </p>
       ) : null}
 
       {/* The password policy can fail several rules at once, so list them. */}
       {messages.length === 1 ? (
-        <p id={errorId} className="text-sm text-red-700 dark:text-red-400">
+        <p id={errorId} className="field-error">
           {messages[0]}
         </p>
       ) : null}
 
       {messages.length > 1 ? (
-        <div id={errorId} className="text-sm text-red-700 dark:text-red-400">
+        <div id={errorId} className="field-error">
           <p>Your password must:</p>
-          <ul className="list-disc pl-5">
+          <ul className="field-error-list">
             {messages.map((message) => (
               <li key={message}>{message}</li>
             ))}
