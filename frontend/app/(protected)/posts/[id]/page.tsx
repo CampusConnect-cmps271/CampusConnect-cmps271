@@ -7,6 +7,8 @@ import { PinPostButton } from "@/modules/profiles";
 import { createClient } from "@/lib/supabase/server";
 import DeletePostButton from "./delete-post-button";
 import UpvoteButton from "./upvote-button";
+import SaveButton from "./save-button";
+import CommentSection, { loadComments } from "./comment-section";
 
 type PostPageProps = {
   params: Promise<{
@@ -41,28 +43,44 @@ export default async function PostPage({
 
   const isAuthor = post.author_id === user.id;
 
-  const { count: upvoteCount, error: countError } =
-    await supabase
-      .from("post_upvotes")
-      .select("*", { count: "exact", head: true })
-      .eq("post_id", post.id);
+  const [countResult, myUpvoteResult, mySaveResult, comments] =
+    await Promise.all([
+      supabase
+        .from("post_upvotes")
+        .select("*", { count: "exact", head: true })
+        .eq("post_id", post.id),
+      supabase
+        .from("post_upvotes")
+        .select("post_id")
+        .eq("post_id", post.id)
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("saved_posts")
+        .select("post_id")
+        .eq("post_id", post.id)
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      loadComments(post.id),
+    ]);
+
+  const { count: upvoteCount, error: countError } = countResult;
+  const { data: myUpvote, error: myUpvoteError } = myUpvoteResult;
+  const { data: mySave, error: mySaveError } = mySaveResult;
 
   if (countError) {
     console.error("Failed to load upvote count:", countError);
     throw new Error("Failed to load upvotes.");
   }
 
-  const { data: myUpvote, error: myUpvoteError } =
-    await supabase
-      .from("post_upvotes")
-      .select("post_id")
-      .eq("post_id", post.id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
   if (myUpvoteError) {
     console.error("Failed to load upvote status:", myUpvoteError);
     throw new Error("Failed to load upvote status.");
+  }
+
+  if (mySaveError) {
+    console.error("Failed to load saved status:", mySaveError);
+    throw new Error("Failed to load saved status.");
   }
 
   return (
@@ -112,8 +130,14 @@ export default async function PostPage({
             initiallyUpvoted={Boolean(myUpvote)}
           />
 
+          <SaveButton
+            postId={post.id}
+            initiallySaved={Boolean(mySave)}
+          />
+
           <span className="text-sm text-gray-400">
-            0 comments
+            {comments.length}{" "}
+            {comments.length === 1 ? "comment" : "comments"}
           </span>
         </div>
 
@@ -131,6 +155,12 @@ export default async function PostPage({
             <PinPostButton postId={post.id} />
           </div>
         )}
+
+        <CommentSection
+          postId={post.id}
+          userId={user.id}
+          comments={comments}
+        />
       </article>
     </main>
   );
