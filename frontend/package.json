@@ -13,7 +13,11 @@
     "test:watch": "vitest",
     "test:db": "node --test tests/*.test.mjs",
     "test:e2e": "playwright test",
-    "seed:test-user": "node --env-file-if-exists=.env.local scripts/seed-test-user.mjs"
+    "test:smoke": "playwright test --config playwright.smoke.config.ts",
+    "seed:test-user": "node --env-file-if-exists=.env.local scripts/seed-test-user.mjs",
+    "import:courses": "node --env-file-if-exists=.env.local scripts/import-courses.mjs",
+    "seed:demo": "node --env-file-if-exists=.env.local scripts/seed-demo.mjs",
+    "seed:demo:hosted": "node --env-file-if-exists=.env.local scripts/seed-demo.mjs --hosted"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

@@ -99,7 +99,8 @@ npm run dev
 - http://localhost:3000/verify-email — enter the verification code
 - http://localhost:3000/login — log in
 - http://localhost:3000/forgot-password — reset a forgotten password
-- http://localhost:3000/profile — profile page (mock data)
+- http://localhost:3000/profile — your profile (sign-in required)
+- http://localhost:3000/profile/<id> — another student's profile, read-only
 - http://localhost:3000/home — protected placeholder home
 - http://localhost:3000/setup — Supabase connection checker
 
@@ -143,8 +144,11 @@ student enters their email, receives a code, and sets a new password on
 | `npm run test:watch` | Unit tests in watch mode |
 | `npm run test:db` | SQL/migration tests (pglite, no Docker needed) |
 | `npm run test:e2e` | Browser tests (Playwright); not part of `npm test` |
+| `npm run test:smoke` | Smoke test of the live site; see [Deploying](#deploying) |
 | `npm run build` | Production build |
 | `npm run seed:test-user` | Create/reset the local test student |
+| `npm run seed:demo` | Create/reset the demo accounts and sample posts on local Supabase |
+| `npm run seed:demo:hosted` | The same on the hosted project, after you type its ref |
 | `npx supabase start` / `stop` | Local Supabase stack |
 | `npx supabase status` | Local URLs and keys |
 
@@ -264,6 +268,15 @@ npx supabase db reset               # replay all migrations locally
 Never edit the local database by hand without a migration, or teammates cannot
 reproduce it.
 
+### Course catalogue (SCRUM-166)
+
+The course schema and CSV importer are ready for local use. Follow
+[the catalogue guide](supabase/COURSES.md) to apply the migration, validate a CSV
+offline, and import it into local or hosted Supabase. From `frontend/`, run
+`npm run import:courses -- /path/to/catalogue.csv --dry-run` to validate without
+credentials or writes. The bundled example is synthetic, not an official AUB
+catalogue. See [the task report](TASK_REPORT.md) for implementation and validation.
+
 ### Roles and permissions (SCRUM-16)
 
 Roles live in `user_roles`, with helpers in `frontend/lib/auth/`. If that
@@ -301,6 +314,59 @@ differently.
   tests first. Set the same environment variables in the console.
 
 Then add the deployed URL under Supabase **Authentication → URL Configuration**.
+
+## Deploying
+
+Since Sprint 2 the live site runs on **Vercel** against the hosted Supabase
+project (Sprint 1's Amplify setup above is kept for reference).
+
+- **Vercel deploys `main` automatically.** Project settings: Root Directory
+  `frontend`, Production Branch `main`, Node.js 22. Other branches and pull
+  requests get preview deployments.
+- **Environment variables** (Production and Preview): `NEXT_PUBLIC_SUPABASE_URL`,
+  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY` (server-only,
+  never `NEXT_PUBLIC_`), `NEXT_PUBLIC_SITE_URL` and
+  `NEXT_PUBLIC_ALLOWED_EMAIL_DOMAINS=mail.aub.edu`. Values come from the
+  Supabase dashboard; they are never committed.
+- **Region:** the server code runs in Tokyo (`hnd1`, set in
+  `frontend/vercel.json`), next to the Supabase project (`ap-northeast-1`).
+  A signed-in page makes several database calls in a row; from Vercel's
+  default Washington region each one crossed the Pacific, and pages took
+  1.5–3 s. If either side ever moves, move the other with it.
+- **Check a deployment:** each server start writes an `app.start` row to
+  `app_logs` with the deployed commit, and an `app.start.missing_env` error
+  naming any variable that is missing.
+
+### Release rule
+
+**Push a pull request's migrations to the hosted project before merging it.**
+Our migrations are additive, so the code already on `main` keeps working
+against the new schema, and the new code never deploys without its tables.
+
+```bash
+cd frontend
+npx supabase migration list --linked     # what hosted is missing
+npx supabase db push --linked --dry-run  # exactly what would run
+npx supabase db push --linked
+```
+
+`db push` applies migrations in timestamp order and refuses one that is older
+than a migration already on hosted. That happens when a branch was opened
+before another one was pushed. Prefer renaming the late migration to a new
+timestamp before it merges; `npx supabase db push --include-all` pushes it
+anyway, but check with the team first, since it runs out of order.
+
+### Demo accounts and smoke test
+
+- `npm run seed:demo` creates or resets a demo student, moderator and
+  administrator with profiles and sample posts, on local Supabase.
+  `npm run seed:demo:hosted` seeds the hosted project instead: it reads `HOSTED_SUPABASE_URL`,
+  `HOSTED_SUPABASE_SECRET_KEY` and the `DEMO_*` accounts from
+  `.env.hosted.local` (never committed), prints the project ref and waits for
+  you to type it. Re-running it creates no duplicates.
+- `npm run test:smoke` runs `tests/smoke/` against `SMOKE_BASE_URL` with the
+  demo accounts: landing page, log in, feed, create and delete a post, log out,
+  and `/admin` as the administrator. It is not part of CI.
 
 ## Background
 
