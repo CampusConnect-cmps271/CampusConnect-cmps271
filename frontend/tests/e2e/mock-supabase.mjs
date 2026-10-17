@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { handleCommunity } from "./mock-community.mjs";
 
 const user = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -124,21 +125,17 @@ createServer(async (request, response) => {
     response.statusCode = 201;
     return response.end("{}");
   }
-    if (path === "/rest/v1/categories" && request.method === "GET") {
+  if (path === "/rest/v1/categories" && request.method === "GET") {
     return response.end(JSON.stringify([
-      { name: "General" },
-      { name: "Questions" },
-      { name: "Announcements" },
-      { name: "Events" }
+      { id: 1, name: "General" },
+      { id: 2, name: "Questions" },
+      { id: 3, name: "Announcements" },
+      { id: 4, name: "Events" }
     ]));
   }
 
-  if (
-    path === "/rest/v1/rpc/get_ranked_feed_posts" &&
-    request.method === "POST"
-  ) {
-    return response.end(JSON.stringify([]));
-  }
+  // Sprint 2 tables: posts, comments, upvotes and saved posts.
+  if (await handleCommunity(request, response, url)) return;
   if (path === "/rest/v1/user_roles") {
     roleLookups++;
     response.statusCode = 404;
