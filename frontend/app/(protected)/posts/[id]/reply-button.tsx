@@ -19,7 +19,7 @@ export default function ReplyButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-xs text-blue-400 hover:underline"
+        className="text-xs text-[var(--maroon)] hover:underline"
       >
         Reply
       </button>
