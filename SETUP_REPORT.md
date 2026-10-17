@@ -1,13 +1,15 @@
 # Supabase setup and merge reconciliation report
 
-## Latest task — October 15, 2026
+## Latest task — October 17, 2026
 
 Implemented **SCRUM-166: Course catalogue import**, verified as assigned to
 mohamad ghosn. See [the short task report](TASK_REPORT.md) for the approach,
 validation, exact file list, retained architecture reference and assigned work
 queue. [Catalogue setup instructions](supabase/COURSES.md) cover migration and
-CSV import. The implementation is local; hosted migration/data import and Jira
-status updates have not been performed. Earlier sections below are historical.
+CSV import. The courses migration is now applied to hosted CampusConnect as
+`20261017091812_create_courses`; live permission and upsert checks passed and
+their temporary data was rolled back. The official catalogue CSV import is
+still pending, and Jira status was not changed. Earlier sections below are historical.
 
 Date: October 4, 2026
 
