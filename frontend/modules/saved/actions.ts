@@ -62,7 +62,8 @@ export async function toggleSavedPost(
     user_id: user.id,
   });
 
-  if (error) {
+  // 23505: another tab/request already saved it, so the post is saved.
+  if (error && error.code !== "23505") {
     console.error("Failed to save post:", error);
     return { error: "Unable to save this post." };
   }

@@ -73,8 +73,29 @@ export async function getFeedPosts(
 
   const hasMore = rows.length > POSTS_PER_PAGE;
 
-  const posts: FeedPost[] = rows
-    .slice(0, POSTS_PER_PAGE)
+  const pageRows = rows.slice(0, POSTS_PER_PAGE);
+  const commentCounts = new Map<string, number>();
+
+  if (pageRows.length > 0) {
+    const { data: commentRows, error: commentError } = await supabase
+      .from("post_comments")
+      .select("post_id")
+      .in(
+        "post_id",
+        pageRows.map((post) => post.id)
+      );
+
+    if (commentError) {
+      console.error("Failed to load comment counts:", commentError.message);
+      throw new Error("Failed to load posts.");
+    }
+
+    for (const row of commentRows ?? []) {
+      commentCounts.set(row.post_id, (commentCounts.get(row.post_id) ?? 0) + 1);
+    }
+  }
+
+  const posts: FeedPost[] = pageRows
     .map((post) => ({
       id: post.id,
       author_id: post.author_id,
@@ -84,7 +105,7 @@ export async function getFeedPosts(
       created_at: post.created_at,
       edited_at: post.edited_at,
       upvote_count: Number(post.upvote_count ?? 0),
-      comment_count: 0,
+      comment_count: commentCounts.get(post.id) ?? 0,
     }));
 
   return {

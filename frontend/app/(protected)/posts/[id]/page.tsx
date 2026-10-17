@@ -43,43 +43,45 @@ export default async function PostPage({
 
   const isAuthor = post.author_id === user.id;
 
-  const { count: upvoteCount, error: countError } =
-    await supabase
-      .from("post_upvotes")
-      .select("*", { count: "exact", head: true })
-      .eq("post_id", post.id);
+  const [countResult, myUpvoteResult, mySaveResult, comments] =
+    await Promise.all([
+      supabase
+        .from("post_upvotes")
+        .select("*", { count: "exact", head: true })
+        .eq("post_id", post.id),
+      supabase
+        .from("post_upvotes")
+        .select("post_id")
+        .eq("post_id", post.id)
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("saved_posts")
+        .select("post_id")
+        .eq("post_id", post.id)
+        .eq("user_id", user.id)
+        .maybeSingle(),
+      loadComments(post.id),
+    ]);
+
+  const { count: upvoteCount, error: countError } = countResult;
+  const { data: myUpvote, error: myUpvoteError } = myUpvoteResult;
+  const { data: mySave, error: mySaveError } = mySaveResult;
 
   if (countError) {
     console.error("Failed to load upvote count:", countError);
     throw new Error("Failed to load upvotes.");
   }
 
-  const { data: myUpvote, error: myUpvoteError } =
-    await supabase
-      .from("post_upvotes")
-      .select("post_id")
-      .eq("post_id", post.id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
   if (myUpvoteError) {
     console.error("Failed to load upvote status:", myUpvoteError);
     throw new Error("Failed to load upvote status.");
   }
 
-  const { data: mySave, error: mySaveError } = await supabase
-    .from("saved_posts")
-    .select("post_id")
-    .eq("post_id", post.id)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
   if (mySaveError) {
     console.error("Failed to load saved status:", mySaveError);
     throw new Error("Failed to load saved status.");
   }
-
-  const comments = await loadComments(post.id);
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">

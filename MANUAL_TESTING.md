@@ -60,5 +60,6 @@ Jira bug linked to the story in the **Story** column.
 
 ## Known gaps to check by eye
 
-- The feed shows `0 comments` for every post: `getFeedPosts` hard-codes
-  `comment_count: 0`. Confirm this with the feed owner before filing a bug.
+- Comment counts on feed cards come from `getFeedPosts`, which counts rows in
+  `post_comments` for the posts on the current page. After commenting, go back
+  to `/home` and check the card count matches the post page (replies included).

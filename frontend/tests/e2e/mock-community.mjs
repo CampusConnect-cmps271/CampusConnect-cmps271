@@ -23,14 +23,22 @@ async function readBody(request) {
   return raw ? JSON.parse(raw) : null;
 }
 
-// Applies PostgREST `column=eq.value` filters to a list of rows.
+// Applies PostgREST `column=eq.value` / `column=in.(a,b)` filters (anything
+// else throws so unsupported queries cannot pass silently) to a list of rows.
 function filterRows(rows, params, prefix = "") {
   return rows.filter((row) => {
     for (const [key, value] of params) {
-      if (RESERVED.has(key) || !value.startsWith("eq.")) continue;
+      if (RESERVED.has(key)) continue;
       if (prefix ? !key.startsWith(prefix) : key.includes(".")) continue;
       const column = prefix ? key.slice(prefix.length) : key;
-      if (String(row[column]) !== value.slice(3)) return false;
+      if (value.startsWith("eq.")) {
+        if (String(row[column]) !== value.slice(3)) return false;
+      } else if (value.startsWith("in.(") && value.endsWith(")")) {
+        const allowed = value.slice(4, -1).split(",");
+        if (!allowed.includes(String(row[column]))) return false;
+      } else {
+        throw new Error(`mock-community: unsupported filter ${key}=${value}`);
+      }
     }
     return true;
   });

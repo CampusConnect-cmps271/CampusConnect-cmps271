@@ -45,8 +45,8 @@ export default function CommentForm({
       }
 
       setBody("");
-      onDone?.();
       router.refresh();
+      onDone?.();
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
