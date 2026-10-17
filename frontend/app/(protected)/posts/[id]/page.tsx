@@ -89,7 +89,7 @@ export default async function PostPage({
         href="/home"
         className="mb-8 inline-block text-sm text-[var(--maroon)] hover:underline"
       >
-        ← Back to feed
+        ← Back to home
       </Link>
 
       <article className="rounded-xl border border-[var(--border)] p-6">

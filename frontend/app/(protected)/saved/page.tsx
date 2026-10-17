@@ -49,7 +49,7 @@ export default async function SavedPage() {
         href="/home"
         className="mb-8 inline-block text-sm text-[var(--maroon)] hover:underline"
       >
-        ← Back to feed
+        ← Back to home
       </Link>
 
       <h1 className="mb-6 text-2xl font-semibold tracking-tight">

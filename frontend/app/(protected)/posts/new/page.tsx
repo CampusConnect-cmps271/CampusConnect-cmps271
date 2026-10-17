@@ -1,4 +1,5 @@
 
+import Link from "next/link";
 import { requireUser } from "@/modules/auth";
 import { AppShell } from "@/components/AppShell";
 import { createClient } from "@/lib/supabase/server";
@@ -21,6 +22,13 @@ export default async function NewPostPage() {
   return (
     <AppShell>
 <main className="mx-auto max-w-2xl px-4 py-10">
+      <Link
+        href="/home"
+        className="mb-8 inline-block text-sm text-[var(--maroon)] hover:underline"
+      >
+        ← Back to home
+      </Link>
+
       <h1 className="mb-2 text-3xl font-bold">
         Create a post
       </h1>

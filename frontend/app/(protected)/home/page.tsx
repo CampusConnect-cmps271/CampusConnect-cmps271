@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/AppShell";
 import Link from "next/link";
-import { LogoutButton, requireUser } from "@/modules/auth";
+import { requireUser } from "@/modules/auth";
 import {
   getFeedPosts,
   POSTS_PER_PAGE,
@@ -88,20 +88,10 @@ export default async function HomePage({
   return (
     <AppShell>
 <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 py-12 sm:px-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Welcome, {user.name}
-          </h1>
-
-          {user.email && (
-            <p className="text-sm opacity-80">
-              Signed in as {user.email}
-            </p>
-          )}
-        </div>
-
-        <LogoutButton />
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          Welcome, {user.name}
+        </h1>
       </header>
 
       <section className="space-y-4">
