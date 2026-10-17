@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { handleCommunity } from "./mock-community.mjs";
+import { handleCommunity, matchingPosts } from "./mock-community.mjs";
 
 const user = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -182,7 +182,7 @@ createServer(async (request, response) => {
   if (path === "/rest/v1/posts" && request.method === "GET") {
     const matches = (key, value) => !url.searchParams.has(key) || url.searchParams.get(key) === `eq.${value}`;
     const found = [pinnedPost].filter((post) => ["id", "author_id", "status"].every((key) => matches(key, post[key])));
-    return response.end(JSON.stringify(found));
+    return response.end(JSON.stringify([...found, ...matchingPosts(url.searchParams)]));
   }
   if (path === "/rest/v1/app_logs" && request.method === "POST") {
     response.statusCode = 201;

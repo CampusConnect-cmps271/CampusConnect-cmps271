@@ -18,7 +18,7 @@ async function createPost(page: Page, title: string, body: string) {
   await page.getByRole("button", { name: "Create post" }).click();
   // The first visit to a post page compiles it in dev, which can outlast 5s.
   await expect(page).toHaveURL(/\/posts\/[0-9a-f-]{36}$/, { timeout: 20_000 });
-  await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible({ timeout: 20_000 });
 }
 
 // The posts, comments, upvotes and saved posts live in one in-memory fixture
@@ -127,7 +127,7 @@ test.describe("student journey", () => {
     await expect(page).toHaveURL(/\/saved$/);
     await expect(page.getByRole("heading", { name: "Saved posts" })).toBeVisible();
     await page.getByRole("link", { name: title }).click();
-    await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible({ timeout: 20_000 });
 
     await page.getByRole("button", { name: "★ Saved" }).click();
     await expect(page.getByRole("button", { name: "☆ Save" })).toBeVisible();

@@ -135,6 +135,12 @@ function select(request, response, name, rows, params) {
   return send(response, 200, result);
 }
 
+// Published posts matching the request's `column=eq.value` filters, for the
+// shared mock to merge with its own seeded post.
+export function matchingPosts(params) {
+  return filterRows(posts, params);
+}
+
 // Returns true when the request was handled here.
 export async function handleCommunity(request, response, url) {
   const path = url.pathname;
