@@ -1,5 +1,6 @@
 
 import { requireUser } from "@/modules/auth";
+import { AppShell } from "@/components/AppShell";
 import { createClient } from "@/lib/supabase/server";
 import PostForm from "./post-form";
 
@@ -18,7 +19,8 @@ export default async function NewPostPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10">
+    <AppShell>
+<main className="mx-auto max-w-2xl px-4 py-10">
       <h1 className="mb-2 text-3xl font-bold">
         Create a post
       </h1>
@@ -30,5 +32,6 @@ export default async function NewPostPage() {
 
       <PostForm categories={categories ?? []} />
     </main>
+</AppShell>
   );
 }

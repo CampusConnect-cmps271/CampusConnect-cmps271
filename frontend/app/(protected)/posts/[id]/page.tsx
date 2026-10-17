@@ -1,5 +1,6 @@
 
 import type { Metadata } from "next";
+import { AppShell } from "@/components/AppShell";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/modules/auth";
@@ -82,7 +83,8 @@ export default async function PostPage({
   const comments = await loadComments(post.id);
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
+    <AppShell>
+<main className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
       <Link
         href="/home"
         className="mb-8 inline-block text-sm text-[var(--maroon)] hover:underline"
@@ -161,5 +163,6 @@ export default async function PostPage({
         />
       </article>
     </main>
+</AppShell>
   );
 }

@@ -1,7 +1,10 @@
+import { AppShell } from "@/components/AppShell";
+
 
 export default function Loading() {
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 py-12 sm:px-6">
+    <AppShell>
+<main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 py-12 sm:px-6">
       <div className="animate-pulse space-y-3">
         <div className="h-8 w-64 rounded-lg bg-[var(--maroon-100)]" />
         <div className="h-4 w-48 rounded-lg bg-[var(--maroon-100)]" />
@@ -54,5 +57,6 @@ export default function Loading() {
         Loading campus feed...
       </p>
     </main>
+</AppShell>
   );
 }

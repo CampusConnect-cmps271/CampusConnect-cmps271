@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AppShell } from "@/components/AppShell";
 import Link from "next/link";
 import { requireUser } from "@/modules/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -42,7 +43,8 @@ export default async function SavedPage() {
   });
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
+    <AppShell>
+<main className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
       <Link
         href="/home"
         className="mb-8 inline-block text-sm text-[var(--maroon)] hover:underline"
@@ -91,5 +93,6 @@ export default async function SavedPage() {
         </ul>
       )}
     </main>
+</AppShell>
   );
 }

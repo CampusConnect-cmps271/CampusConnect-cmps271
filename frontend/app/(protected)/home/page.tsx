@@ -1,5 +1,6 @@
 
 import type { Metadata } from "next";
+import { AppShell } from "@/components/AppShell";
 import Link from "next/link";
 import { LogoutButton, requireUser } from "@/modules/auth";
 import {
@@ -85,7 +86,8 @@ export default async function HomePage({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 py-12 sm:px-6">
+    <AppShell>
+<main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 py-12 sm:px-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -263,5 +265,6 @@ export default async function HomePage({
         Showing up to {POSTS_PER_PAGE} posts per page.
       </p>
     </main>
+</AppShell>
   );
 }
