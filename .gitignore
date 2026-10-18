@@ -10,6 +10,9 @@ target/
 *.tsbuildinfo
 next-env.d.ts
 
+# Downloaded AUB catalogues and generated extraction drafts (reproducible).
+supabase/data/aub-catalogue/
+
 # Local environment files (commit only the blank template)
 .env*
 !.env.example
