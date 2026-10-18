@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/modules/auth";
-import { PinPostButton } from "@/modules/profiles";
+import { MessageButton } from "@/modules/messaging";
+import { getProfile, PinPostButton } from "@/modules/profiles";
 import { createClient } from "@/lib/supabase/server";
 import DeletePostButton from "./delete-post-button";
 import UpvoteButton from "./upvote-button";
@@ -42,6 +43,7 @@ export default async function PostPage({
   }
 
   const isAuthor = post.author_id === user.id;
+  const author = isAuthor ? null : await getProfile(post.author_id);
 
   const [countResult, myUpvoteResult, mySaveResult, comments] =
     await Promise.all([
@@ -108,9 +110,27 @@ export default async function PostPage({
           {post.title}
         </h1>
 
-        <p className="mb-6 text-sm text-gray-400">
-          Author: {isAuthor ? "You" : "CampusConnect student"}
-        </p>
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <p className="text-sm text-gray-400">
+            Author:{" "}
+            {isAuthor ? (
+              "You"
+            ) : author ? (
+              <Link
+                href={`/profile/${author.id}`}
+                className="font-medium text-blue-400 hover:underline"
+              >
+                {author.fullName}
+              </Link>
+            ) : (
+              "CampusConnect student"
+            )}
+          </p>
+
+          {author ? (
+            <MessageButton studentId={author.id} studentName={author.fullName} />
+          ) : null}
+        </div>
 
         <div className="whitespace-pre-wrap break-words leading-7">
           {post.body}
