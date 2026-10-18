@@ -18,14 +18,14 @@ const migrationFiles = [
   "20261018170000_create_notifications.sql",
 ];
 
-const migrations = await Promise.all(
-  migrationFiles.map((file) =>
-    readFile(
-      new URL(`../../supabase/migrations/${file}`, import.meta.url),
-      "utf8",
-    ),
-  ),
-);
+const readMigration = (file) =>
+  readFile(new URL(`../../supabase/migrations/${file}`, import.meta.url), "utf8");
+
+const migrations = await Promise.all(migrationFiles.map(readMigration));
+
+// The triggers load only for the events tests, so the storage tests can write
+// rows without a trigger adding its own.
+const events = await readMigration("20261018171000_notification_events.sql");
 
 const ali = "00000000-0000-4000-8000-0000000000e1";
 const bea = "00000000-0000-4000-8000-0000000000e2";
@@ -299,5 +299,288 @@ describe("SP2-40 notification data storage", () => {
     );
 
     assert.deepEqual(rows.map((row) => row.tablename), ["messages", "notifications"]);
+  });
+});
+
+describe("SP2-41 notification events", () => {
+  let database;
+  let conversationId;
+  let beaPost;
+
+  // Housari's SP2-30 migration (PR #12) adds 'removed' to posts' statuses and
+  // lets the status guard accept it. Until it is on main, the tests apply the
+  // same two changes so the removal trigger runs against that contract.
+  const removalContract = `
+    alter table public.posts drop constraint posts_status_check;
+    alter table public.posts add constraint posts_status_check
+      check (status in ('published', 'deleted', 'removed'));
+
+    create or replace function public.protect_post_edit_fields()
+    returns trigger
+    language plpgsql
+    set search_path = ''
+    as $$
+    begin
+      if new.id is distinct from old.id
+        or new.author_id is distinct from old.author_id
+        or new.created_at is distinct from old.created_at
+      then
+        raise exception 'Protected post fields cannot be changed';
+      end if;
+
+      if old.status in ('deleted', 'removed') then
+        raise exception 'Unavailable posts cannot be modified';
+      end if;
+
+      if new.status in ('deleted', 'removed') then
+        if new.title is distinct from old.title
+          or new.body is distinct from old.body
+          or new.category is distinct from old.category
+          or new.edited_at is distinct from old.edited_at
+        then
+          raise exception 'Removal can only change post status';
+        end if;
+      elsif new.status is distinct from 'published' then
+        raise exception 'Invalid post status';
+      end if;
+
+      return new;
+    end;
+    $$;
+  `;
+
+  async function notificationsOf(userId) {
+    return asUser(database, userId, async () => {
+      const { rows } = await database.query(
+        `select type, actor_id, conversation_id, post_id, comment_id, created_at, read_at
+         from public.notifications order by created_at, type`,
+      );
+      return rows;
+    });
+  }
+
+  async function sendMessage(senderId, body) {
+    return asUser(database, senderId, async () => {
+      const { rows } = await database.query(
+        `insert into public.messages (conversation_id, sender_id, body)
+         values ($1, $2, $3) returning id, created_at`,
+        [conversationId, senderId, body],
+      );
+      return rows[0];
+    });
+  }
+
+  async function comment(authorId, postId, parentId = null) {
+    return asUser(database, authorId, async () => {
+      const { rows } = await database.query(
+        `insert into public.post_comments (post_id, author_id, parent_id, body)
+         values ($1, $2, $3, 'A comment') returning id`,
+        [postId, authorId, parentId],
+      );
+      return rows[0].id;
+    });
+  }
+
+  async function clearNotifications() {
+    await database.query("delete from public.notifications");
+  }
+
+  before(async () => {
+    database = new PGlite();
+    await database.exec(foundation);
+
+    for (const migration of [...migrations, events]) {
+      await database.exec(migration);
+    }
+    await database.exec(removalContract);
+
+    conversationId = await asUser(database, ali, async () => {
+      const { rows } = await database.query("select public.start_conversation($1) as id", [bea]);
+      return rows[0].id;
+    });
+    beaPost = await createPost(database, bea, "Bea's post");
+  });
+
+  after(async () => {
+    await database?.close();
+  });
+
+  describe("messages", () => {
+    it("notifies the other participant, not the sender", async () => {
+      const message = await sendMessage(ali, "Hi Bea");
+
+      assert.deepEqual(await notificationsOf(bea), [{
+        type: "message",
+        actor_id: ali,
+        conversation_id: conversationId,
+        post_id: null,
+        comment_id: null,
+        created_at: message.created_at,
+        read_at: null,
+      }]);
+      assert.deepEqual(await notificationsOf(ali), []);
+    });
+
+    it("collapses a run of messages into one unread notification", async () => {
+      let last;
+      for (let i = 0; i < 5; i++) last = await sendMessage(ali, `Message ${i}`);
+
+      const rows = await notificationsOf(bea);
+      assert.equal(rows.length, 1);
+      assert.deepEqual(rows[0].created_at, last.created_at);
+      assert.equal(rows[0].read_at, null);
+    });
+
+    it("starts a new notification once the last one was read", async () => {
+      await asUser(database, bea, async () => {
+        await database.query("update public.notifications set read_at = now() where read_at is null");
+      });
+      await sendMessage(ali, "Another one");
+
+      const rows = await notificationsOf(bea);
+      assert.equal(rows.length, 2);
+      assert.equal(rows.filter((row) => row.read_at === null).length, 1);
+    });
+
+    it("notifies replies in the other direction", async () => {
+      await sendMessage(bea, "Hi Ali");
+
+      const rows = await notificationsOf(ali);
+      assert.deepEqual(rows.map((row) => [row.type, row.actor_id]), [["message", bea]]);
+    });
+
+    it("clears the message notification when the conversation is read", async () => {
+      await clearNotifications();
+      const message = await sendMessage(ali, "Read me");
+
+      await asUser(database, bea, async () => {
+        await database.query(
+          `update public.conversation_reads set last_read_at = $1
+           where conversation_id = $2 and user_id = $3`,
+          [message.created_at, conversationId, bea],
+        );
+      });
+
+      const [row] = await notificationsOf(bea);
+      assert.notEqual(row.read_at, null);
+    });
+  });
+
+  describe("comments and replies", () => {
+    before(async () => {
+      await clearNotifications();
+    });
+
+    it("notifies a post's author about a comment, not the commenter", async () => {
+      const commentId = await comment(ali, beaPost);
+
+      assert.deepEqual(
+        (await notificationsOf(bea)).map((row) => [row.type, row.actor_id, row.post_id, row.comment_id]),
+        [["post_comment", ali, beaPost, commentId]],
+      );
+      assert.deepEqual(await notificationsOf(ali), []);
+    });
+
+    it("ignores comments on your own post", async () => {
+      await clearNotifications();
+      await comment(bea, beaPost);
+
+      assert.deepEqual(await notificationsOf(bea), []);
+    });
+
+    it("notifies a comment's author about a reply, once", async () => {
+      await clearNotifications();
+      const beaComment = await comment(bea, beaPost);
+      const reply = await comment(ali, beaPost, beaComment);
+
+      // Bea wrote both the post and the comment: one reply notification.
+      assert.deepEqual(
+        (await notificationsOf(bea)).map((row) => [row.type, row.actor_id, row.comment_id]),
+        [["comment_reply", ali, reply]],
+      );
+    });
+
+    it("notifies both the comment's author and the post's author when they differ", async () => {
+      await clearNotifications();
+      const camComment = await comment(cam, beaPost);
+      await clearNotifications();
+      await comment(ali, beaPost, camComment);
+
+      assert.deepEqual((await notificationsOf(cam)).map((row) => row.type), ["comment_reply"]);
+      assert.deepEqual((await notificationsOf(bea)).map((row) => row.type), ["post_comment"]);
+      assert.deepEqual(await notificationsOf(ali), []);
+    });
+
+    it("ignores replies to your own comment", async () => {
+      await clearNotifications();
+      const beaComment = await comment(bea, beaPost);
+      await comment(bea, beaPost, beaComment);
+
+      assert.deepEqual(await notificationsOf(bea), []);
+    });
+  });
+
+  describe("content removal", () => {
+    before(async () => {
+      await clearNotifications();
+    });
+
+    it("tells the author when a moderator removes their post, without naming the moderator", async () => {
+      const postId = await createPost(database, ali, "To be removed");
+      await database.query("update public.posts set status = 'removed' where id = $1", [postId]);
+
+      assert.deepEqual(
+        (await notificationsOf(ali)).map((row) => [row.type, row.actor_id, row.post_id]),
+        [["content_removed", null, postId]],
+      );
+    });
+
+    it("says nothing when authors delete their own posts", async () => {
+      await clearNotifications();
+      const postId = await createPost(database, ali, "Deleted by Ali");
+
+      await asUser(database, ali, async () => {
+        await database.query("update public.posts set status = 'deleted' where id = $1", [postId]);
+      });
+
+      assert.deepEqual(await notificationsOf(ali), []);
+    });
+  });
+
+  describe("privacy", () => {
+    before(async () => {
+      await clearNotifications();
+      await sendMessage(ali, "Private");
+      await comment(ali, beaPost);
+    });
+
+    it("hides other students' notifications from a third student", async () => {
+      assert.equal((await notificationsOf(bea)).length, 2);
+      assert.deepEqual(await notificationsOf(cam), []);
+    });
+
+    it("does not let a third student mark them read", async () => {
+      await asUser(database, cam, async () => {
+        const { affectedRows } = await database.query("update public.notifications set read_at = now()");
+        assert.equal(affectedRows, 0);
+      });
+
+      assert.ok((await notificationsOf(bea)).every((row) => row.read_at === null));
+    });
+
+    it("keeps the trigger functions away from clients", async () => {
+      const { rows } = await database.query(
+        `select p.proname, r.rolname
+         from pg_proc p
+         join pg_namespace n on n.oid = p.pronamespace
+         cross join (values ('anon'), ('authenticated')) as r(rolname)
+         where n.nspname = 'public'
+           and p.proname in ('notify_message_recipient', 'read_message_notifications',
+                             'notify_comment_recipients', 'notify_post_removed')
+           and has_function_privilege(r.rolname, p.oid, 'execute')`,
+      );
+
+      assert.deepEqual(rows, []);
+    });
   });
 });
