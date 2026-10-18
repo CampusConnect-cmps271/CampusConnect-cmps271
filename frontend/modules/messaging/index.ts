@@ -7,7 +7,25 @@
  * directly.
  */
 
-export { startConversation, type StartConversationState } from "./actions";
+export {
+  loadEarlierMessages,
+  markConversationRead,
+  sendMessage,
+  startConversation,
+  type EarlierMessagesResult,
+  type SendMessageResult,
+  type StartConversationState,
+} from "./actions";
+
+export {
+  countMyUnreadConversations,
+  getConversation,
+  listMyConversations,
+} from "./queries";
+
+export { MESSAGES_READ_EVENT } from "./events";
+export { formatMessageTime, formatRelativeTime, messagePreview, PREVIEW_LENGTH } from "./format";
+export { mergeMessages, toMessage } from "./messages";
 
 export {
   conversationIdSchema,
@@ -21,4 +39,5 @@ export {
 
 export type { ConversationSummary, ConversationThread, Message } from "./types";
 
+export { ConversationView } from "./components/ConversationView";
 export { MessageButton } from "./components/MessageButton";
