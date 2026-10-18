@@ -188,6 +188,11 @@ createServer(async (request, response) => {
     response.statusCode = 201;
     return response.end("{}");
   }
+  if (path === "/rest/v1/rpc/current_suspension" && request.method === "POST") {
+    // Verified browser-test users are active. Keep this explicit because the
+    // login action fails closed when account status cannot be checked.
+    return response.end("[]");
+  }
   if (path === "/rest/v1/categories" && request.method === "GET") {
     return response.end(JSON.stringify([
       { id: 1, name: "General" },
