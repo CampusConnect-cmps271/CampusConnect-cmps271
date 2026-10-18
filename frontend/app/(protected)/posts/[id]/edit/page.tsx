@@ -1,6 +1,6 @@
 
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/modules/auth";
 import { createClient } from "@/lib/supabase/server";
 import EditPostForm from "./edit-post-form";
@@ -28,6 +28,11 @@ export default async function EditPostPage({
     notFound();
   }
 
+  // SkillSwap posts are edited through their own template.
+  if (post.category === "SkillSwap") {
+    redirect(`/skillswap/${post.id}/edit`);
+  }
+
   const { data: categories, error: categoriesError } =
     await supabase
       .from("categories")
@@ -53,7 +58,7 @@ export default async function EditPostPage({
 
       <EditPostForm
         post={post}
-        categories={categories ?? []}
+        categories={(categories ?? []).filter((category) => category.name !== "SkillSwap")}
       />
     </main>
   );
