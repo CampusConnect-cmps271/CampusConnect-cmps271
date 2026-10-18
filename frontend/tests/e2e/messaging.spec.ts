@@ -16,6 +16,12 @@ async function logIn(page: Page, email: string) {
 
 const header = (page: Page) => page.getByRole("banner").getByRole("navigation", { name: "Main" });
 
+// A sent message shows at once; wait until the server has saved it, or the
+// next navigation can abort the send.
+async function expectSaved(page: Page) {
+  await expect(page.getByRole("log").getByText("Sending…")).toHaveCount(0);
+}
+
 // One conversation runs through these tests, in order.
 test.describe.configure({ mode: "serial" });
 
@@ -54,6 +60,7 @@ test("a student starts a conversation from a profile and sends a message", async
   await box.press("Enter");
   await expect(log.getByText("Hi Omar, are you joining the study group?")).toBeVisible();
   await expect(box).toHaveValue("");
+  await expectSaved(page);
 
   // Saved, not just shown: it is still there after a reload.
   await page.reload();
@@ -81,6 +88,7 @@ test("multi-line and long messages stay plain text on a phone", async ({ page })
   const item = log.getByRole("listitem").filter({ hasText: "not bold" });
   await expect(item.locator("p")).toContainText("Line one\n<b>not bold</b>", { useInnerText: true });
   await expect(log.locator("b")).toHaveCount(0);
+  await expectSaved(page);
 
   await box.fill("z".repeat(2001));
   await expect(page.getByText("2001/2000")).toBeVisible();
@@ -88,6 +96,7 @@ test("multi-line and long messages stay plain text on a phone", async ({ page })
   await box.fill("z".repeat(2000));
   await box.press("Enter");
   await expect(log.getByText("z".repeat(2000))).toBeVisible();
+  await expectSaved(page);
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
