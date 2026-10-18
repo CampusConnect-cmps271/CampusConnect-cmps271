@@ -5,7 +5,7 @@ import { getDisplayNames } from "@/modules/profiles";
 import { createClient } from "@/lib/supabase/server";
 import { MEETING_METHODS, skillSwapPostIdSchema, type MeetingMethod } from "./schema";
 import { BOARD_PAGE_SIZE, escapeLikePattern, type BoardSearch } from "./search";
-import type { SkillSwapCard, SkillSwapDetails } from "./types";
+import type { SkillSwapCard, SkillSwapPostDetails } from "./types";
 
 const DETAIL_COLUMNS = "post_id, can_teach, wants_to_learn, meeting_method, availability, details";
 
@@ -32,7 +32,7 @@ type CardRow = {
 const asMeetingMethod = (value: string): MeetingMethod =>
   (MEETING_METHODS as readonly string[]).includes(value) ? (value as MeetingMethod) : "either";
 
-function toDetails(row: DetailRow): SkillSwapDetails {
+function toDetails(row: DetailRow): SkillSwapPostDetails {
   return {
     postId: row.post_id,
     authorId: row.posts.author_id,
@@ -48,7 +48,7 @@ function toDetails(row: DetailRow): SkillSwapDetails {
  * A SkillSwap post's details, or null when the post is not a SkillSwap post
  * or the student cannot see it (RLS follows the post's own visibility).
  */
-export async function getSkillSwapDetails(postId: string): Promise<SkillSwapDetails | null> {
+export async function getSkillSwapDetails(postId: string): Promise<SkillSwapPostDetails | null> {
   if (!skillSwapPostIdSchema.safeParse(postId).success) return null;
 
   const user = await requireUser();
@@ -76,7 +76,7 @@ export async function getSkillSwapDetails(postId: string): Promise<SkillSwapDeta
  * A SkillSwap post the signed-in student may edit: their own, still
  * published. Null for anything else, so the edit page can 404.
  */
-export async function getSkillSwapForEdit(postId: string): Promise<SkillSwapDetails | null> {
+export async function getSkillSwapForEdit(postId: string): Promise<SkillSwapPostDetails | null> {
   if (!skillSwapPostIdSchema.safeParse(postId).success) return null;
 
   const user = await requireUser();

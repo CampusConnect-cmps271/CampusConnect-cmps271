@@ -102,6 +102,7 @@ npm run dev
 - http://localhost:3000/profile — your profile (sign-in required)
 - http://localhost:3000/profile/<id> — another student's profile, read-only
 - http://localhost:3000/messages — your conversations; `/messages/<id>` opens one
+- http://localhost:3000/skillswap — the SkillSwap board; `/skillswap/new` offers a swap
 - http://localhost:3000/home — protected placeholder home
 - http://localhost:3000/setup — Supabase connection checker
 

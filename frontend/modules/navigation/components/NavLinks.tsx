@@ -21,11 +21,21 @@ const LINK_CLASS =
  */
 export function NavLinks({ messagesBadge, logout }: NavLinksProps) {
   const pathname = usePathname();
+  const inSkillSwap = pathname === "/skillswap" || pathname.startsWith("/skillswap/");
   const inMessages = pathname === "/messages" || pathname.startsWith("/messages/");
   const inProfile = pathname === "/profile";
 
   return (
-    <ul className="flex items-center gap-1">
+    <ul className="flex flex-wrap items-center gap-1">
+      <li>
+        <Link
+          href="/skillswap"
+          aria-current={inSkillSwap ? "page" : undefined}
+          className={`${LINK_CLASS} ${inSkillSwap ? "text-[var(--maroon)]" : "text-[var(--ink-soft)]"}`}
+        >
+          SkillSwap
+        </Link>
+      </li>
       <li>
         <Link
           href="/messages"

@@ -1,7 +1,7 @@
 import type { MeetingMethod } from "./schema";
 
 /** A SkillSwap post's details, as the post page and the edit form read them. */
-export type SkillSwapDetails = {
+export type SkillSwapPostDetails = {
   postId: string;
   authorId: string;
   canTeach: string;

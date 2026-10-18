@@ -46,7 +46,8 @@ export {
   type SearchField,
 } from "./search";
 
-export type { SkillSwapCard, SkillSwapDetails } from "./types";
+export type { SkillSwapCard, SkillSwapPostDetails } from "./types";
 
 export { SkillSwapCardView } from "./components/SkillSwapCardView";
+export { SkillSwapDetails } from "./components/SkillSwapDetails";
 export { SkillSwapForm } from "./components/SkillSwapForm";

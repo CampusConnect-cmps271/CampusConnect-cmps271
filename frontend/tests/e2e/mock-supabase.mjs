@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { handleCommunity, matchingPosts } from "./mock-community.mjs";
 import { handleMessaging } from "./mock-messaging.mjs";
+import { handleSkillSwap, matchingSkillSwapPosts } from "./mock-skillswap.mjs";
 
 const user = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -18,6 +19,9 @@ const profileAccounts = {
   "messaging-maya@mail.aub.edu": "00000000-0000-4000-8000-000000000006",
   "messaging-omar@mail.aub.edu": "00000000-0000-4000-8000-000000000007",
   "messaging-rami@mail.aub.edu": "00000000-0000-4000-8000-000000000008",
+  // SP2-53..55: two students for the SkillSwap journey.
+  "skillswap-sami@mail.aub.edu": "00000000-0000-4000-8000-00000000000c",
+  "skillswap-dana@mail.aub.edu": "00000000-0000-4000-8000-00000000000d",
 };
 // Another student whose public profile the tests visit.
 const otherStudentId = "00000000-0000-4000-8000-000000000004";
@@ -35,6 +39,8 @@ for (const [id, fullName] of [
   ["00000000-0000-4000-8000-000000000006", "Maya Saleh"],
   ["00000000-0000-4000-8000-000000000007", "Omar Fares"],
   ["00000000-0000-4000-8000-000000000008", "Rami Nassar"],
+  ["00000000-0000-4000-8000-00000000000c", "Sami Haddad"],
+  ["00000000-0000-4000-8000-00000000000d", "Dana Rizk"],
 ]) {
   profiles.set(id, { id, full_name: fullName, major: null, graduation_year: null, bio: null, interests: [], pinned_post_id: null });
 }
@@ -194,7 +200,7 @@ createServer(async (request, response) => {
   if (path === "/rest/v1/posts" && request.method === "GET") {
     const matches = (key, value) => !url.searchParams.has(key) || url.searchParams.get(key) === `eq.${value}`;
     const found = [pinnedPost].filter((post) => ["id", "author_id", "status"].every((key) => matches(key, post[key])));
-    return response.end(JSON.stringify([...found, ...matchingPosts(url.searchParams)]));
+    return response.end(JSON.stringify([...found, ...matchingPosts(url.searchParams), ...matchingSkillSwapPosts(url.searchParams)]));
   }
   if (path === "/rest/v1/app_logs" && request.method === "POST") {
     response.statusCode = 201;
@@ -215,6 +221,8 @@ createServer(async (request, response) => {
   const caller = bearerClaims(request).sub ?? null;
   const profileName = (id) => profiles.get(id)?.full_name ?? null;
   if (await handleMessaging(request, response, url, { userId: caller, profileName })) return;
+  // SP2-53: SkillSwap posts and their details.
+  if (await handleSkillSwap(request, response, url, { userId: caller })) return;
   if (path === "/rest/v1/user_roles") {
     roleLookups++;
     response.statusCode = 404;

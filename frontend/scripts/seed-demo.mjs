@@ -1,7 +1,8 @@
 /**
  * Creates (or resets) the demo accounts for the sprint review (SCRUM-182):
  * a student, a moderator and an administrator, with filled-in profiles,
- * their roles, and a handful of sample posts across the categories.
+ * their roles, a handful of sample posts across the categories, and two
+ * SkillSwap posts that match each other.
  *
  * Usage:
  *   npm run seed:demo                local Supabase, from .env.local
@@ -113,6 +114,28 @@ const POSTS = [
     category: "General",
     title: "Welcome to CampusConnect",
     body: "This is the place to ask questions, share events and find people to learn with. Please keep posts respectful and on topic. Moderators will remove anything that breaks the community guidelines.",
+  },
+];
+
+// SCRUM-61: two SkillSwap posts that fit each other, so the board and its
+// search have a match to show. Titles and bodies come from the database's
+// skillswap_post_text(), the same as posts written through the template.
+const SKILLSWAP_POSTS = [
+  {
+    author: "student",
+    can_teach: "Python for CMPS 200: loops, functions, debugging and getting through the first projects.",
+    wants_to_learn: "Conversational French. I can read a little but I freeze when I have to speak.",
+    meeting_method: "either",
+    availability: "Weekday evenings",
+    details: "Happy to meet in Jafet or on a call. An hour of each, once a week?",
+  },
+  {
+    author: "moderator",
+    can_teach: "French conversation, from beginner to intermediate. Native speaker.",
+    wants_to_learn: "Python basics for a data project in my politics course.",
+    meeting_method: "in_person",
+    availability: "Tuesday and Thursday afternoons",
+    details: null,
   },
 ];
 
@@ -368,11 +391,63 @@ if (await tableExists("posts")) {
   summary.push("skipped   posts (posts table missing)");
 }
 
+// SkillSwap posts, matched by author and title like the sample posts; their
+// details are upserted, so a re-run changes nothing.
+if (await tableExists("post_skillswap")) {
+  let added = 0;
+  for (const swap of SKILLSWAP_POSTS) {
+    const author = ACCOUNTS.find((account) => account.key === swap.author);
+
+    const { data: built, error: buildError } = await supabase
+      .rpc("skillswap_post_text", {
+        can_teach: swap.can_teach,
+        wants_to_learn: swap.wants_to_learn,
+        meeting_method: swap.meeting_method,
+        availability: swap.availability,
+        details: swap.details,
+      })
+      .single();
+    if (buildError) fail(`could not build a SkillSwap post: ${buildError.message}`);
+
+    const { data: existing, error: findError } = await supabase
+      .from("posts")
+      .select("id")
+      .eq("author_id", author.id)
+      .eq("title", built.title)
+      .eq("status", "published")
+      .limit(1);
+    if (findError) fail(`could not look up SkillSwap posts: ${findError.message}`);
+
+    let postId = existing[0]?.id;
+    if (!postId) {
+      const { data: inserted, error: insertError } = await supabase
+        .from("posts")
+        .insert({ author_id: author.id, title: built.title, body: built.body, category: "SkillSwap" })
+        .select("id")
+        .single();
+      if (insertError) fail(`could not create a SkillSwap post: ${insertError.message}`);
+      postId = inserted.id;
+      added += 1;
+    }
+
+    const { error: detailsError } = await supabase.from("post_skillswap").upsert({
+      post_id: postId,
+      can_teach: swap.can_teach,
+      wants_to_learn: swap.wants_to_learn,
+      meeting_method: swap.meeting_method,
+      availability: swap.availability,
+      details: swap.details,
+    });
+    if (detailsError) fail(`could not save SkillSwap details: ${detailsError.message}`);
+  }
+  summary.push(`skillswap ${added} added, ${SKILLSWAP_POSTS.length - added} already there`);
+} else {
+  summary.push("skipped   SCRUM-61 SkillSwap (post_skillswap table missing)");
+}
+
 // Later stories add their demo data here, each skipped while its table is
-// missing: SCRUM-61 gives each account a SkillSwap profile with skills that
-// match the others', and SCRUM-59 adds one conversation.
+// missing: SCRUM-59 adds one conversation.
 for (const [story, table] of [
-  ["SCRUM-61 SkillSwap", "skill_profiles"],
   ["SCRUM-59 messaging", "conversations"],
 ]) {
   summary.push(

@@ -4,8 +4,8 @@ import { countMyUnreadConversations, UnreadMessagesBadge } from "@/modules/messa
 import { NavLinks } from "./NavLinks";
 
 /**
- * The header on every signed-in page: the wordmark (to the feed), Messages
- * with the unread count, Profile and Log out.
+ * The header on every signed-in page: the wordmark (to the feed),
+ * SkillSwap, Messages with the unread count, Profile and Log out.
  */
 export async function AppHeader() {
   const unread = await countMyUnreadConversations();
