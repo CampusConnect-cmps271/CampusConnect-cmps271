@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { handleCommunity, matchingPosts } from "./mock-community.mjs";
 import { handleMessaging } from "./mock-messaging.mjs";
+import { handleNotifications } from "./mock-notifications.mjs";
 
 const user = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -18,6 +19,10 @@ const profileAccounts = {
   "messaging-maya@mail.aub.edu": "00000000-0000-4000-8000-000000000006",
   "messaging-omar@mail.aub.edu": "00000000-0000-4000-8000-000000000007",
   "messaging-rami@mail.aub.edu": "00000000-0000-4000-8000-000000000008",
+  // SP2-40..42: three students for the notification tests.
+  "notify-lina@mail.aub.edu": "00000000-0000-4000-8000-000000000009",
+  "notify-karim@mail.aub.edu": "00000000-0000-4000-8000-00000000000a",
+  "notify-nadia@mail.aub.edu": "00000000-0000-4000-8000-00000000000b",
 };
 // Another student whose public profile the tests visit.
 const otherStudentId = "00000000-0000-4000-8000-000000000004";
@@ -35,6 +40,9 @@ for (const [id, fullName] of [
   ["00000000-0000-4000-8000-000000000006", "Maya Saleh"],
   ["00000000-0000-4000-8000-000000000007", "Omar Fares"],
   ["00000000-0000-4000-8000-000000000008", "Rami Nassar"],
+  ["00000000-0000-4000-8000-000000000009", "Lina Haddad"],
+  ["00000000-0000-4000-8000-00000000000a", "Karim Aoun"],
+  ["00000000-0000-4000-8000-00000000000b", "Nadia Khalil"],
 ]) {
   profiles.set(id, { id, full_name: fullName, major: null, graduation_year: null, bio: null, interests: [], pinned_post_id: null });
 }
@@ -215,6 +223,8 @@ createServer(async (request, response) => {
   const caller = bearerClaims(request).sub ?? null;
   const profileName = (id) => profiles.get(id)?.full_name ?? null;
   if (await handleMessaging(request, response, url, { userId: caller, profileName })) return;
+  // SP2-40: notifications, limited to the caller like RLS.
+  if (await handleNotifications(request, response, url, { userId: caller })) return;
   if (path === "/rest/v1/user_roles") {
     roleLookups++;
     response.statusCode = 404;

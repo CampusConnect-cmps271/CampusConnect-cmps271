@@ -7,6 +7,8 @@ import { usePathname } from "next/navigation";
 type NavLinksProps = {
   /** Rendered after "Messages"; comes from the messaging module. */
   messagesBadge: ReactNode;
+  /** The notification bell; comes from the notifications module. */
+  notifications: ReactNode;
   /** The log-out control; comes from the auth module. */
   logout: ReactNode;
 };
@@ -19,7 +21,7 @@ const LINK_CLASS =
  * because the layout that renders the header does not re-render on
  * navigation, so only the client knows the current path.
  */
-export function NavLinks({ messagesBadge, logout }: NavLinksProps) {
+export function NavLinks({ messagesBadge, notifications, logout }: NavLinksProps) {
   const pathname = usePathname();
   const inMessages = pathname === "/messages" || pathname.startsWith("/messages/");
   const inProfile = pathname === "/profile";
@@ -36,6 +38,7 @@ export function NavLinks({ messagesBadge, logout }: NavLinksProps) {
           {messagesBadge}
         </Link>
       </li>
+      <li>{notifications}</li>
       <li>
         <Link
           href="/profile"
