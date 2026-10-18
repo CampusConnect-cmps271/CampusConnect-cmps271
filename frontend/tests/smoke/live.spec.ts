@@ -56,7 +56,7 @@ test("the demo student reads the feed, posts, deletes the post and logs out", as
   await expect(page).toHaveURL(/\/home$/);
   await expect(page.getByText(title)).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Log out", exact: true }).click();
+  await page.getByRole("banner").getByRole("button", { name: "Log out", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   await page.goto("/home");
   await expect(page).toHaveURL(/\/login\?next=%2Fhome$/);

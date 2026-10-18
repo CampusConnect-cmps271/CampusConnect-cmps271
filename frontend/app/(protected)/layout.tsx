@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { requireUser } from "@/modules/auth";
+import { AppHeader } from "@/modules/navigation";
 
 /**
  * Every page in this route group requires a signed-in student.
@@ -15,5 +16,10 @@ export default async function ProtectedLayout({
 }) {
   await requireUser();
 
-  return children;
+  return (
+    <>
+      <AppHeader />
+      {children}
+    </>
+  );
 }
