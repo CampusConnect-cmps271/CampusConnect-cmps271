@@ -7,10 +7,16 @@ const mocks = vi.hoisted(() => ({
   redirect: vi.fn((path: string): never => { throw new Error(`REDIRECT:${path}`); }),
   warn: vi.fn(),
   info: vi.fn(),
+  readCurrentSuspension: vi.fn(),
 }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ auth: mocks }) }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/modules/logging", () => ({ log: mocks }));
+vi.mock("@/modules/moderation/suspensions", () => ({
+  readCurrentSuspension: mocks.readCurrentSuspension,
+  suspensionMessage: (suspension: { reason: string }) =>
+    `Your account is suspended. Reason: ${suspension.reason}`,
+}));
 
 import { login, register } from "./actions";
 
@@ -25,6 +31,7 @@ function submission(email = " STUDENT+test@MAIL.AUB.EDU ", password = " exact pa
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.signOut.mockResolvedValue({ error: null });
+  mocks.readCurrentSuspension.mockResolvedValue(null);
 });
 
 describe("registration action", () => {
@@ -112,5 +119,23 @@ describe("login verification handoff", () => {
     expect((await login({}, submission())).message).toBe("Something went wrong. Please try again.");
     expect(mocks.redirect).not.toHaveBeenCalled();
     expect(mocks.info).not.toHaveBeenCalled();
+  });
+
+  it("clears the local session and explains why a suspended account cannot sign in", async () => {
+    const user = { id: "test-user", email_confirmed_at: "confirmed" };
+    mocks.signInWithPassword.mockResolvedValue({
+      data: { user, session: { user } },
+      error: null,
+    });
+    mocks.readCurrentSuspension.mockResolvedValue({
+      reason: "Repeated harassment",
+      suspended_until: null,
+    });
+
+    expect(await login({}, submission())).toMatchObject({
+      message: "Your account is suspended. Reason: Repeated harassment",
+    });
+    expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(mocks.redirect).not.toHaveBeenCalled();
   });
 });

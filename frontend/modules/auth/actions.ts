@@ -5,6 +5,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { log } from "@/modules/logging";
 import {
+  readCurrentSuspension,
+  suspensionMessage,
+} from "@/modules/moderation/suspensions";
+import {
   ALREADY_REGISTERED_MESSAGE,
   isExistingAccount,
   messageForAuthError,
@@ -89,6 +93,23 @@ export async function login(
 
   if (!data.session || !data.user) {
     return { message: messageForAuthError(null), email: parsed.data.email };
+  }
+
+  try {
+    const suspension = await readCurrentSuspension(supabase);
+    if (suspension) {
+      await supabase.auth.signOut({ scope: "local" });
+      return {
+        message: suspensionMessage(suspension),
+        email: parsed.data.email,
+      };
+    }
+  } catch {
+    await supabase.auth.signOut({ scope: "local" });
+    return {
+      message: "Unable to verify your account status. Please try again.",
+      email: parsed.data.email,
+    };
   }
 
   log.info(
