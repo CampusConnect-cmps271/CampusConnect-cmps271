@@ -48,4 +48,5 @@ export {
 
 export type { SkillSwapCard, SkillSwapDetails } from "./types";
 
+export { SkillSwapCardView } from "./components/SkillSwapCardView";
 export { SkillSwapForm } from "./components/SkillSwapForm";
