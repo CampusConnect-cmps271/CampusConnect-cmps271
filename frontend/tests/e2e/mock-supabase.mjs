@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import { handleCommunity, matchingPosts } from "./mock-community.mjs";
+import { handleMessaging } from "./mock-messaging.mjs";
 import { handleCourses } from "./mock-courses.mjs";
 
 const user = {
@@ -14,6 +15,10 @@ const user = {
 const profileAccounts = {
   "profile-editor@mail.aub.edu": "00000000-0000-4000-8000-000000000003",
   "profile-viewer@mail.aub.edu": "00000000-0000-4000-8000-000000000005",
+  // SP2-36..39: three students for the messaging tests.
+  "messaging-maya@mail.aub.edu": "00000000-0000-4000-8000-000000000006",
+  "messaging-omar@mail.aub.edu": "00000000-0000-4000-8000-000000000007",
+  "messaging-rami@mail.aub.edu": "00000000-0000-4000-8000-000000000008",
 };
 // Another student whose public profile the tests visit.
 const otherStudentId = "00000000-0000-4000-8000-000000000004";
@@ -27,6 +32,13 @@ const profiles = new Map([[otherStudentId, {
   id: otherStudentId, full_name: "Other Student", major: "Biology", graduation_year: 2026,
   bio: "Pre-med and coffee enthusiast.", interests: ["Biology", "Running"], pinned_post_id: pinnedPost.id,
 }]]);
+for (const [id, fullName] of [
+  ["00000000-0000-4000-8000-000000000006", "Maya Saleh"],
+  ["00000000-0000-4000-8000-000000000007", "Omar Fares"],
+  ["00000000-0000-4000-8000-000000000008", "Rami Nassar"],
+]) {
+  profiles.set(id, { id, full_name: fullName, major: null, graduation_year: null, bio: null, interests: [], pinned_post_id: null });
+}
 let roleLookups = 0;
 let resends = 0;
 // Test-only state, isolated by email so parallel recovery cases cannot affect
@@ -206,6 +218,10 @@ createServer(async (request, response) => {
   // Sprint 2 tables: posts, comments, upvotes and saved posts.
   if (handleCourses(request, response, url, bearerEmail(request))) return;
   if (await handleCommunity(request, response, url)) return;
+  // SP2-36: conversations and messages, limited to the caller like RLS.
+  const caller = bearerClaims(request).sub ?? null;
+  const profileName = (id) => profiles.get(id)?.full_name ?? null;
+  if (await handleMessaging(request, response, url, { userId: caller, profileName })) return;
   if (path === "/rest/v1/user_roles") {
     roleLookups++;
     response.statusCode = 404;
