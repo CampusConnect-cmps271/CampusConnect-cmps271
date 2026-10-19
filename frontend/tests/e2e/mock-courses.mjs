@@ -1,5 +1,5 @@
 // Entirely synthetic records: these fixtures never contact hosted Supabase.
-const courses = [
+export const courses = [
   ...Array.from({ length: 27 }, (_, index) => ({
     code: `CMPS ${101 + index}`, name: `Computing elective ${index + 1}`,
     credits: 3, department: "Computer Science", description: "A synthetic computing course for catalogue browser tests. Students explore programming techniques, practical problem solving, and the social context of computing.\n\nThe final project brings together the full set of topics covered during the term. This sentence marks the end of the complete course description.",
