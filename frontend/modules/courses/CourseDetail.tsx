@@ -1,3 +1,4 @@
+import { AppShell } from "@/components/AppShell";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CourseUnavailable, getCourseDetail } from "./detail";
@@ -14,19 +15,19 @@ export async function CourseDetail({ code, filters }: { code: string; filters: C
     detail = await getCourseDetail(code);
   } catch (error) {
     if (!(error instanceof CourseUnavailable)) throw error;
-    return <main className={styles.page}>
+    return <AppShell><main className={styles.page}>
       <Link href={coursesUrl(filters)}>← Back to courses</Link>
       <section className={`${styles.notice} ${styles.detailNotice}`} role="alert" aria-labelledby="course-error-title">
         <h1 id="course-error-title">Course couldn’t be loaded</h1>
         <p>The course information is temporarily unavailable. Please try again.</p>
         <a href={courseUrl(code, filters)}>Try again</a>
       </section>
-    </main>;
+    </main></AppShell>;
   }
   if (!detail) notFound();
   const { course, prerequisiteParts, references, linksUnavailable, hasUnresolvedReferences } = detail;
 
-  return <main className={styles.page}>
+  return <AppShell><main className={styles.page}>
     <Link href={coursesUrl(filters)}>← Back to courses</Link>
     <header className={styles.header}>
       <p className={styles.eyebrow}>{course.code}</p>
@@ -69,5 +70,5 @@ export async function CourseDetail({ code, filters }: { code: string; filters: C
         <ReviewSection courseId={course.id} />
       </section>
     </div>
-  </main>;
+  </main></AppShell>;
 }
