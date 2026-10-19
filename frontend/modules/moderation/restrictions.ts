@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 
-export type RestrictedContentType = "post" | "comment";
+export type RestrictedContentType = "post" | "comment" | "review";
 
 export type ContentRestrictionInput = {
   userId: string;
@@ -36,7 +36,7 @@ const RESTRICTION_MESSAGES: Record<RestrictionRule, string> = {
   too_many_links:
     "This content contains too many links. Remove some links and try again.",
   duplicate_content:
-    "You already submitted identical content. Please avoid duplicate posts or comments.",
+    "You already submitted identical content. Please avoid duplicate submissions.",
   posting_too_quickly:
     "You are posting too quickly. Wait a moment and try again.",
   check_unavailable:
@@ -149,7 +149,7 @@ export function evaluateContentRestrictions(
  * Canonical server-side community restriction check.
  *
  * Inputs: verified user id, content type, body, optional post title, and the
- * current row id for edits. Every post/comment Server Action calls this before
+ * current row id for edits. Post, comment and review Server Actions call this before
  * saving so the rule list never ships to the browser.
  */
 export async function checkContentRestrictions(
@@ -160,6 +160,17 @@ export async function checkContentRestrictions(
     input.contentType === "post" ? POST_WINDOW_MS : COMMENT_WINDOW_MS;
   const since = new Date(Date.now() - windowMs).toISOString();
 
+  if (input.contentType === "review") {
+    const { data, error } = await supabase
+      .from("course_reviews")
+      .select("id, body")
+      .eq("student_id", input.userId)
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(MAX_COMMENTS_PER_WINDOW + 10);
+    if (error) return blocked("check_unavailable");
+    return evaluateContentRestrictions(input, (data ?? []) as RecentEntry[]);
+  }
   if (input.contentType === "post") {
     const { data, error } = await supabase
       .from("posts")
