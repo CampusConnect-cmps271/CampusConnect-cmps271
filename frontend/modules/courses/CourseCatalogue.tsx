@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CatalogueUnavailable, getCourseCatalogue, type Course } from "./catalogue";
 import { COURSES_PER_PAGE, coursesUrl, type CourseFilters } from "./search";
 import styles from "./courses.module.css";
+import { courseUrl } from "./references";
 
 export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
   // Authentication redirects must escape this catch, rather than becoming
@@ -80,6 +81,10 @@ export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
               </summary>
               <p className={styles.fullDescription}>{course.description}</p>
             </details>
+            <Link href={courseUrl(course.code, { ...filters, page })} className={styles.coursePageLink}
+              aria-label={`View course ${course.code}`}>
+              View course →
+            </Link>
           </article>)}
         </div>
       </section>

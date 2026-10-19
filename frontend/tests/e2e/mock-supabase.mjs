@@ -4,6 +4,7 @@ import { handleMessaging } from "./mock-messaging.mjs";
 import { handleNotifications } from "./mock-notifications.mjs";
 import { handleSkillSwap, matchingSkillSwapPosts } from "./mock-skillswap.mjs";
 import { handleCourses } from "./mock-courses.mjs";
+import { handleReviews } from "./mock-reviews.mjs";
 
 const user = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -25,6 +26,17 @@ const profileAccounts = {
   "notify-lina@mail.aub.edu": "00000000-0000-4000-8000-000000000009",
   "notify-karim@mail.aub.edu": "00000000-0000-4000-8000-00000000000a",
   "notify-nadia@mail.aub.edu": "00000000-0000-4000-8000-00000000000b",
+  // SP2-46/52: isolated students for course-review and reporting tests.
+  "reviews-journey@mail.aub.edu": "00000000-0000-4000-8000-000000000106",
+  "reviews-validation@mail.aub.edu": "00000000-0000-4000-8000-000000000107",
+  "reviews-owner@mail.aub.edu": "00000000-0000-4000-8000-000000000108",
+  "reviews-other@mail.aub.edu": "00000000-0000-4000-8000-000000000109",
+  "reviews-duplicate@mail.aub.edu": "00000000-0000-4000-8000-000000000110",
+  "reviews-stale@mail.aub.edu": "00000000-0000-4000-8000-000000000111",
+  "reviews-pending@mail.aub.edu": "00000000-0000-4000-8000-000000000112",
+  "reviews-network@mail.aub.edu": "00000000-0000-4000-8000-000000000113",
+  "reviews-report-owner@mail.aub.edu": "00000000-0000-4000-8000-000000000114",
+  "reviews-reporter@mail.aub.edu": "00000000-0000-4000-8000-000000000115",
   // SP2-53..55: two students for the SkillSwap journey.
   "skillswap-sami@mail.aub.edu": "00000000-0000-4000-8000-00000000000c",
   "skillswap-dana@mail.aub.edu": "00000000-0000-4000-8000-00000000000d",
@@ -231,6 +243,7 @@ createServer(async (request, response) => {
 
   // Sprint 2 tables: posts, comments, upvotes and saved posts.
   if (handleCourses(request, response, url, bearerEmail(request))) return;
+  if (await handleReviews(request, response, url, bearerClaims(request))) return;
   if (await handleCommunity(request, response, url)) return;
   // SP2-36: conversations and messages, limited to the caller like RLS.
   const caller = bearerClaims(request).sub ?? null;

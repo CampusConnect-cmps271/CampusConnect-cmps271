@@ -6,9 +6,10 @@ import { useState } from "react";
 import { moderateReportedContent } from "./actions";
 
 export type ModerationQueueItem = {
-  target_type: "post" | "comment";
+  target_type: "post" | "comment" | "review";
   target_id: string;
-  post_id: string;
+  post_id: string | null;
+  course_code: string | null;
   author_id: string;
   report_count: number;
   reasons: string[];
@@ -71,7 +72,9 @@ export default function ModerationQueue({ items }: { items: ModerationQueueItem[
           </dl>
 
           <Link
-            href={`/posts/${item.post_id}${item.target_type === "comment" ? `#comment-${item.target_id}` : ""}`}
+            href={item.target_type === "review"
+              ? `/courses/${encodeURIComponent(item.course_code ?? "")}#review-${item.target_id}`
+              : `/posts/${item.post_id}${item.target_type === "comment" ? `#comment-${item.target_id}` : ""}`}
             className="mt-3 inline-block text-sm font-semibold text-blue-700 hover:underline dark:text-blue-300"
           >
             View reported item

@@ -16,7 +16,7 @@ export default function ReportDialog({
   targetType,
   targetId,
 }: {
-  targetType: "post" | "comment";
+  targetType: "post" | "comment" | "review";
   targetId: string;
 }) {
   const [open, setOpen] = useState(false);

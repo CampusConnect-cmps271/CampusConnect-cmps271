@@ -8,6 +8,8 @@ const readMigration = (name) =>
 
 const migrations = await Promise.all([
   "20261005010000_roles_and_permissions.sql",
+  "20261017091812_create_courses.sql",
+  "20261018191925_create_course_reviews.sql",
   "20261010130000_create_posts.sql",
   "20261010150000_allow_post_editing.sql",
   "20261010160000_fix_post_editing_permissions.sql",
@@ -17,7 +19,21 @@ const migrations = await Promise.all([
   "20261011170000_create_post_upvotes.sql",
   "20261012100000_create_post_comments.sql",
   "20261018123712_sprint2_moderation.sql",
+  "20261019162553_review_reporting.sql",
 ].map(readMigration));
+
+const ratingsView = `
+  create view public.course_rating_averages with (security_invoker = true) as
+  select c.id as course_id, count(r.id) as review_count,
+    avg(r.difficulty_rating) as average_difficulty,
+    avg(r.workload_rating) as average_workload,
+    avg(r.usefulness_rating) as average_usefulness,
+    avg(r.overall_rating) as average_overall
+  from public.courses c left join public.course_reviews r on r.course_id = c.id
+  group by c.id;
+  revoke all on public.course_rating_averages from public, anon, authenticated, service_role;
+  grant select on public.course_rating_averages to authenticated, service_role;
+`;
 
 const studentId = "00000000-0000-4000-8000-000000000001";
 const otherId = "00000000-0000-4000-8000-000000000002";
@@ -25,10 +41,13 @@ const moderatorId = "00000000-0000-4000-8000-000000000003";
 const adminId = "00000000-0000-4000-8000-000000000004";
 const postId = "00000000-0000-4000-8000-0000000000a1";
 const commentId = "00000000-0000-4000-8000-0000000000b1";
+const courseId = "10000000-0000-4000-8000-000000000001";
+const reviewId = "20000000-0000-4000-8000-000000000001";
 
 const foundation = `
   create role anon;
   create role authenticated;
+  create role service_role bypassrls;
   create schema auth;
   create table auth.users (id uuid primary key, email text);
   create function auth.uid()
@@ -58,7 +77,10 @@ describe("Sprint 2 moderation database security", () => {
   before(async () => {
     database = new PGlite();
     await database.exec(foundation);
-    for (const migration of migrations) await database.exec(migration);
+    for (const [index, migration] of migrations.entries()) {
+      if (index === migrations.length - 1) await database.exec(ratingsView);
+      await database.exec(migration);
+    }
     await database.exec(`
       update public.user_roles set role = 'moderator' where user_id = '${moderatorId}';
       update public.user_roles set role = 'administrator' where user_id = '${adminId}';
@@ -66,6 +88,15 @@ describe("Sprint 2 moderation database security", () => {
       values ('${postId}', '${otherId}', 'Reported post', 'Post body', 'General');
       insert into public.post_comments (id, post_id, author_id, body)
       values ('${commentId}', '${postId}', '${otherId}', 'Reported comment');
+      insert into public.courses (id, code, name, description, credits, department)
+      values ('${courseId}', 'CMPS 271', 'Software Engineering', 'Test course.', 3, 'Computer Science');
+      insert into public.course_reviews (
+        id, course_id, student_id, difficulty_rating, workload_rating,
+        usefulness_rating, overall_rating, body, semester_taken, completed_course
+      ) values (
+        '${reviewId}', '${courseId}', '${otherId}', 2, 3, 5, 4,
+        'Helpful course review.', 'Fall 2026', true
+      );
     `);
   });
 
@@ -154,6 +185,56 @@ describe("Sprint 2 moderation database security", () => {
       actor_id: moderatorId,
       action: "content.removed",
     });
+  });
+
+  it("queues reported reviews and removes them from visibility and course averages", async () => {
+    await asUser(database, studentId, async () => {
+      await database.query(
+        `insert into public.content_reports (reporter_id, review_id, reason, details)
+         values ($1, $2, 'misleading', 'The review contains false information')`,
+        [studentId, reviewId],
+      );
+    });
+
+    await asUser(database, moderatorId, async () => {
+      const { rows } = await database.query(
+        "select * from public.moderation_queue() where target_type = 'review'",
+      );
+      assert.equal(rows.length, 1);
+      assert.equal(rows[0].target_id, reviewId);
+      assert.equal(rows[0].course_code, "CMPS 271");
+      await database.query(
+        "select public.moderate_reported_content('review', $1, 'remove', 'Violates review guidelines')",
+        [reviewId],
+      );
+    });
+
+    await asUser(database, studentId, async () => {
+      const hidden = await database.query("select id from public.course_reviews where id = $1", [reviewId]);
+      assert.equal(hidden.rows.length, 0);
+      const { rows: [summary] } = await database.query(
+        "select review_count, average_overall from public.course_rating_averages where course_id = $1",
+        [courseId],
+      );
+      assert.equal(Number(summary.review_count), 0);
+      assert.equal(summary.average_overall, null);
+    });
+
+    const { rows: [review] } = await database.query(
+      "select status, removed_at is not null as has_removed_at from public.course_reviews where id = $1",
+      [reviewId],
+    );
+    assert.deepEqual(review, { status: "removed", has_removed_at: true });
+    const { rows: [report] } = await database.query(
+      "select status from public.content_reports where review_id = $1",
+      [reviewId],
+    );
+    assert.equal(report.status, "removed");
+    const { rows: [audit] } = await database.query(
+      "select action, target_type from public.audit_log where target_id = $1",
+      [reviewId],
+    );
+    assert.deepEqual(audit, { action: "content.removed", target_type: "review" });
   });
 
   it("prevents direct audit writes and exposes audit rows only to administrators", async () => {

@@ -18,6 +18,13 @@ describe("moderation input schemas", () => {
     }
   });
 
+  it("accepts reviews as report and moderation targets", () => {
+    expect(reportSchema.safeParse({ targetType: "review", targetId: id, reason: "spam", details: "" }).success).toBe(true);
+    expect(moderationDecisionSchema.safeParse({
+      targetType: "review", targetId: id, decision: "remove", reason: "Breaks review guidelines",
+    }).success).toBe(true);
+  });
+
   it("rejects an invalid target and excessive details", () => {
     expect(
       reportSchema.safeParse({

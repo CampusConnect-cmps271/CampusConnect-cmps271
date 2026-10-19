@@ -27,10 +27,11 @@ export async function submitContentReport(
   }
 
   const supabase = await createClient();
-  const target =
-    parsed.data.targetType === "post"
-      ? { post_id: parsed.data.targetId, comment_id: null }
-      : { post_id: null, comment_id: parsed.data.targetId };
+  const target = {
+    post_id: parsed.data.targetType === "post" ? parsed.data.targetId : null,
+    comment_id: parsed.data.targetType === "comment" ? parsed.data.targetId : null,
+    review_id: parsed.data.targetType === "review" ? parsed.data.targetId : null,
+  };
 
   const { error } = await supabase.from("content_reports").insert({
     reporter_id: user.id,
@@ -81,6 +82,8 @@ export async function moderateReportedContent(
   revalidatePath("/moderation");
   revalidatePath("/home");
   revalidatePath("/posts/[id]", "page");
+  revalidatePath("/courses/[code]", "page");
+  revalidatePath("/courses");
   return { success: true };
 }
 
