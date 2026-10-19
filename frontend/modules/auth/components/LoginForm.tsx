@@ -37,7 +37,7 @@ export function LoginForm({ next }: LoginFormProps) {
   const emailError = state?.errors?.email?.[0];
 
   return (
-    <form action={formAction} noValidate className="flex flex-col gap-5">
+    <form action={formAction} noValidate>
       <input type="hidden" name="next" value={next} />
 
       {/* Rejected credentials and rate limits land here, not on a field. */}
@@ -46,16 +46,13 @@ export function LoginForm({ next }: LoginFormProps) {
       </p>
 
       {state?.message ? (
-        <p
-          role="alert"
-          className="rounded-md border border-red-600/30 bg-red-600/10 px-3 py-2 text-sm text-red-700 dark:text-red-300"
-        >
+        <p role="alert" className="alert alert-error">
           {state.message}
         </p>
       ) : null}
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor={emailId} className="text-sm font-medium">
+      <div className="field">
+        <label htmlFor={emailId}>
           University email
         </label>
         <input
@@ -70,21 +67,17 @@ export function LoginForm({ next }: LoginFormProps) {
           defaultValue={state?.email}
           aria-invalid={emailError ? true : undefined}
           aria-describedby={emailError ? emailErrorId : undefined}
-          className="w-full rounded-md border border-black/15 bg-transparent px-3 py-2 text-base outline-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-sky-600 aria-[invalid]:border-red-600 dark:border-white/20"
         />
         {emailError ? (
-          <p id={emailErrorId} className="text-sm text-red-700 dark:text-red-400">
+          <p id={emailErrorId} className="field-error">
             {emailError}
           </p>
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div>
         <PasswordInput errors={state?.errors?.password} />
-        <Link
-          href={FORGOT_PASSWORD_PATH}
-          className="self-end text-sm font-medium text-sky-700 underline-offset-2 hover:underline dark:text-sky-400"
-        >
+        <Link href={FORGOT_PASSWORD_PATH} className="link-button forgot-link">
           Forgot password?
         </Link>
       </div>
@@ -92,17 +85,14 @@ export function LoginForm({ next }: LoginFormProps) {
       <button
         type="submit"
         disabled={pending}
-        className="rounded-md bg-sky-700 px-4 py-2.5 text-base font-medium text-white transition-opacity hover:bg-sky-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+        className="btn btn-primary btn-block"
       >
         {pending ? "Logging in…" : "Log in"}
       </button>
 
-      <p className="text-sm opacity-80">
+      <p className="auth-footer">
         New to CampusConnect?{" "}
-        <Link
-          href={REGISTER_PATH}
-          className="font-medium text-sky-700 underline-offset-2 hover:underline dark:text-sky-400"
-        >
+        <Link href={REGISTER_PATH}>
           Sign up
         </Link>
       </p>

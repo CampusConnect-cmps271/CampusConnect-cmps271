@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AppShell } from "@/components/AppShell";
 import Link from "next/link";
 import { requireUser } from "@/modules/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -42,12 +43,13 @@ export default async function SavedPage() {
   });
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
+    <AppShell>
+<main className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
       <Link
         href="/home"
-        className="mb-8 inline-block text-sm text-blue-400 hover:underline"
+        className="mb-8 inline-block text-sm text-[var(--maroon)] hover:underline"
       >
-        ← Back to feed
+        ← Back to home
       </Link>
 
       <h1 className="mb-6 text-2xl font-semibold tracking-tight">
@@ -55,8 +57,8 @@ export default async function SavedPage() {
       </h1>
 
       {saved.length === 0 ? (
-        <div className="rounded-lg border border-gray-700 p-8 text-center">
-          <p className="text-gray-400">
+        <div className="rounded-lg border border-[var(--border)] p-8 text-center">
+          <p className="text-[var(--ink-soft)]">
             You haven&apos;t saved any posts yet.
           </p>
         </div>
@@ -65,15 +67,15 @@ export default async function SavedPage() {
           {saved.map((post) => (
             <li
               key={post.id}
-              className="rounded-xl border border-gray-700 p-5"
+              className="rounded-xl border border-[var(--border)] p-5"
             >
               <div className="mb-3 flex items-center justify-between gap-3">
-                <span className="rounded-full bg-blue-600/20 px-3 py-1 text-xs font-medium text-blue-400">
+                <span className="rounded-full bg-[var(--maroon-100)] px-3 py-1 text-xs font-medium text-[var(--maroon)]">
                   {post.category}
                 </span>
 
-                <time className="text-xs text-gray-400">
-                  {new Date(post.created_at).toLocaleDateString("en-US", { timeZone: "Asia/Beirut" })}
+                <time className="text-xs text-[var(--ink-soft)]">
+                  {new Date(post.created_at).toLocaleDateString()}
                 </time>
               </div>
 
@@ -91,5 +93,6 @@ export default async function SavedPage() {
         </ul>
       )}
     </main>
+</AppShell>
   );
 }

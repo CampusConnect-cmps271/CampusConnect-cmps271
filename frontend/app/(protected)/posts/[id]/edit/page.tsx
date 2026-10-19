@@ -1,5 +1,6 @@
 
 import Link from "next/link";
+import { AppShell } from "@/components/AppShell";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/modules/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -39,10 +40,11 @@ export default async function EditPostPage({
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10">
+    <AppShell>
+<main className="mx-auto max-w-2xl px-4 py-10">
       <Link
         href={`/posts/${post.id}`}
-        className="mb-6 inline-block text-sm text-blue-400 hover:underline"
+        className="mb-6 inline-block text-sm text-[var(--maroon)] hover:underline"
       >
         ← Back to post
       </Link>
@@ -56,5 +58,6 @@ export default async function EditPostPage({
         categories={categories ?? []}
       />
     </main>
+</AppShell>
   );
 }

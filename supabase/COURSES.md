@@ -12,10 +12,16 @@ From `frontend/`, with the local Supabase stack running:
 npx supabase migration up --local
 ```
 
-For the hosted project, apply
-[`20261015090000_create_courses.sql`](migrations/20261015090000_create_courses.sql)
-through the project's reviewed migration process or run that complete file once
-in the SQL Editor. The importer requires the migration to have been applied.
+The migration is **already applied** to the CampusConnect hosted project
+(`udtdlctvckaaboycahuk`) as `20261017091812_create_courses` on October 17, 2026.
+Do not run it again there. The local filename now matches Supabase's recorded
+version so future deployments will recognize it as applied.
+
+For another project, apply
+[`20261017091812_create_courses.sql`](migrations/20261017091812_create_courses.sql)
+through its reviewed migration process. The importer requires the migration
+to have been applied. The hosted CampusConnect table is ready but has no
+catalogue rows yet; an authoritative CSV still needs to be imported.
 
 ## Prepare the CSV
 

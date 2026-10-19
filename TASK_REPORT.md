@@ -1,6 +1,7 @@
 # SCRUM-166: Course catalogue import
 
 Date: October 15, 2026
+Last updated: October 17, 2026
 
 **Owner:** mohamad ghosn — verified through the connected Atlassian account and
 [SCRUM-166](https://cmps271a.atlassian.net/browse/SCRUM-166).
@@ -24,16 +25,17 @@ survive updates. Prerequisite prose is preserved to retain AND/OR semantics.
 An offline dry run and separate local/hosted target modes support review before
 importing. No packages were added.
 
-**Delivery status:** implementation verified locally. Applying the hosted
-migration and importing an authoritative catalogue CSV remain deployment steps.
-The bundled CSV is synthetic. No hosted data, Jira statuses, credentials, Git
-commits or remote branches were changed.
+**Delivery status:** implementation verified locally and the courses migration
+applied to hosted CampusConnect on October 17, 2026 through the Supabase plugin.
+Importing an authoritative catalogue CSV remains pending; the table currently
+contains zero rows. The bundled CSV is synthetic. Jira statuses and credentials
+were not changed, and this deployment follow-up makes no Git commit or push.
 
 ## Files added or changed
 
 | File | Purpose |
 | --- | --- |
-| `supabase/migrations/20261015090000_create_courses.sql` | Course schema, constraints, index and access policies. |
+| `supabase/migrations/20261017091812_create_courses.sql` | Course schema, constraints, index and access policies; renamed to match the hosted migration version. |
 | `frontend/scripts/import-courses.mjs` | CSV validation and Supabase import CLI. |
 | `supabase/data/courses.example.csv` | Two explicitly synthetic example rows. |
 | `frontend/tests/course-import.test.mjs` | CSV, target selection, SDK requests and batch failure tests. |
@@ -58,6 +60,32 @@ commits or remote branches were changed.
   by the environment's worker port-binding restriction; no build configuration
   or existing font code was changed.
 
+## Hosted deployment verification — October 17, 2026
+
+- Verified SCRUM-166 is still assigned to mohamad ghosn before deployment.
+- Confirmed the CampusConnect project (`udtdlctvckaaboycahuk`) had no courses
+  table, then applied the prepared SQL as migration `20261017091812_create_courses`.
+- Verified all eight columns, primary/unique keys, department/code index, RLS
+  policy and role grants on the hosted database. `authenticated` has SELECT
+  only; `anon` has no table access; `service_role` has SELECT, INSERT and UPDATE.
+- Live transaction tests passed for service-role inserts, stable IDs on upsert,
+  updated metadata, rejected negative credits and duplicate codes, signed-in
+  reads, denied student updates and denied anonymous reads. All verification
+  rows were rolled back; the table remains empty.
+- Renamed the local migration from `20261015090000` to Supabase's actual
+  `20261017091812` version and updated the test and documentation references.
+  This prevents future migration pushes from treating the same DDL as pending.
+- Re-ran all 16 catalogue tests after synchronizing the migration version; all
+  passed. Whitespace checks passed as well.
+- Security advisors reported no findings for `courses`. They did report existing
+  role functions callable as SECURITY DEFINER by
+  [anonymous](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable)
+  and [authenticated](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)
+  users, and [disabled leaked-password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+  An [RLS-without-policy notice](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)
+  also matches the existing service-only `app_logs` design. These findings are
+  outside SCRUM-166; no other feature's permissions or Auth settings were changed.
+
 ## Architecture reference retained for future tasks
 
 Follow the diagram supplied by the user on October 15: Next.js App Router pages
@@ -80,7 +108,7 @@ Recheck current ownership and status before starting the next item.
 
 | Story | Your assigned subtasks |
 | --- | --- |
-| SCRUM-44: Course discovery | SCRUM-166 catalogue import (implemented locally here); SCRUM-167 browse/search. |
+| SCRUM-44: Course discovery | SCRUM-166 schema deployed; official CSV import pending; SCRUM-167 browse/search. |
 | SCRUM-45: Course information | SCRUM-168 course page. |
 | SCRUM-46: Course reviews | SCRUM-169 review storage; SCRUM-170 review form. |
 | SCRUM-47: Course ratings | SCRUM-171 rating averages; SCRUM-172 rating summary. |

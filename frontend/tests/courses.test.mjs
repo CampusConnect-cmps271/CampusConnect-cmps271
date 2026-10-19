@@ -4,7 +4,7 @@ import { after, before, describe, it } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { parseCourseCatalogue } from "../scripts/import-courses.mjs";
 
-const migration = await readFile(new URL("../../supabase/migrations/20261015090000_create_courses.sql", import.meta.url), "utf8");
+const migration = await readFile(new URL("../../supabase/migrations/20261017091812_create_courses.sql", import.meta.url), "utf8");
 const example = await readFile(new URL("../../supabase/data/courses.example.csv", import.meta.url), "utf8");
 
 describe("SCRUM-166 course storage and permissions", () => {
