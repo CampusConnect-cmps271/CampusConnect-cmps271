@@ -87,6 +87,30 @@ test("tampering with review identity cannot edit another student's review", asyn
   } finally { await otherContext.close(); }
 });
 
+test("a student can report another student's published course review", async ({ page, browser }) => {
+  await login(page, "reviews-report-owner@mail.aub.edu");
+  await fill(page, "A review that another student can report.");
+  await page.getByRole("button", { name: "Post review", exact: true }).click();
+  await expect(feedback(page)).toContainText("saved");
+
+  const reporterContext = await browser.newContext();
+  const reporter = await reporterContext.newPage();
+  try {
+    await login(reporter, "reviews-other@mail.aub.edu");
+    const card = reporter.getByRole("article").filter({ hasText: "A review that another student can report." });
+    await expect(card).toBeVisible();
+    const reason = card.getByRole("combobox", { name: "Reason" });
+    await card.getByRole("button", { name: "Report review", exact: true }).click();
+    await expect(reason).toBeVisible();
+    await reason.selectOption("misleading");
+    await card.getByLabel("Details (optional)", { exact: true }).fill("The course information is inaccurate.");
+    await card.getByRole("button", { name: "Submit report", exact: true }).click();
+    await expect(card.getByRole("status")).toContainText("Report submitted");
+  } finally {
+    await reporterContext.close();
+  }
+});
+
 test("an already-open blank form cannot overwrite a review created in another tab", async ({ page, context }) => {
   await login(page, "reviews-duplicate@mail.aub.edu");
   const stale = await context.newPage();

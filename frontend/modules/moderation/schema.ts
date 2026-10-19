@@ -11,14 +11,14 @@ export const reportReasonSchema = z.enum([
 export type ReportReason = z.infer<typeof reportReasonSchema>;
 
 export const reportSchema = z.object({
-  targetType: z.enum(["post", "comment"]),
+  targetType: z.enum(["post", "comment", "review"]),
   targetId: z.uuid(),
   reason: reportReasonSchema,
   details: z.string().trim().max(1000, "Details cannot exceed 1000 characters."),
 });
 
 export const moderationDecisionSchema = z.object({
-  targetType: z.enum(["post", "comment"]),
+  targetType: z.enum(["post", "comment", "review"]),
   targetId: z.uuid(),
   decision: z.enum(["remove", "dismiss"]),
   reason: z
