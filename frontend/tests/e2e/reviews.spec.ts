@@ -47,6 +47,32 @@ test("a student creates, reloads, edits and explicitly deletes their own review"
   await expect(page.getByRole("button", { name: "Post review", exact: true })).toBeVisible();
 });
 
+test("an existing review waits for hydration before accepting replacement text", async ({ page }) => {
+  await login(page, "reviews-hydration@mail.aub.edu");
+  await fill(page);
+  await page.getByRole("button", { name: "Post review", exact: true }).click();
+  await expect(feedback(page)).toContainText("saved");
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  await page.route("**/_next/static/**/*.js", async (route) => {
+    await gate;
+    await route.continue();
+  });
+  try {
+    await page.reload({ waitUntil: "commit" });
+    await expect(page.getByLabel("Your written review", { exact: true })).toHaveValue("Clear examples and a useful project.");
+    await expect(page.getByLabel("Your written review", { exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Save changes", exact: true })).toBeDisabled();
+  } finally { release(); }
+  await expect(page.getByLabel("Your written review", { exact: true })).toBeEnabled();
+  await page.unroute("**/_next/static/**/*.js");
+  await page.getByLabel("Your written review", { exact: true }).fill("A replacement after the page is ready.");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(feedback(page)).toContainText("saved");
+  await page.reload();
+  await expect(page.getByLabel("Your written review", { exact: true })).toHaveValue("A replacement after the page is ready.");
+});
+
 test("validation and community restrictions preserve the student's draft", async ({ page }) => {
   await login(page, "reviews-validation@mail.aub.edu");
   await page.getByRole("button", { name: "Post review", exact: true }).click();

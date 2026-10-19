@@ -9,6 +9,14 @@
 .form label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
 .searchField { flex: 2 1 260px; min-width: 0; }
 .departmentField { flex: 1 1 240px; min-width: 0; }
+.rangeFilters { flex-basis: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; min-width: 0; }
+.rangeFilter { min-width: 0; }
+.rangeFilter legend { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+.rangeInputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.rangeInputs > div { min-width: 0; }
+.rangeInputs label { font-size: 12px; opacity: .75; }
+.filterHint { grid-column: 1 / -1; font-size: 12px; line-height: 1.7; opacity: .75; }
+.filterError { margin-top: 28px; }
 .form input, .form select { width: 100%; min-width: 0; border: 1px solid #a89a9f; border-radius: 8px; padding: 11px 12px; font-size: 14px; background: var(--background); color: var(--foreground); }
 .form button { border-radius: 8px; padding: 12px 18px; background: var(--maroon); color: white; font-size: 14px; font-weight: 600; cursor: pointer; }
 .form button:hover { background: var(--maroon-dark); }
@@ -58,6 +66,7 @@
 @media (max-width: 640px) {
   .page { padding: 24px 16px 48px; }
   .form { padding: 16px; }
+  .rangeFilters { grid-template-columns: minmax(0, 1fr); gap: 18px; }
   .grid { grid-template-columns: minmax(0, 1fr); }
   .card { padding: 20px; }
   .courseFacts { grid-template-columns: minmax(0, 1fr); padding: 20px; }
