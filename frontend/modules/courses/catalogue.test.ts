@@ -12,7 +12,7 @@ import { getCourseCatalogue } from "./catalogue";
 import { courseSearchExpression, coursesUrl, parseCourseFilters } from "./search";
 
 type Response = { data: unknown; error: { code: string; message?: string } | null; count?: number };
-const calls: { fields: string; head: boolean; filters: unknown[][]; range?: number[]; order: string[] }[] = [];
+const calls: { table: string; fields: string; head: boolean; filters: unknown[][]; range?: number[]; order: string[] }[] = [];
 let respond: (call: typeof calls[number]) => Response;
 
 beforeEach(() => {
@@ -21,13 +21,15 @@ beforeEach(() => {
   respond = (call) => call.head ? { count: 1, data: null, error: null }
     : { data: call.fields === "department" ? [{ department: "Computer Science" }]
       : [{ id: "one", code: "CMPS 240", name: "Algorithms", department: "Computer Science", credits: 3, description: "Algorithms and analysis." }], error: null };
-  mocks.from.mockImplementation(() => ({
+  mocks.from.mockImplementation((table: string) => ({
     select(fields: string, options?: { head?: boolean }) {
-      const call = { fields, head: options?.head ?? false, filters: [] as unknown[][], order: [] as string[], range: undefined as number[] | undefined };
+      const call = { table, fields, head: options?.head ?? false, filters: [] as unknown[][], order: [] as string[], range: undefined as number[] | undefined };
       calls.push(call);
       const query = {
         eq: (column: string, value: string) => { call.filters.push([column, value]); return query; },
         or: (expression: string) => { call.filters.push([expression]); return query; },
+        gte: (column: string, value: number) => { call.filters.push(["gte", column, value]); return query; },
+        lte: (column: string, value: number) => { call.filters.push(["lte", column, value]); return query; },
         order: (column: string) => { call.order.push(column); return query; },
         range: (start: number, end: number) => { call.range = [start, end]; return query; },
         then: (resolve: (value: Response) => unknown) => Promise.resolve(respond(call)).then(resolve),
@@ -67,6 +69,41 @@ describe("course request parsing", () => {
 });
 
 describe("course catalogue queries", () => {
+  it("applies all ranges in Postgres identically before counting and paginating", async () => {
+    await getCourseCatalogue(parseCourseFilters({ q: "CMPS", department: "Computer Science",
+      creditsMin: "0", creditsMax: "3.5", difficultyMin: "2.5", difficultyMax: "3.3", workloadMin: "1", workloadMax: "4" }));
+    const queries = calls.filter((call) => call.fields !== "department");
+    expect(queries.map((call) => call.table)).toEqual(["course_filter_catalogue", "course_filter_catalogue"]);
+    expect(queries[0].filters).toEqual(queries[1].filters);
+    expect(queries[0].filters).toEqual([
+      ["department", "Computer Science"], [courseSearchExpression("CMPS")],
+      ["gte", "credits", 0], ["lte", "credits", 3.5], ["gte", "difficulty", 2.5],
+      ["lte", "difficulty", 3.3], ["gte", "workload", 1], ["lte", "workload", 4],
+    ]);
+  });
+
+  it("keeps credit-only searches independent of review availability", async () => {
+    await getCourseCatalogue(parseCourseFilters({ creditsMin: "0", creditsMax: "0" }));
+    const queries = calls.filter((call) => call.fields !== "department");
+    expect(queries.every((call) => call.table === "courses")).toBe(true);
+    expect(queries[0].filters).toEqual([["gte", "credits", 0], ["lte", "credits", 0]]);
+  });
+
+  it("returns an actionable range error without issuing an invalid course query", async () => {
+    const result = await getCourseCatalogue(parseCourseFilters({ creditsMin: "6", creditsMax: "3" }));
+    expect(result.filterError).toBe("Credits: the minimum cannot be greater than the maximum.");
+    expect(result.courses).toEqual([]);
+    expect(calls.map((call) => call.fields)).toEqual(["department"]);
+  });
+
+  it("does not silently return unfiltered courses if the rating-filter view fails", async () => {
+    const initial = respond;
+    respond = (call) => call.table === "course_filter_catalogue"
+      ? { data: null, error: { code: "PGRST205", message: "Private schema details" } } : initial(call);
+    await expect(getCourseCatalogue(parseCourseFilters({ difficultyMax: "3" }))).rejects.toThrow("temporarily unavailable");
+    expect(calls.filter((call) => call.fields !== "department").every((call) => call.table === "course_filter_catalogue")).toBe(true);
+  });
+
   it("checks authentication before querying the catalogue", async () => {
     mocks.requireUser.mockRejectedValueOnce(new Error("redirect"));
     await expect(getCourseCatalogue(parseCourseFilters({}))).rejects.toThrow("redirect");
