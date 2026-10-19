@@ -94,6 +94,12 @@ export default async function HomePage({
         </h1>
       </header>
 
+      <nav aria-label="Explore campus">
+        <Link href="/courses" className="rounded-lg border border-gray-600 px-4 py-2 text-sm font-medium">
+          Browse courses
+        </Link>
+      </nav>
+
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-xl font-semibold">
