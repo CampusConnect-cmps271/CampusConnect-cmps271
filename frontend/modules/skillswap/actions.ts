@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/modules/auth";
 import { log } from "@/modules/logging";
+import { checkContentRestrictions } from "@/modules/moderation/restrictions";
 import { createClient } from "@/lib/supabase/server";
 import {
   readSkillSwapForm,
@@ -26,6 +27,9 @@ export type SkillSwapFormState =
 const CREATE_FAILED = "We couldn't post your skill swap. Please try again.";
 const UPDATE_FAILED = "We couldn't save your changes. Please try again.";
 const NOT_EDITABLE = "This skill swap can't be edited. It may have been deleted.";
+const CHECK_UNAVAILABLE = "Content checks are temporarily unavailable. Please try again.";
+
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
 function rpcArguments(input: SkillSwapInput) {
   return {
@@ -35,6 +39,40 @@ function rpcArguments(input: SkillSwapInput) {
     availability: input.availability,
     details: input.details,
   };
+}
+
+/**
+ * Runs the community restrictions that normal posts get (SP2-23) on the
+ * title and body the database will write, so a duplicate is compared with
+ * what is stored. Edits pass the post's id, which skips it and the posting
+ * rate. Returns the message to show, or null when the post is allowed.
+ */
+async function restrictionMessage(
+  supabase: SupabaseClient,
+  userId: string,
+  input: SkillSwapInput,
+  editedPostId?: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .rpc("skillswap_post_text", rpcArguments(input))
+    .single<{ title: string; body: string }>();
+
+  if (error || !data) {
+    log.error("skillswap.post.text_failure", { code: error?.code ?? "no_text" }, { userId });
+    return CHECK_UNAVAILABLE;
+  }
+
+  const restriction = await checkContentRestrictions({
+    userId,
+    contentType: "post",
+    title: data.title,
+    body: data.body,
+    excludeId: editedPostId,
+  });
+
+  if (restriction.allowed) return null;
+  log.warn("skillswap.post.restricted", { rule: restriction.rule }, { userId });
+  return restriction.message;
 }
 
 function afterSave(postId: string): never {
@@ -59,6 +97,9 @@ export async function createSkillSwapPost(
   if (!parsed.success) return { values, errors: parsed.errors };
 
   const supabase = await createClient();
+  const restricted = await restrictionMessage(supabase, user.id, parsed.data);
+  if (restricted) return { values, error: restricted };
+
   const { data, error } = await supabase.rpc("create_skillswap_post", rpcArguments(parsed.data));
 
   if (error || typeof data !== "string") {
@@ -93,6 +134,9 @@ export async function updateSkillSwapPost(
   if (!parsed.success) return { values, errors: parsed.errors };
 
   const supabase = await createClient();
+  const restricted = await restrictionMessage(supabase, user.id, parsed.data, id.data);
+  if (restricted) return { values, error: restricted };
+
   const { error } = await supabase.rpc("update_skillswap_post", {
     post_id: id.data,
     ...rpcArguments(parsed.data),

@@ -32,6 +32,14 @@ function likeToRegex(pattern) {
 
 const LABELS = { online: "Online", in_person: "In person", either: "Online or in person" };
 
+/** A short form of skillswap_post_text's title and body. */
+function postText(input) {
+  return {
+    title: `Can teach: ${input.can_teach} · Wants to learn: ${input.wants_to_learn}`,
+    body: `Can teach: ${input.can_teach}\n\nWants to learn: ${input.wants_to_learn}\n\nMeeting: ${LABELS[input.meeting_method]}`,
+  };
+}
+
 /** SkillSwap posts matching `column=eq.value` filters, for the shared posts mock. */
 export function matchingSkillSwapPosts(params) {
   return posts.filter((post) =>
@@ -52,13 +60,17 @@ export async function handleSkillSwap(request, response, url, { userId }) {
     return send(response, 200, {}), true;
   }
 
+  // Read with .single(), so one object rather than a list.
+  if (path === "/rest/v1/rpc/skillswap_post_text" && request.method === "POST") {
+    return send(response, 200, postText(await readBody(request))), true;
+  }
+
   if (path === "/rest/v1/rpc/create_skillswap_post" && request.method === "POST") {
     const input = await readBody(request);
     const post = {
       id: randomUUID(),
       author_id: userId,
-      title: `Can teach: ${input.can_teach} · Wants to learn: ${input.wants_to_learn}`,
-      body: `Can teach: ${input.can_teach}\n\nWants to learn: ${input.wants_to_learn}\n\nMeeting: ${LABELS[input.meeting_method]}`,
+      ...postText(input),
       category: "SkillSwap",
       status: "published",
       created_at: new Date().toISOString(),

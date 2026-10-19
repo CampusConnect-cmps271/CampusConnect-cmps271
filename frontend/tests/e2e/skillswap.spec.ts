@@ -67,3 +67,18 @@ test("a student offers a skill swap, and another finds it and can message them",
     await expect(reader.getByRole("heading", { level: 1, name: sami.name })).toBeVisible();
   });
 });
+
+test("the template runs the post restrictions and keeps what was typed", async ({ page }) => {
+  await logIn(page, dana.email);
+  await page.goto("/skillswap/new");
+  await page.getByLabel("I can teach").fill("Fixing stupid Python bugs");
+  await page.getByLabel("I want to learn").fill("Conversational French");
+  await page.getByLabel("Online", { exact: true }).check();
+  await page.getByRole("button", { name: "Post skill swap" }).click();
+
+  await expect(
+    page.getByRole("alert").filter({ hasText: "This content violates the community language guidelines." }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/skillswap\/new$/);
+  await expect(page.getByLabel("I can teach")).toHaveValue("Fixing stupid Python bugs");
+});
