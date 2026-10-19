@@ -14,6 +14,10 @@ async function logIn(page: Page, email: string) {
   await expect(page).toHaveURL(/\/home$/, { timeout: 20_000 });
 }
 
+// beforeAll resets the SkillSwap mock these tests share; in parallel, one
+// worker's reset would wipe the other's post mid-test.
+test.describe.configure({ mode: "serial" });
+
 test.beforeAll(async ({ request }) => {
   await request.post("http://127.0.0.1:3101/test/skillswap/reset");
 });
@@ -66,4 +70,19 @@ test("a student offers a skill swap, and another finds it and can message them",
     await expect(reader).toHaveURL(/\/messages\/[0-9a-f-]{36}$/, { timeout: 20_000 });
     await expect(reader.getByRole("heading", { level: 1, name: sami.name })).toBeVisible();
   });
+});
+
+test("the template runs the post restrictions and keeps what was typed", async ({ page }) => {
+  await logIn(page, dana.email);
+  await page.goto("/skillswap/new");
+  await page.getByLabel("I can teach").fill("Fixing stupid Python bugs");
+  await page.getByLabel("I want to learn").fill("Conversational French");
+  await page.getByLabel("Online", { exact: true }).check();
+  await page.getByRole("button", { name: "Post skill swap" }).click();
+
+  await expect(
+    page.getByRole("alert").filter({ hasText: "This content violates the community language guidelines." }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/skillswap\/new$/);
+  await expect(page.getByLabel("I can teach")).toHaveValue("Fixing stupid Python bugs");
 });
