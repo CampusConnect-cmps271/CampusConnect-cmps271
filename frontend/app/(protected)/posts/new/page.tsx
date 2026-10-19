@@ -1,6 +1,7 @@
 
 import Link from "next/link";
 import { requireUser } from "@/modules/auth";
+import { AppShell } from "@/components/AppShell";
 import { createClient } from "@/lib/supabase/server";
 import PostForm from "./post-form";
 
@@ -19,12 +20,20 @@ export default async function NewPostPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10">
+    <AppShell>
+<main className="mx-auto max-w-2xl px-4 py-10">
+      <Link
+        href="/home"
+        className="mb-8 inline-block text-sm text-[var(--maroon)] hover:underline"
+      >
+        ← Back to home
+      </Link>
+
       <h1 className="mb-2 text-3xl font-bold">
         Create a post
       </h1>
 
-      <p className="mb-8 text-gray-500">
+      <p className="mb-8 text-[var(--ink-soft)]">
         Share a question, announcement, or update with your
         campus community.
       </p>
@@ -41,5 +50,6 @@ export default async function NewPostPage() {
         categories={(categories ?? []).filter((category) => category.name !== "SkillSwap")}
       />
     </main>
+</AppShell>
   );
 }

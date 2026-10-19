@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { handleCommunity, matchingPosts } from "./mock-community.mjs";
 import { handleMessaging } from "./mock-messaging.mjs";
 import { handleSkillSwap, matchingSkillSwapPosts } from "./mock-skillswap.mjs";
+import { handleCourses } from "./mock-courses.mjs";
 
 const user = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -216,6 +217,7 @@ createServer(async (request, response) => {
   }
 
   // Sprint 2 tables: posts, comments, upvotes and saved posts.
+  if (handleCourses(request, response, url, bearerEmail(request))) return;
   if (await handleCommunity(request, response, url)) return;
   // SP2-36: conversations and messages, limited to the caller like RLS.
   const caller = bearerClaims(request).sub ?? null;

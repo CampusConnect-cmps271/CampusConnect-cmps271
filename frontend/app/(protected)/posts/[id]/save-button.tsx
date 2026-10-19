@@ -51,15 +51,15 @@ export default function SaveButton({
         aria-pressed={saved}
         className={`rounded-lg border px-4 py-2 text-sm font-medium disabled:opacity-50 ${
           saved
-            ? "border-blue-500 bg-blue-600/20 text-blue-400"
-            : "border-gray-600 text-gray-300 hover:bg-gray-800"
+            ? "border-[var(--maroon)] bg-[var(--maroon-100)] text-[var(--maroon)]"
+            : "border-[var(--border)] text-[var(--ink-soft)] hover:bg-[var(--maroon-50)]"
         }`}
       >
         {saved ? "★ Saved" : "☆ Save"}
       </button>
 
       {error && (
-        <p role="alert" className="mt-2 text-xs text-red-400">
+        <p role="alert" className="mt-2 text-xs text-[var(--danger)]">
           {error}
         </p>
       )}
