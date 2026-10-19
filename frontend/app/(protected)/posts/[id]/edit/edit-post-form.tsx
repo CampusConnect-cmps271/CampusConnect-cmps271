@@ -83,7 +83,7 @@ export default function EditPostForm({
           onChange={(e) => setTitle(e.target.value)}
           maxLength={200}
           required
-          className="w-full rounded-lg border border-gray-600 bg-transparent p-3"
+          className="w-full rounded-lg border border-[var(--border)] bg-transparent p-3"
         />
 
         <p className="mt-1 text-right text-sm opacity-60">
@@ -101,7 +101,7 @@ export default function EditPostForm({
           value={category}
           onChange={(e) => setCategory(e.target.value)}
           required
-          className="w-full rounded-lg border border-gray-600 bg-gray-900 p-3 text-white"
+          className="w-full rounded-lg border border-[var(--border)] bg-white p-3 text-[var(--ink)]"
         >
           {categories.map((item) => (
             <option key={item.id} value={item.name}>
@@ -123,7 +123,7 @@ export default function EditPostForm({
           maxLength={10000}
           rows={8}
           required
-          className="w-full rounded-lg border border-gray-600 bg-transparent p-3"
+          className="w-full rounded-lg border border-[var(--border)] bg-transparent p-3"
         />
 
         <p className="mt-1 text-right text-sm opacity-60">
@@ -132,7 +132,7 @@ export default function EditPostForm({
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-red-500">
+        <p role="alert" className="text-sm text-[var(--danger)]">
           {error}
         </p>
       )}
@@ -141,7 +141,7 @@ export default function EditPostForm({
         <button
           type="submit"
           disabled={loading}
-          className="rounded-lg bg-blue-600 px-5 py-3 font-medium text-white disabled:opacity-50"
+          className="rounded-lg bg-[var(--maroon)] px-5 py-3 font-medium text-white disabled:opacity-50"
         >
           {loading ? "Saving..." : "Save changes"}
         </button>
@@ -149,7 +149,7 @@ export default function EditPostForm({
         <button
           type="button"
           onClick={() => router.push(`/posts/${post.id}`)}
-          className="rounded-lg border border-gray-600 px-5 py-3"
+          className="rounded-lg border border-[var(--border)] px-5 py-3"
         >
           Cancel
         </button>

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 // Synthetic review storage, scoped by distinct test-user IDs and RLS-like rules.
 const reviews = [];
+const reports = [];
 const editable = new Set(["difficulty_rating", "workload_rating", "usefulness_rating", "overall_rating", "body", "semester_taken", "completed_course"]);
 let tick = 0;
 const timestamp = () => new Date(Date.now() + ++tick).toISOString();
@@ -31,12 +32,27 @@ export function ratingFixture(course) {
 }
 
 export async function handleReviews(request, response, url, claims) {
-  if (url.pathname !== "/rest/v1/course_reviews") return false;
   const fail = (code, message, status = 403) => {
     response.statusCode = status;
     response.end(JSON.stringify({ code, message, details: "Synthetic fixture failure" }));
     return true;
   };
+  if (url.pathname === "/rest/v1/content_reports" && request.method === "POST") {
+    if (!claims.sub) return fail("42501", "Not signed in");
+    let raw = "";
+    for await (const chunk of request) raw += chunk;
+    const payload = JSON.parse(raw);
+    const review = reviews.find((row) => row.id === payload.review_id && row.status === "published");
+    if (!review || review.student_id === claims.sub) return fail("42501", "Review is unavailable");
+    if (reports.some((row) => row.reporter_id === claims.sub && row.review_id === payload.review_id)) {
+      return fail("23505", "Duplicate", 409);
+    }
+    reports.push({ ...payload, reporter_id: claims.sub });
+    response.statusCode = 201;
+    response.end("{}");
+    return true;
+  }
+  if (url.pathname !== "/rest/v1/course_reviews") return false;
   if (!claims.sub) return fail("42501", "Not signed in");
   if (claims.email === "reviews-load-failure@mail.aub.edu" && request.method === "GET") return fail("57014", "Synthetic internal details");
   const matching = (row) => [...url.searchParams].every(([field, filter]) => {
@@ -55,7 +71,7 @@ export async function handleReviews(request, response, url, claims) {
       const student = payload.student_id ?? claims.sub;
       if (student !== claims.sub) return fail("42501", "Owner mismatch");
       if (reviews.some((row) => row.course_id === payload.course_id && row.student_id === student)) return fail("23505", "Duplicate", 409);
-      const row = { ...payload, student_id: student, id: randomUUID(), created_at: timestamp(), updated_at: timestamp() };
+      const row = { ...payload, student_id: student, status: "published", id: randomUUID(), created_at: timestamp(), updated_at: timestamp() };
       reviews.push(row);
       found = [row];
     } else {

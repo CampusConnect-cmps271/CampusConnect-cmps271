@@ -171,7 +171,6 @@ export async function checkContentRestrictions(
     if (error) return blocked("check_unavailable");
     return evaluateContentRestrictions(input, (data ?? []) as RecentEntry[]);
   }
-
   if (input.contentType === "post") {
     const { data, error } = await supabase
       .from("posts")

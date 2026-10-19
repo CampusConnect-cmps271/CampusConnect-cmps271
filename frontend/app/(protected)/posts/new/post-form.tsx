@@ -115,10 +115,10 @@ export default function PostForm({
           onChange={(e) => setTitle(e.target.value)}
           maxLength={TITLE_MAX}
           placeholder="Enter your post title"
-          className="w-full rounded-lg border border-gray-300 p-3 text-inherit"
+          className="w-full rounded-lg border border-[var(--border)] p-3 text-inherit"
         />
 
-        <p className="mt-1 text-right text-sm text-gray-500">
+        <p className="mt-1 text-right text-sm text-[var(--ink-soft)]">
           {title.length}/{TITLE_MAX}
         </p>
       </div>
@@ -136,7 +136,7 @@ export default function PostForm({
           name="category"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 p-3 text-inherit"
+          className="w-full rounded-lg border border-[var(--border)] p-3 text-inherit"
         >
           <option value="">
             Select a category
@@ -169,10 +169,10 @@ export default function PostForm({
           maxLength={BODY_MAX}
           rows={8}
           placeholder="What would you like to share?"
-          className="w-full rounded-lg border border-gray-300 p-3 text-inherit"
+          className="w-full rounded-lg border border-[var(--border)] p-3 text-inherit"
         />
 
-        <p className="mt-1 text-right text-sm text-gray-500">
+        <p className="mt-1 text-right text-sm text-[var(--ink-soft)]">
           {body.length}/{BODY_MAX}
         </p>
       </div>
@@ -180,7 +180,7 @@ export default function PostForm({
       {error && (
         <p
           role="alert"
-          className="text-sm text-red-500"
+          className="text-sm text-[var(--danger)]"
         >
           {error}
         </p>
@@ -189,7 +189,7 @@ export default function PostForm({
       <button
         type="submit"
         disabled={loading || categories.length === 0}
-        className="w-full rounded-lg bg-blue-600 px-5 py-3 font-medium text-white disabled:opacity-50 sm:w-auto"
+        className="w-full rounded-lg bg-[var(--maroon)] px-5 py-3 font-medium text-white disabled:opacity-50 sm:w-auto"
       >
         {loading
           ? "Publishing..."

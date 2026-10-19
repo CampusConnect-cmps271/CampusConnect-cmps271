@@ -33,6 +33,8 @@ function filterRows(rows, params, prefix = "") {
       const column = prefix ? key.slice(prefix.length) : key;
       if (value.startsWith("eq.")) {
         if (String(row[column]) !== value.slice(3)) return false;
+      } else if (value.startsWith("gte.")) {
+        if (String(row[column]) < value.slice(4)) return false;
       } else if (value.startsWith("in.(") && value.endsWith(")")) {
         const allowed = value.slice(4, -1).split(",");
         if (!allowed.includes(String(row[column]))) return false;
@@ -86,6 +88,7 @@ async function insert(request, response, name, rows) {
     id: randomUUID(),
     created_at: new Date().toISOString(),
     ...(name === "posts" ? { status: "published", edited_at: null } : {}),
+    ...(name === "post_comments" ? { status: "published" } : {}),
     ...row,
   }));
 

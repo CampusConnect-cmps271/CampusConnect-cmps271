@@ -20,7 +20,9 @@ export default defineConfig({
     reuseExistingServer: false,
   }, {
     command: "npm run dev -- --hostname 127.0.0.1 --port 3100",
-    url: "http://127.0.0.1:3100/verify-email",
+    // /home (a redirect when signed out) compiles the signed-in layout and
+    // header before the first test, so logins do not wait on a cold compile.
+    url: "http://127.0.0.1:3100/home",
     reuseExistingServer: false,
     timeout: 120_000,
     env: {

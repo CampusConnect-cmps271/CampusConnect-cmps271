@@ -63,14 +63,14 @@ export default function CommentForm({
         aria-label={parentId ? "Write a reply" : "Write a comment"}
         maxLength={2000}
         rows={parentId ? 2 : 3}
-        className="w-full rounded-lg border border-gray-600 bg-transparent p-3 text-sm"
+        className="w-full rounded-lg border border-[var(--border)] bg-transparent p-3 text-sm"
       />
 
       <div className="mt-2 flex items-center gap-3">
         <button
           type="submit"
           disabled={loading || body.trim().length === 0}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="rounded-lg bg-[var(--maroon)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--maroon-dark)] disabled:opacity-50"
         >
           {loading ? "Posting…" : submitLabel}
         </button>
@@ -79,7 +79,7 @@ export default function CommentForm({
           <button
             type="button"
             onClick={onDone}
-            className="text-sm text-gray-400 hover:underline"
+            className="text-sm text-[var(--ink-soft)] hover:underline"
           >
             Cancel
           </button>
@@ -87,7 +87,7 @@ export default function CommentForm({
       </div>
 
       {error && (
-        <p role="alert" className="mt-2 text-xs text-red-400">
+        <p role="alert" className="mt-2 text-xs text-[var(--danger)]">
           {error}
         </p>
       )}

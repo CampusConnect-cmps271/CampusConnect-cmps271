@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/modules/auth";
 import { createClient } from "@/lib/supabase/server";
+import { checkContentRestrictions } from "@/modules/moderation/restrictions";
 import { commentSchema } from "./schema";
 
 export type AddCommentResult = {
@@ -22,6 +23,16 @@ export async function addComment(
     return {
       error: parsed.error.issues[0]?.message ?? "Invalid comment.",
     };
+  }
+
+  const restriction = await checkContentRestrictions({
+    userId: user.id,
+    contentType: "comment",
+    body: parsed.data.body,
+  });
+
+  if (!restriction.allowed) {
+    return { error: restriction.message };
   }
 
   const supabase = await createClient();
