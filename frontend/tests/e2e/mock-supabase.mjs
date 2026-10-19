@@ -3,6 +3,7 @@ import { handleCommunity, matchingPosts } from "./mock-community.mjs";
 import { handleCourses } from "./mock-courses.mjs";
 import { handleReviews } from "./mock-reviews.mjs";
 import { handleRatings } from "./mock-ratings.mjs";
+import { handlePostSearch, postSearchFixtures } from "./mock-post-search.mjs";
 
 const user = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -194,7 +195,10 @@ createServer(async (request, response) => {
   }
   if (path === "/rest/v1/posts" && request.method === "GET") {
     const matches = (key, value) => !url.searchParams.has(key) || url.searchParams.get(key) === `eq.${value}`;
-    const found = [pinnedPost].filter((post) => ["id", "author_id", "status"].every((key) => matches(key, post[key])));
+    // Search fixtures are visible only to exact detail-page lookups, so they
+    // never alter the existing feed/profile test datasets.
+    const candidates = url.searchParams.get("id")?.startsWith("eq.f143") ? postSearchFixtures : [pinnedPost];
+    const found = candidates.filter((post) => ["id", "author_id", "status"].every((key) => matches(key, post[key])));
     return response.end(JSON.stringify([...found, ...matchingPosts(url.searchParams)]));
   }
   if (path === "/rest/v1/app_logs" && request.method === "POST") {
@@ -214,6 +218,7 @@ createServer(async (request, response) => {
   if (handleCourses(request, response, url, bearerEmail(request))) return;
   if (handleRatings(request, response, url, bearerClaims(request))) return;
   if (await handleReviews(request, response, url, bearerClaims(request))) return;
+  if (await handlePostSearch(request, response, url, bearerClaims(request), [pinnedPost, ...matchingPosts(new URLSearchParams())])) return;
   if (await handleCommunity(request, response, url)) return;
   if (path === "/rest/v1/user_roles") {
     roleLookups++;

@@ -2,9 +2,11 @@
 import { requireUser } from "@/modules/auth";
 import { createClient } from "@/lib/supabase/server";
 import PostForm from "./post-form";
+import { readQuestionTitle, type PostSearchParams } from "@/modules/posts/search-navigation";
 
-export default async function NewPostPage() {
+export default async function NewPostPage({ searchParams }: { searchParams: Promise<PostSearchParams> }) {
   await requireUser();
+  const initialTitle = readQuestionTitle(await searchParams);
 
   const supabase = await createClient();
 
@@ -28,7 +30,7 @@ export default async function NewPostPage() {
         campus community.
       </p>
 
-      <PostForm categories={categories ?? []} />
+      <PostForm key={initialTitle} categories={categories ?? []} initialTitle={initialTitle} />
     </main>
   );
 }

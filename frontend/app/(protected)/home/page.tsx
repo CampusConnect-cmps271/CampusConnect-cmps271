@@ -7,6 +7,7 @@ import {
   POSTS_PER_PAGE,
 } from "@/modules/posts/feed";
 import { createClient } from "@/lib/supabase/server";
+import { PostSearchForm } from "@/modules/posts/PostSearchForm";
 
 export const metadata: Metadata = {
   title: "Home · CampusConnect",
@@ -130,6 +131,8 @@ export default async function HomePage({
             </Link>
           </div>
         </div>
+
+        <PostSearchForm />
 
         <form
           action="/home"
