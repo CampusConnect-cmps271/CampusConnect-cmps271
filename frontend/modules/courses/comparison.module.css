@@ -1,15 +1,15 @@
-.selection { margin: 24px 0; padding: 20px 24px; border: 1px solid var(--border); border-radius: 14px; }
+.selection { margin: 24px 0; padding: 20px 24px; border: 1px solid var(--border); border-radius: var(--radius); }
 .selection h2 { font-size: 19px; font-weight: 600; }
 .selection p { margin-top: 8px; font-size: 14px; line-height: 1.7; }
 .chips { list-style: none; display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
 .chips a, .toggle { display: inline-block; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; }
 .actions { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin-top: 16px; font-size: 14px; }
-.actions .primary { padding: 10px 14px; background: var(--maroon); color: white; border-radius: 8px; font-weight: 600; }
+.actions .primary { padding: 10px 14px; color: white !important; background: var(--maroon); color: white; border-radius: 8px; font-weight: 600; }
 .toggle { margin-top: 16px; }
 .toggle:disabled { opacity: .6; }
 .hint { margin: 24px 0 16px; font-size: 14px; line-height: 1.8; }
-.tableRegion { max-width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; }
-.tableRegion:focus-visible { outline: 3px solid #b67e8d; outline-offset: 4px; }
+.tableRegion { max-width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+.tableRegion:focus-visible { outline: 3px solid var(--maroon); outline-offset: 3px; }
 .table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .table caption { text-align: left; padding: 16px; font-weight: 600; }
 .table th, .table td { padding: 18px; text-align: left; vertical-align: top; border-top: 1px solid var(--border); line-height: 1.8; min-width: 210px; max-width: 320px; overflow-wrap: anywhere; }
@@ -17,10 +17,6 @@
 .table th { font-weight: 600; background: var(--maroon-50); }
 .title { display: block; margin-top: 8px; }
 .prose { white-space: pre-wrap; }
-.notice { margin: 24px 0; padding: 24px; border: 1px solid var(--border); border-radius: 14px; line-height: 1.8; }
+.notice { margin: 24px 0; padding: 24px; border: 1px solid var(--border); border-radius: var(--radius); line-height: 1.8; }
 .notice h2 { font-size: 20px; font-weight: 600; }
-@media (prefers-color-scheme: dark) {
-  .table th { background: #24191d; }
-  .selection, .tableRegion, .table th, .table td, .chips a, .toggle, .notice { border-color: #5b4149; }
-}
 @media (max-width: 640px) { .selection { padding: 16px; } }

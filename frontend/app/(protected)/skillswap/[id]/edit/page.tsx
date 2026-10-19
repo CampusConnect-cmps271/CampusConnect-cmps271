@@ -1,3 +1,4 @@
+import { AppShell } from "@/components/AppShell";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -21,13 +22,14 @@ export default async function EditSkillSwapPage({ params }: EditSkillSwapPagePro
   if (!swap) notFound();
 
   return (
-    <main className="flex-1 bg-gray-100 px-4 py-6 sm:py-10">
+    <AppShell>
+<main className="flex-1 bg-white px-4 py-6 sm:py-10">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-        <Link href={`/posts/${swap.postId}`} className="text-sm font-medium text-blue-700 hover:underline">
+        <Link href={`/posts/${swap.postId}`} className="text-sm font-medium text-[var(--maroon)] hover:underline">
           ← Back to post
         </Link>
 
-        <h1 className="text-2xl font-bold text-gray-900">Edit skill swap</h1>
+        <h1 className="text-2xl font-bold text-[var(--ink)]">Edit skill swap</h1>
 
         <SkillSwapForm
           action={updateSkillSwapPost.bind(null, swap.postId)}
@@ -44,5 +46,6 @@ export default async function EditSkillSwapPage({ params }: EditSkillSwapPagePro
         />
       </div>
     </main>
+</AppShell>
   );
 }

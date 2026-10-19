@@ -96,7 +96,7 @@ export default async function HomePage({
       </header>
 
       <nav aria-label="Explore campus">
-        <Link href="/courses" className="rounded-lg border border-gray-600 px-4 py-2 text-sm font-medium">
+        <Link href="/courses" className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-medium">
           Browse courses
         </Link>
       </nav>

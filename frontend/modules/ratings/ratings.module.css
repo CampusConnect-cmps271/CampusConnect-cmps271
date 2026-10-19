@@ -15,7 +15,3 @@
 .compact .metrics > div { padding: 10px; }
 .compact .score { font-size: 20px; }
 @media (max-width: 640px) { .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (prefers-color-scheme: dark) {
-  .metrics > div { background: #33232b; }
-  .compact { border-color: #5b4149; }
-}

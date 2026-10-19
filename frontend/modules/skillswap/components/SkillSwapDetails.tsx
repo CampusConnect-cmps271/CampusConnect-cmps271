@@ -34,7 +34,7 @@ export async function SkillSwapDetails({ postId, body }: SkillSwapDetailsProps) 
           <h2 className={BOX_LABEL_CLASS}>Can teach</h2>
           <p className={BOX_TEXT_CLASS}>{swap.canTeach}</p>
         </div>
-        <div className="rounded-lg border border-gray-500/40 bg-gray-500/10 p-4">
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--maroon-50)] p-4">
           <h2 className={BOX_LABEL_CLASS}>Wants to learn</h2>
           <p className={BOX_TEXT_CLASS}>{swap.wantsToLearn}</p>
         </div>

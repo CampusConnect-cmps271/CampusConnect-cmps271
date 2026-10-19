@@ -13,10 +13,10 @@ import { InterestTags } from "./InterestTags";
 
 const INITIAL_STATE: ProfileFormState = { status: "idle" };
 
-const LABEL_CLASS = "block text-sm font-bold text-gray-600 mb-1";
-const VALUE_CLASS = "bg-gray-50 p-3 rounded-md text-gray-800 break-words";
+const LABEL_CLASS = "block text-sm font-bold text-[var(--ink-soft)] mb-1";
+const VALUE_CLASS = "bg-[var(--maroon-50)] p-3 rounded-md text-[var(--ink)] break-words";
 const INPUT_CLASS =
-  "w-full p-3 border border-gray-300 rounded-md bg-white text-gray-900 aria-[invalid]:border-red-600";
+  "w-full p-3 border border-[var(--border)] rounded-md bg-white text-[var(--ink)] aria-[invalid]:border-[var(--danger)]";
 
 /**
  * The signed-in student's own profile: shown read-only, edited in place.
@@ -63,8 +63,8 @@ export function ProfileCard({ profile }: { profile: Profile }) {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 sm:p-8 w-full">
-      <h1 className="text-2xl font-bold text-center text-gray-800 border-b-2 border-gray-200 pb-4 mb-6">
+    <div className="bg-white rounded-lg border border-[var(--border)] p-6 sm:p-8 w-full">
+      <h1 className="text-2xl font-bold text-center text-[var(--ink)] border-b-2 border-[var(--border)] pb-4 mb-6">
         Student Profile
       </h1>
 
@@ -88,7 +88,7 @@ export function ProfileCard({ profile }: { profile: Profile }) {
             </DisplayField>
           </dl>
 
-          <p role="status" className="mt-4 text-sm text-green-700 empty:hidden">
+          <p role="status" className="mt-4 text-sm text-[var(--success)] empty:hidden">
             {state.status === "saved" ? "Profile saved." : ""}
           </p>
 
@@ -96,7 +96,7 @@ export function ProfileCard({ profile }: { profile: Profile }) {
             <button
               type="button"
               onClick={startEditing}
-              className="flex-1 bg-blue-600 text-white py-3 rounded-md font-bold hover:bg-blue-700"
+              className="flex-1 bg-[var(--maroon)] text-white py-3 rounded-md font-bold hover:bg-[var(--maroon-dark)]"
             >
               Edit Profile
             </button>
@@ -107,7 +107,7 @@ export function ProfileCard({ profile }: { profile: Profile }) {
           {state.status === "error" && state.message ? (
             <p
               role="alert"
-              className="mb-4 rounded-md border border-red-600/30 bg-red-50 px-3 py-2 text-sm text-red-700"
+              className="mb-4 rounded-md border border-[var(--danger)]/30 bg-red-50 px-3 py-2 text-sm text-[var(--danger)]"
             >
               {state.message}
             </p>
@@ -197,7 +197,7 @@ export function ProfileCard({ profile }: { profile: Profile }) {
               type="button"
               onClick={cancelEditing}
               disabled={pending}
-              className="flex-1 bg-gray-400 text-white py-3 rounded-md font-bold hover:bg-gray-500 disabled:opacity-60"
+              className="flex-1 bg-[var(--ink-soft)] text-white py-3 rounded-md font-bold hover:bg-[var(--ink)] disabled:opacity-60"
             >
               Cancel
             </button>
@@ -259,12 +259,12 @@ function EditField({
         "aria-describedby": describedBy || undefined,
       })}
       {hint ? (
-        <p id={`${id}-hint`} className="mt-1 text-xs text-gray-500">
+        <p id={`${id}-hint`} className="mt-1 text-xs text-[var(--ink-soft)]">
           {hint}
         </p>
       ) : null}
       {error ? (
-        <p id={`${id}-error`} className="mt-1 text-sm text-red-700">
+        <p id={`${id}-error`} className="mt-1 text-sm text-[var(--danger)]">
           {error}
         </p>
       ) : null}

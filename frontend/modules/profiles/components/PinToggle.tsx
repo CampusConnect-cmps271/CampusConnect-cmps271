@@ -33,14 +33,14 @@ export function PinToggle({ postId, pinned }: { postId: string; pinned: boolean 
         type="button"
         onClick={toggle}
         disabled={pending}
-        className="inline-flex items-center gap-2 rounded-lg border border-gray-500 px-4 py-2 text-sm font-medium hover:bg-gray-500/15 disabled:opacity-50"
+        className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-medium hover:bg-[var(--maroon-50)] disabled:opacity-50"
       >
         <Icon aria-hidden="true" className="size-4" />
         {pending ? (pinned ? "Unpinning…" : "Pinning…") : label}
       </button>
 
       {error ? (
-        <p role="alert" className="mt-2 text-xs text-red-600 dark:text-red-400">
+        <p role="alert" className="mt-2 text-xs text-[var(--danger)] dark:text-red-400">
           {error}
         </p>
       ) : null}
