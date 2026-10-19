@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/modules/auth";
 import { MessageButton } from "@/modules/messaging";
 import { getProfile, PinPostButton } from "@/modules/profiles";
+import { SkillSwapDetails } from "@/modules/skillswap";
 import { createClient } from "@/lib/supabase/server";
 import DeletePostButton from "./delete-post-button";
 import UpvoteButton from "./upvote-button";
@@ -150,9 +151,13 @@ export default async function PostPage({
           ) : null}
         </div>
 
-        <div className="whitespace-pre-wrap break-words leading-7">
-          {post.body}
-        </div>
+        {post.category === "SkillSwap" ? (
+          <SkillSwapDetails postId={post.id} body={post.body} />
+        ) : (
+          <div className="whitespace-pre-wrap break-words leading-7">
+            {post.body}
+          </div>
+        )}
 
         {post.edited_at && (
           <p className="mt-6 text-xs text-[var(--ink-soft)]">

@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { handleCommunity, matchingPosts } from "./mock-community.mjs";
 import { handleMessaging } from "./mock-messaging.mjs";
 import { handleNotifications } from "./mock-notifications.mjs";
+import { handleSkillSwap, matchingSkillSwapPosts } from "./mock-skillswap.mjs";
 import { handleCourses } from "./mock-courses.mjs";
 import { handleReviews } from "./mock-reviews.mjs";
 
@@ -36,6 +37,9 @@ const profileAccounts = {
   "reviews-network@mail.aub.edu": "00000000-0000-4000-8000-000000000113",
   "reviews-report-owner@mail.aub.edu": "00000000-0000-4000-8000-000000000114",
   "reviews-reporter@mail.aub.edu": "00000000-0000-4000-8000-000000000115",
+  // SP2-53..55: two students for the SkillSwap journey.
+  "skillswap-sami@mail.aub.edu": "00000000-0000-4000-8000-00000000000c",
+  "skillswap-dana@mail.aub.edu": "00000000-0000-4000-8000-00000000000d",
 };
 // Another student whose public profile the tests visit.
 const otherStudentId = "00000000-0000-4000-8000-000000000004";
@@ -56,6 +60,8 @@ for (const [id, fullName] of [
   ["00000000-0000-4000-8000-000000000009", "Lina Haddad"],
   ["00000000-0000-4000-8000-00000000000a", "Karim Aoun"],
   ["00000000-0000-4000-8000-00000000000b", "Nadia Khalil"],
+  ["00000000-0000-4000-8000-00000000000c", "Sami Haddad"],
+  ["00000000-0000-4000-8000-00000000000d", "Dana Rizk"],
 ]) {
   profiles.set(id, { id, full_name: fullName, major: null, graduation_year: null, bio: null, interests: [], pinned_post_id: null });
 }
@@ -215,7 +221,7 @@ createServer(async (request, response) => {
   if (path === "/rest/v1/posts" && request.method === "GET") {
     const matches = (key, value) => !url.searchParams.has(key) || url.searchParams.get(key) === `eq.${value}`;
     const found = [pinnedPost].filter((post) => ["id", "author_id", "status"].every((key) => matches(key, post[key])));
-    return response.end(JSON.stringify([...found, ...matchingPosts(url.searchParams)]));
+    return response.end(JSON.stringify([...found, ...matchingPosts(url.searchParams), ...matchingSkillSwapPosts(url.searchParams)]));
   }
   if (path === "/rest/v1/app_logs" && request.method === "POST") {
     response.statusCode = 201;
@@ -245,6 +251,8 @@ createServer(async (request, response) => {
   if (await handleMessaging(request, response, url, { userId: caller, profileName })) return;
   // SP2-40: notifications, limited to the caller like RLS.
   if (await handleNotifications(request, response, url, { userId: caller })) return;
+  // SP2-53: SkillSwap posts and their details.
+  if (await handleSkillSwap(request, response, url, { userId: caller })) return;
   if (path === "/rest/v1/user_roles") {
     roleLookups++;
     response.statusCode = 404;

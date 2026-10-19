@@ -8,9 +8,11 @@ type MessageButtonFormProps = {
   /** startConversation, already bound to the other student's id. */
   action: () => Promise<StartConversationState>;
   studentName: string;
+  /** Visible text instead of "Message"; it should name the student. */
+  label?: string;
 };
 
-export function MessageButtonForm({ action, studentName }: MessageButtonFormProps) {
+export function MessageButtonForm({ action, studentName, label }: MessageButtonFormProps) {
   const [state, formAction, pending] = useActionState(action, null);
 
   return (
@@ -23,6 +25,8 @@ export function MessageButtonForm({ action, studentName }: MessageButtonFormProp
         <MessageCircle aria-hidden="true" className="size-4" />
         {pending ? (
           "Opening…"
+        ) : label ? (
+          label
         ) : (
           <>
             Message<span className="sr-only"> {studentName}</span>

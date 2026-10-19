@@ -1,7 +1,7 @@
 
 import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
-import { notFound } from "next/navigation";
 import { requireUser } from "@/modules/auth";
 import { createClient } from "@/lib/supabase/server";
 import EditPostForm from "./edit-post-form";
@@ -27,6 +27,11 @@ export default async function EditPostPage({
 
   if (error || !post || post.author_id !== user.id) {
     notFound();
+  }
+
+  // SkillSwap posts are edited through their own template.
+  if (post.category === "SkillSwap") {
+    redirect(`/skillswap/${post.id}/edit`);
   }
 
   const { data: categories, error: categoriesError } =
@@ -55,7 +60,7 @@ export default async function EditPostPage({
 
       <EditPostForm
         post={post}
-        categories={categories ?? []}
+        categories={(categories ?? []).filter((category) => category.name !== "SkillSwap")}
       />
     </main>
 </AppShell>
