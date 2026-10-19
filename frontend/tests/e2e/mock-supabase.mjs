@@ -1,5 +1,7 @@
 import { createServer } from "node:http";
 import { handleCommunity, matchingPosts } from "./mock-community.mjs";
+import { handleMessaging } from "./mock-messaging.mjs";
+import { handleNotifications } from "./mock-notifications.mjs";
 import { handleCourses } from "./mock-courses.mjs";
 import { handleReviews } from "./mock-reviews.mjs";
 
@@ -15,16 +17,25 @@ const user = {
 const profileAccounts = {
   "profile-editor@mail.aub.edu": "00000000-0000-4000-8000-000000000003",
   "profile-viewer@mail.aub.edu": "00000000-0000-4000-8000-000000000005",
-  "reviews-journey@mail.aub.edu": "00000000-0000-4000-8000-000000000006",
-  "reviews-validation@mail.aub.edu": "00000000-0000-4000-8000-000000000007",
-  "reviews-owner@mail.aub.edu": "00000000-0000-4000-8000-000000000008",
-  "reviews-other@mail.aub.edu": "00000000-0000-4000-8000-000000000009",
-  "reviews-duplicate@mail.aub.edu": "00000000-0000-4000-8000-000000000010",
-  "reviews-stale@mail.aub.edu": "00000000-0000-4000-8000-000000000011",
-  "reviews-pending@mail.aub.edu": "00000000-0000-4000-8000-000000000012",
-  "reviews-network@mail.aub.edu": "00000000-0000-4000-8000-000000000013",
-  "reviews-report-owner@mail.aub.edu": "00000000-0000-4000-8000-000000000014",
-  "reviews-reporter@mail.aub.edu": "00000000-0000-4000-8000-000000000015",
+  // SP2-36..39: three students for the messaging tests.
+  "messaging-maya@mail.aub.edu": "00000000-0000-4000-8000-000000000006",
+  "messaging-omar@mail.aub.edu": "00000000-0000-4000-8000-000000000007",
+  "messaging-rami@mail.aub.edu": "00000000-0000-4000-8000-000000000008",
+  // SP2-40..42: three students for the notification tests.
+  "notify-lina@mail.aub.edu": "00000000-0000-4000-8000-000000000009",
+  "notify-karim@mail.aub.edu": "00000000-0000-4000-8000-00000000000a",
+  "notify-nadia@mail.aub.edu": "00000000-0000-4000-8000-00000000000b",
+  // SP2-46/52: isolated students for course-review and reporting tests.
+  "reviews-journey@mail.aub.edu": "00000000-0000-4000-8000-000000000106",
+  "reviews-validation@mail.aub.edu": "00000000-0000-4000-8000-000000000107",
+  "reviews-owner@mail.aub.edu": "00000000-0000-4000-8000-000000000108",
+  "reviews-other@mail.aub.edu": "00000000-0000-4000-8000-000000000109",
+  "reviews-duplicate@mail.aub.edu": "00000000-0000-4000-8000-000000000110",
+  "reviews-stale@mail.aub.edu": "00000000-0000-4000-8000-000000000111",
+  "reviews-pending@mail.aub.edu": "00000000-0000-4000-8000-000000000112",
+  "reviews-network@mail.aub.edu": "00000000-0000-4000-8000-000000000113",
+  "reviews-report-owner@mail.aub.edu": "00000000-0000-4000-8000-000000000114",
+  "reviews-reporter@mail.aub.edu": "00000000-0000-4000-8000-000000000115",
 };
 // Another student whose public profile the tests visit.
 const otherStudentId = "00000000-0000-4000-8000-000000000004";
@@ -38,6 +49,16 @@ const profiles = new Map([[otherStudentId, {
   id: otherStudentId, full_name: "Other Student", major: "Biology", graduation_year: 2026,
   bio: "Pre-med and coffee enthusiast.", interests: ["Biology", "Running"], pinned_post_id: pinnedPost.id,
 }]]);
+for (const [id, fullName] of [
+  ["00000000-0000-4000-8000-000000000006", "Maya Saleh"],
+  ["00000000-0000-4000-8000-000000000007", "Omar Fares"],
+  ["00000000-0000-4000-8000-000000000008", "Rami Nassar"],
+  ["00000000-0000-4000-8000-000000000009", "Lina Haddad"],
+  ["00000000-0000-4000-8000-00000000000a", "Karim Aoun"],
+  ["00000000-0000-4000-8000-00000000000b", "Nadia Khalil"],
+]) {
+  profiles.set(id, { id, full_name: fullName, major: null, graduation_year: null, bio: null, interests: [], pinned_post_id: null });
+}
 let roleLookups = 0;
 let resends = 0;
 // Test-only state, isolated by email so parallel recovery cases cannot affect
@@ -218,6 +239,12 @@ createServer(async (request, response) => {
   if (handleCourses(request, response, url, bearerEmail(request))) return;
   if (await handleReviews(request, response, url, bearerClaims(request))) return;
   if (await handleCommunity(request, response, url)) return;
+  // SP2-36: conversations and messages, limited to the caller like RLS.
+  const caller = bearerClaims(request).sub ?? null;
+  const profileName = (id) => profiles.get(id)?.full_name ?? null;
+  if (await handleMessaging(request, response, url, { userId: caller, profileName })) return;
+  // SP2-40: notifications, limited to the caller like RLS.
+  if (await handleNotifications(request, response, url, { userId: caller })) return;
   if (path === "/rest/v1/user_roles") {
     roleLookups++;
     response.statusCode = 404;
