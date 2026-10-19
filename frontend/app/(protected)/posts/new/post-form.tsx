@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { createPost } from "@/modules/posts/actions";
 
@@ -12,17 +12,23 @@ type Category = {
 
 type PostFormProps = {
   categories: Category[];
+  initialTitle?: string;
 };
 
 const TITLE_MAX = 200;
 const BODY_MAX = 10000;
+const subscribeHydration = () => () => {};
+const clientReady = () => true;
+const serverReady = () => false;
 
 export default function PostForm({
   categories,
+  initialTitle = "",
 }: PostFormProps) {
   const router = useRouter();
+  const hydrated = useSyncExternalStore(subscribeHydration, clientReady, serverReady);
 
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState(initialTitle);
   const [body, setBody] = useState("");
   const [category, setCategory] = useState("");
   const [error, setError] = useState("");
@@ -91,6 +97,8 @@ export default function PostForm({
       onSubmit={handleSubmit}
       className="space-y-6"
     >
+      <fieldset disabled={!hydrated} className="min-w-0 space-y-6">
+        <legend className="sr-only">Post details</legend>
       <div>
         <label
           htmlFor="title"
@@ -187,6 +195,7 @@ export default function PostForm({
           ? "Publishing..."
           : "Create post"}
       </button>
+      </fieldset>
     </form>
   );
 }
