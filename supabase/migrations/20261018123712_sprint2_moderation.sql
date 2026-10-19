@@ -20,13 +20,18 @@ create index post_comments_status_idx
 on public.post_comments (post_id, status, created_at);
 
 -- Existing read policies expose moderation placeholders, but nothing removed
--- appears in the feed or accepts new interaction.
+-- appears in the feed or accepts new interaction. Authors keep read access to
+-- their own rows: deleting a post is an UPDATE to 'deleted', and Postgres RLS
+-- requires the updated row to pass a SELECT policy or the delete is rejected.
 drop policy if exists "Students can read published posts" on public.posts;
 create policy "Students can read visible posts"
 on public.posts
 for select
 to authenticated
-using (status in ('published', 'removed'));
+using (
+  status in ('published', 'removed')
+  or author_id = (select auth.uid())
+);
 
 drop policy if exists "Students can read comments on published posts"
 on public.post_comments;

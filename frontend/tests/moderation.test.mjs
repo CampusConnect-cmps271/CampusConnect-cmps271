@@ -179,6 +179,30 @@ describe("Sprint 2 moderation database security", () => {
     });
   });
 
+  it("lets an author soft-delete their own post", async () => {
+    const ownPostId = "00000000-0000-4000-8000-0000000000a2";
+
+    await asUser(database, studentId, async () => {
+      await database.query(
+        `insert into public.posts (id, author_id, title, body, category)
+         values ($1, $2, 'My post', 'My body', 'General')`,
+        [ownPostId, studentId],
+      );
+
+      const deleted = await database.query(
+        `update public.posts set status = 'deleted'
+         where id = $1 and author_id = $2 and status = 'published'`,
+        [ownPostId, studentId],
+      );
+      assert.equal(deleted.affectedRows, 1);
+    });
+
+    await asUser(database, otherId, async () => {
+      const visible = await database.query("select id from public.posts where id = $1", [ownPostId]);
+      assert.equal(visible.rows.length, 0);
+    });
+  });
+
   it("blocks suspended open sessions from posts, comments, votes, and reports", async () => {
     await asUser(database, adminId, async () => {
       await database.query(
