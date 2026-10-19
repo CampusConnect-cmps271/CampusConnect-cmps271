@@ -14,6 +14,10 @@ async function logIn(page: Page, email: string) {
   await expect(page).toHaveURL(/\/home$/, { timeout: 20_000 });
 }
 
+// beforeAll resets the SkillSwap mock these tests share; in parallel, one
+// worker's reset would wipe the other's post mid-test.
+test.describe.configure({ mode: "serial" });
+
 test.beforeAll(async ({ request }) => {
   await request.post("http://127.0.0.1:3101/test/skillswap/reset");
 });
