@@ -2,7 +2,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
-import { notFound } from "next/navigation";
 import { requireUser } from "@/modules/auth";
 import { createClient } from "@/lib/supabase/server";
 import EditPostForm from "./edit-post-form";
