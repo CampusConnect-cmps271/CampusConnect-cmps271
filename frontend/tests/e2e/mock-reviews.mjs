@@ -6,6 +6,10 @@ const editable = new Set(["difficulty_rating", "workload_rating", "usefulness_ra
 let tick = 0;
 const timestamp = () => new Date(Date.now() + ++tick).toISOString();
 
+export function ratingInputs(courseId) {
+  return reviews.filter((review) => review.course_id === courseId);
+}
+
 export async function handleReviews(request, response, url, claims) {
   if (url.pathname !== "/rest/v1/course_reviews") return false;
   const fail = (code, message, status = 403) => {

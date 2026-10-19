@@ -20,8 +20,8 @@ test("open a course, follow prerequisites, and return to the original catalogue 
   await page.getByRole("link", { name: "View course CMPS 240", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Operating Systems");
   await expect(page).toHaveTitle("CMPS 240 · CampusConnect");
-  await expect(page.locator("dl")).toContainText("3 credits");
-  await expect(page.locator("dl")).toContainText("Computer Science");
+  await expect(page.getByLabel("Course facts", { exact: true })).toContainText("3 credits");
+  await expect(page.getByLabel("Course facts", { exact: true })).toContainText("Computer Science");
   await expect(page.getByRole("region", { name: "Course description" })).toContainText("A synthetic description about operating systems for browser tests.");
   const prerequisites = page.getByRole("region", { name: "Prerequisites" });
   await expect(prerequisites.locator("p").first()).toHaveText("Prerequisite: CMPS101 or CMPS 102. Instructor consent may also be required.");
@@ -56,7 +56,7 @@ test("empty prerequisites and unavailable course codes have clear states", async
   await page.goto("/courses/math201");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Calculus III");
   await expect(page.getByRole("region", { name: "Prerequisites" })).toContainText("No prerequisites are listed");
-  await page.locator("dl").getByRole("link", { name: "Mathematics", exact: true }).click();
+  await page.getByLabel("Course facts", { exact: true }).getByRole("link", { name: "Mathematics", exact: true }).click();
   await expect(page.locator("article")).toHaveCount(2);
   for (const code of ["CMPS-999", "invalid-code"]) {
     await page.goto(`/courses/${code}`);

@@ -5,6 +5,7 @@ import { courseUrl } from "./references";
 import { coursesUrl, type CourseFilters } from "./search";
 import styles from "./courses.module.css";
 import { ReviewSection } from "@/modules/reviews/ReviewSection";
+import { RatingSection } from "@/modules/ratings/RatingSection";
 
 export async function CourseDetail({ code, filters }: { code: string; filters: CourseFilters }) {
   let detail;
@@ -31,7 +32,7 @@ export async function CourseDetail({ code, filters }: { code: string; filters: C
       <h1>{course.name}</h1>
     </header>
 
-    <dl className={styles.courseFacts}>
+    <dl className={styles.courseFacts} aria-label="Course facts">
       <div><dt>Credits</dt><dd>{Number(course.credits)} {Number(course.credits) === 1 ? "credit" : "credits"}</dd></div>
       <div><dt>Department</dt><dd>
         <Link href={coursesUrl({ query: "", department: course.department, page: 1 })}>{course.department}</Link>
@@ -60,6 +61,7 @@ export async function CourseDetail({ code, filters }: { code: string; filters: C
 
       <section className={styles.detailPanel} aria-labelledby="course-reviews-title">
         <h2 id="course-reviews-title">Ratings and reviews</h2>
+        <RatingSection courseId={course.id} courseCode={course.code} />
         <ReviewSection courseId={course.id} />
       </section>
     </div>

@@ -3,6 +3,8 @@ import { CatalogueUnavailable, getCourseCatalogue, type Course } from "./catalog
 import { COURSES_PER_PAGE, coursesUrl, type CourseFilters } from "./search";
 import styles from "./courses.module.css";
 import { courseUrl } from "./references";
+import { getCourseRatings } from "@/modules/ratings/queries";
+import { RatingSummary } from "@/modules/ratings/RatingSummary";
 
 export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
   // Authentication redirects must escape this catch, rather than becoming
@@ -24,6 +26,7 @@ export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
     </section>
   );
   const { courses, departments, total, page, pages } = result.data;
+  const ratings = await getCourseRatings(courses.map((course) => course.id));
   const groups = new Map<string, Course[]>();
   for (const course of courses) {
     const group = groups.get(course.department) ?? [];
@@ -81,6 +84,7 @@ export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
               </summary>
               <p className={styles.fullDescription}>{course.description}</p>
             </details>
+            <RatingSummary courseCode={course.code} summary={ratings.get(course.id)} compact />
             <Link href={courseUrl(course.code, { ...filters, page })} className={styles.coursePageLink}
               aria-label={`View course ${course.code}`}>
               View course →
