@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { handleCommunity, matchingPosts } from "./mock-community.mjs";
 import { handleMessaging } from "./mock-messaging.mjs";
 import { handleNotifications } from "./mock-notifications.mjs";
+import { handleCourses } from "./mock-courses.mjs";
 
 const user = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -208,6 +209,11 @@ createServer(async (request, response) => {
     response.statusCode = 201;
     return response.end("{}");
   }
+  if (path === "/rest/v1/rpc/current_suspension" && request.method === "POST") {
+    // Verified browser-test users are active. Keep this explicit because the
+    // login action fails closed when account status cannot be checked.
+    return response.end("[]");
+  }
   if (path === "/rest/v1/categories" && request.method === "GET") {
     return response.end(JSON.stringify([
       { id: 1, name: "General" },
@@ -218,6 +224,7 @@ createServer(async (request, response) => {
   }
 
   // Sprint 2 tables: posts, comments, upvotes and saved posts.
+  if (handleCourses(request, response, url, bearerEmail(request))) return;
   if (await handleCommunity(request, response, url)) return;
   // SP2-36: conversations and messages, limited to the caller like RLS.
   const caller = bearerClaims(request).sub ?? null;
