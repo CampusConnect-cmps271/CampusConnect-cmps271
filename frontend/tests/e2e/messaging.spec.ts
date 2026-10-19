@@ -5,13 +5,15 @@ import { expect, test, type Page } from "@playwright/test";
 const maya = { email: "messaging-maya@mail.aub.edu", id: "00000000-0000-4000-8000-000000000006", name: "Maya Saleh" };
 const omar = { email: "messaging-omar@mail.aub.edu", id: "00000000-0000-4000-8000-000000000007", name: "Omar Fares" };
 const rami = { email: "messaging-rami@mail.aub.edu", name: "Rami Nassar" };
+const ramiId = "00000000-0000-4000-8000-000000000008";
 
 async function logIn(page: Page, email: string) {
   await page.goto("/login");
   await page.getByLabel("University email", { exact: true }).fill(email);
   await page.getByLabel("Password", { exact: true }).fill("test-verified-password");
   await page.getByRole("button", { name: "Log in", exact: true }).click();
-  await expect(page).toHaveURL(/\/home$/);
+  // The first visit to /home compiles it in dev, which can outlast 5s.
+  await expect(page).toHaveURL(/\/home$/, { timeout: 20_000 });
 }
 
 const header = (page: Page) => page.getByRole("banner").getByRole("navigation", { name: "Main" });
@@ -28,7 +30,9 @@ test.describe.configure({ mode: "serial" });
 let conversationPath = "";
 
 test.beforeAll(async ({ request }) => {
-  await request.post("http://127.0.0.1:3101/test/messaging/reset");
+  await request.post(
+    `http://127.0.0.1:3101/test/messaging/reset?ids=${[maya.id, omar.id, ramiId].join(",")}`,
+  );
 });
 
 test("a student starts a conversation from a profile and sends a message", async ({ page }) => {

@@ -18,12 +18,17 @@ export default async function AdminRolesPage() {
       <div className="mx-auto max-w-5xl rounded-xl bg-white p-6 shadow">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <h1 className="text-2xl font-bold text-gray-900">User roles</h1>
-          <Link
-            href="/admin/errors"
-            className="font-semibold text-blue-700 hover:underline"
-          >
-            View error dashboard
-          </Link>
+          <nav className="flex flex-wrap gap-4 text-sm">
+            <Link href="/admin/accounts" className="font-semibold text-blue-700 hover:underline">
+              Manage accounts
+            </Link>
+            <Link href="/admin/audit" className="font-semibold text-blue-700 hover:underline">
+              View audit log
+            </Link>
+            <Link href="/admin/errors" className="font-semibold text-blue-700 hover:underline">
+              View error dashboard
+            </Link>
+          </nav>
         </div>
         <p className="mt-2 text-sm text-gray-600">
           Administrator-only role assignment for CampusConnect.

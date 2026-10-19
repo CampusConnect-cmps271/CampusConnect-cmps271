@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { notifyMessage, readMessageNotifications, resetNotifications } from "./mock-notifications.mjs";
 
 // Test-only, in-memory stand-in for the SP2-36 messaging tables and
 // functions. It mimics just enough of PostgREST, and of the RLS rules, for
@@ -43,9 +44,20 @@ export async function handleMessaging(request, response, url, { userId, profileN
   const params = url.searchParams;
 
   if (path === "/test/messaging/reset") {
-    conversations.length = 0;
-    reads.length = 0;
-    messages.length = 0;
+    // ?ids=a,b limits the reset to those students, so specs running in
+    // parallel keep each other's conversations.
+    const ids = params.get("ids")?.split(",") ?? null;
+    const doomed = new Set(
+      conversations
+        .filter((row) => !ids || ids.includes(row.student_a) || ids.includes(row.student_b))
+        .map((row) => row.id),
+    );
+    for (const rows of [conversations, reads, messages]) {
+      for (let i = rows.length - 1; i >= 0; i--) {
+        if (doomed.has(rows[i].id) || doomed.has(rows[i].conversation_id)) rows.splice(i, 1);
+      }
+    }
+    resetNotifications(ids);
     return send(response, 200, {}), true;
   }
 
@@ -125,6 +137,7 @@ export async function handleMessaging(request, response, url, { userId, profileN
         (!notBefore || row.last_read_at < notBefore)
       ) {
         row.last_read_at = readAt;
+        readMessageNotifications(userId, row.conversation_id, readAt);
       }
     }
     return send(response, 204), true;
@@ -156,7 +169,10 @@ export async function handleMessaging(request, response, url, { userId, profileN
       created_at: new Date().toISOString(),
     };
     messages.push(saved);
-    conversations.find((c) => c.id === saved.conversation_id).last_message_at = saved.created_at;
+    const conversation = conversations.find((c) => c.id === saved.conversation_id);
+    conversation.last_message_at = saved.created_at;
+    const recipient = conversation.student_a === userId ? conversation.student_b : conversation.student_a;
+    notifyMessage(recipient, userId, conversation.id, saved.created_at);
 
     const wantsObject = String(request.headers.accept ?? "").includes("vnd.pgrst.object");
     return send(response, 201, wantsObject ? saved : [saved]), true;

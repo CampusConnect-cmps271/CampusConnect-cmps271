@@ -3,6 +3,7 @@
 
 import { requireUser } from "@/modules/auth";
 import { createClient } from "@/lib/supabase/server";
+import { checkContentRestrictions } from "@/modules/moderation/restrictions";
 import { postSchema } from "./schema";
 
 export type CreatePostResult = {
@@ -31,6 +32,17 @@ export async function createPost(
           ])
       ),
     };
+  }
+
+  const restriction = await checkContentRestrictions({
+    userId: user.id,
+    contentType: "post",
+    title: validation.data.title,
+    body: validation.data.body,
+  });
+
+  if (!restriction.allowed) {
+    return { error: restriction.message };
   }
 
   const supabase = await createClient();

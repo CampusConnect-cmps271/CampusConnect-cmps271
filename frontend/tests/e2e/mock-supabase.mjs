@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { handleCommunity, matchingPosts } from "./mock-community.mjs";
 import { handleMessaging } from "./mock-messaging.mjs";
+import { handleNotifications } from "./mock-notifications.mjs";
 import { handleSkillSwap, matchingSkillSwapPosts } from "./mock-skillswap.mjs";
 import { handleCourses } from "./mock-courses.mjs";
 
@@ -20,6 +21,10 @@ const profileAccounts = {
   "messaging-maya@mail.aub.edu": "00000000-0000-4000-8000-000000000006",
   "messaging-omar@mail.aub.edu": "00000000-0000-4000-8000-000000000007",
   "messaging-rami@mail.aub.edu": "00000000-0000-4000-8000-000000000008",
+  // SP2-40..42: three students for the notification tests.
+  "notify-lina@mail.aub.edu": "00000000-0000-4000-8000-000000000009",
+  "notify-karim@mail.aub.edu": "00000000-0000-4000-8000-00000000000a",
+  "notify-nadia@mail.aub.edu": "00000000-0000-4000-8000-00000000000b",
   // SP2-53..55: two students for the SkillSwap journey.
   "skillswap-sami@mail.aub.edu": "00000000-0000-4000-8000-00000000000c",
   "skillswap-dana@mail.aub.edu": "00000000-0000-4000-8000-00000000000d",
@@ -40,6 +45,9 @@ for (const [id, fullName] of [
   ["00000000-0000-4000-8000-000000000006", "Maya Saleh"],
   ["00000000-0000-4000-8000-000000000007", "Omar Fares"],
   ["00000000-0000-4000-8000-000000000008", "Rami Nassar"],
+  ["00000000-0000-4000-8000-000000000009", "Lina Haddad"],
+  ["00000000-0000-4000-8000-00000000000a", "Karim Aoun"],
+  ["00000000-0000-4000-8000-00000000000b", "Nadia Khalil"],
   ["00000000-0000-4000-8000-00000000000c", "Sami Haddad"],
   ["00000000-0000-4000-8000-00000000000d", "Dana Rizk"],
 ]) {
@@ -207,6 +215,11 @@ createServer(async (request, response) => {
     response.statusCode = 201;
     return response.end("{}");
   }
+  if (path === "/rest/v1/rpc/current_suspension" && request.method === "POST") {
+    // Verified browser-test users are active. Keep this explicit because the
+    // login action fails closed when account status cannot be checked.
+    return response.end("[]");
+  }
   if (path === "/rest/v1/categories" && request.method === "GET") {
     return response.end(JSON.stringify([
       { id: 1, name: "General" },
@@ -223,6 +236,8 @@ createServer(async (request, response) => {
   const caller = bearerClaims(request).sub ?? null;
   const profileName = (id) => profiles.get(id)?.full_name ?? null;
   if (await handleMessaging(request, response, url, { userId: caller, profileName })) return;
+  // SP2-40: notifications, limited to the caller like RLS.
+  if (await handleNotifications(request, response, url, { userId: caller })) return;
   // SP2-53: SkillSwap posts and their details.
   if (await handleSkillSwap(request, response, url, { userId: caller })) return;
   if (path === "/rest/v1/user_roles") {

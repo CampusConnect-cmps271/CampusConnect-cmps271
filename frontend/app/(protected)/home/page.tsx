@@ -203,7 +203,7 @@ export default async function HomePage({
                 <time className="text-xs text-[var(--ink-soft)]">
                   {new Date(
                     post.created_at
-                  ).toLocaleDateString()}
+                  ).toLocaleDateString("en-US", { timeZone: "Asia/Beirut" })}
                 </time>
               </div>
 
@@ -247,7 +247,7 @@ export default async function HomePage({
           Page {page}
         </span>
 
-        {hasMore && (
+        {hasMore && page < 100 && (
           <Link
             href={feedUrl(page + 1)}
             className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm"

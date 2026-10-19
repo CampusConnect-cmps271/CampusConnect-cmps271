@@ -12,6 +12,7 @@ import DeletePostButton from "./delete-post-button";
 import UpvoteButton from "./upvote-button";
 import SaveButton from "./save-button";
 import CommentSection, { loadComments } from "./comment-section";
+import ReportDialog from "@/modules/moderation/report-dialog";
 
 type PostPageProps = {
   params: Promise<{
@@ -34,10 +35,9 @@ export default async function PostPage({
   const { data: post, error } = await supabase
     .from("posts")
     .select(
-      "id, author_id, title, body, category, created_at, edited_at"
+      "id, author_id, title, body, category, status, created_at, edited_at"
     )
     .eq("id", id)
-    .eq("status", "published")
     .maybeSingle();
 
   if (error || !post) {
@@ -46,6 +46,22 @@ export default async function PostPage({
 
   const isAuthor = post.author_id === user.id;
   const author = isAuthor ? null : await getProfile(post.author_id);
+
+  if (post.status === "removed") {
+    return (
+      <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
+        <Link href="/home" className="mb-8 inline-block text-sm text-blue-700 hover:underline dark:text-blue-300">
+          ← Back to feed
+        </Link>
+        <article className="rounded-xl border border-red-700/30 p-6">
+          <h1 className="text-2xl font-bold">Removed by a moderator</h1>
+          <p className="mt-3 text-sm opacity-75">
+            This post violated the CampusConnect community guidelines and is no longer available.
+          </p>
+        </article>
+      </main>
+    );
+  }
 
   const [countResult, myUpvoteResult, mySaveResult, comments] =
     await Promise.all([
@@ -105,7 +121,7 @@ export default async function PostPage({
 
           <time className="text-xs text-[var(--ink-soft)]">
             Posted{" "}
-            {new Date(post.created_at).toLocaleString()}
+            {new Date(post.created_at).toLocaleString("en-US", { timeZone: "Asia/Beirut" })}
           </time>
         </div>
 
@@ -146,7 +162,7 @@ export default async function PostPage({
         {post.edited_at && (
           <p className="mt-6 text-xs text-[var(--ink-soft)]">
             Last edited{" "}
-            {new Date(post.edited_at).toLocaleString()}
+            {new Date(post.edited_at).toLocaleString("en-US", { timeZone: "Asia/Beirut" })}
           </p>
         )}
 
@@ -166,6 +182,8 @@ export default async function PostPage({
             {comments.length}{" "}
             {comments.length === 1 ? "comment" : "comments"}
           </span>
+
+          {!isAuthor ? <ReportDialog targetType="post" targetId={post.id} /> : null}
         </div>
 
         {isAuthor && (
