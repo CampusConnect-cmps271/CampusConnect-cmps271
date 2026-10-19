@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { CatalogueUnavailable, getCourseCatalogue, type Course } from "./catalogue";
-import { COURSES_PER_PAGE, coursesUrl, type CourseFilters } from "./search";
+import { COURSES_PER_PAGE, COURSE_RANGE_FILTERS, coursesUrl, type CourseFilters } from "./search";
 import styles from "./courses.module.css";
 import { courseUrl } from "./references";
+import { getCourseRatings } from "@/modules/ratings/queries";
+import { RatingSummary } from "@/modules/ratings/RatingSummary";
+import { CourseFilterForm, ClearCourseFilters } from "./CourseFilterForm";
+import { ComparisonSelection, ComparisonToggle } from "./ComparisonSelection";
 
 export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
   // Authentication redirects must escape this catch, rather than becoming
@@ -23,7 +27,8 @@ export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
       <a href={coursesUrl(filters)}>Try again</a>
     </section>
   );
-  const { courses, departments, total, page, pages } = result.data;
+  const { courses, departments, total, page, pages, filterError } = result.data;
+  const ratings = await getCourseRatings(courses.map((course) => course.id));
   const groups = new Map<string, Course[]>();
   for (const course of courses) {
     const group = groups.get(course.department) ?? [];
@@ -32,7 +37,9 @@ export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
   }
 
   return <>
-    <form action="/courses" method="get" className={styles.form} role="search" aria-label="Course catalogue">
+    <ComparisonSelection filters={{ ...filters, page }} />
+    <CourseFilterForm key={coursesUrl(filters)}>
+      {filters.compare?.map((code) => <input key={code} type="hidden" name="compare" value={code} />)}
       <div className={styles.searchField}>
         <label htmlFor="course-search">Course name or code</label>
         <input id="course-search" name="q" type="search" maxLength={120}
@@ -47,20 +54,38 @@ export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
           {departments.map((department) => <option key={department}>{department}</option>)}
         </select>
       </div>
+      <div className={styles.rangeFilters}>
+        {COURSE_RANGE_FILTERS.map((range) => <fieldset key={range.name} className={styles.rangeFilter}>
+          <legend>{range.name}</legend>
+          <div className={styles.rangeInputs}>
+            {([['Minimum', range.minimum], ['Maximum', range.maximum]] as const).map(([label, key]) => <div key={key}>
+              <label htmlFor={`course-${key}`}>{label}</label>
+              <input id={`course-${key}`} type="number" name={key} aria-label={`${label} ${range.name.toLowerCase()}`}
+                min={range.min} max={range.max} step={range.step} inputMode="decimal"
+                defaultValue={filters[key] ?? ""} placeholder="Any" />
+            </div>)}
+          </div>
+        </fieldset>)}
+        <p className={styles.filterHint}>Leave bounds empty for any value. Difficulty and workload use displayed averages out of 5 and require at least 3 reviews.</p>
+      </div>
       <button type="submit">Search courses</button>
-      <Link href="/courses" className={styles.clear}>Clear</Link>
-    </form>
+      <ClearCourseFilters href={coursesUrl({ query: "", department: "", page: 1, compare: filters.compare })} />
+    </CourseFilterForm>
 
-    <p className={styles.summary} role="status">
+    {!filterError && <p className={styles.summary} role="status">
       {total.toLocaleString("en-US")} {total === 1 ? "course" : "courses"} found
       {filters.query && <> for “{filters.query}”</>}
       {total > 0 && <> · Showing {(page - 1) * COURSES_PER_PAGE + 1}–{Math.min(page * COURSES_PER_PAGE, total)}</>}
-    </p>
+    </p>}
 
-    {total === 0 ? <section className={styles.notice}>
+    {filterError ? <section className={`${styles.notice} ${styles.filterError}`} role="alert" aria-labelledby="filter-error-title">
+      <h2 id="filter-error-title">Check your filter ranges</h2>
+      <p>{filterError}</p>
+      <p>Adjust the bounds above and search again.</p>
+    </section> : total === 0 ? <section className={styles.notice}>
       <h2>No courses found</h2>
-      <p>Try another name or code, or choose a different department.</p>
-      <Link href="/courses">Browse all courses</Link>
+      <p>Try another name or code, adjust the ranges, or choose a different department.</p>
+      <Link href={coursesUrl({ query: "", department: "", page: 1, compare: filters.compare })}>Browse all courses</Link>
     </section> : [...groups].map(([department, rows]) => (
       <section key={department} className={styles.department} aria-label={department}>
         <h2>{department}</h2>
@@ -81,10 +106,12 @@ export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
               </summary>
               <p className={styles.fullDescription}>{course.description}</p>
             </details>
+            <RatingSummary courseCode={course.code} summary={ratings.get(course.id)} compact />
             <Link href={courseUrl(course.code, { ...filters, page })} className={styles.coursePageLink}
               aria-label={`View course ${course.code}`}>
               View course →
             </Link>
+            <div><ComparisonToggle code={course.code} filters={{ ...filters, page }} /></div>
           </article>)}
         </div>
       </section>

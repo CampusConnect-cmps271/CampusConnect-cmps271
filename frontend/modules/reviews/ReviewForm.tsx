@@ -1,15 +1,20 @@
 "use client";
 
-import { useActionState, useId, useState } from "react";
+import { useActionState, useId, useState, useSyncExternalStore } from "react";
 import { deleteMyReview, saveMyReview } from "./actions";
 import { EMPTY_REVIEW_VALUES, RATING_FIELDS, RATING_LABELS, readReviewForm, reviewSchema, type ReviewValues } from "./schema";
 import type { MyReview, ReviewState } from "./types";
 import styles from "./reviews.module.css";
 
 const idle: ReviewState = { status: "idle" };
+const subscribeHydration = () => () => {};
+const clientReady = () => true;
+const serverReady = () => false;
 
 export function ReviewForm({ courseId, review }: { courseId: string; review: MyReview | null }) {
   const prefix = useId();
+  // Controlled fields must not accept edits before their handlers hydrate.
+  const hydrated = useSyncExternalStore(subscribeHydration, clientReady, serverReady);
   const [values, setValues] = useState<ReviewValues>(() => review ? {
     difficulty: String(review.difficulty_rating), workload: String(review.workload_rating),
     usefulness: String(review.usefulness_rating), overall: String(review.overall_rating),
@@ -35,7 +40,7 @@ export function ReviewForm({ courseId, review }: { courseId: string; review: MyR
       return state;
     } catch { return { status: "error", message: "The request couldn't be completed. Please try again or sign in again." }; }
   }, idle);
-  const pending = saving || deleting;
+  const pending = saving || deleting || !hydrated;
   const state = operation === "save" ? saveState : deleteState;
   const errors = operation === "save" ? saveState.errors : undefined;
   const fieldError = (field: keyof ReviewValues) => errors?.[field]?.[0];

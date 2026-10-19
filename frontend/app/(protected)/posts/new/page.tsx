@@ -4,9 +4,11 @@ import { requireUser } from "@/modules/auth";
 import { AppShell } from "@/components/AppShell";
 import { createClient } from "@/lib/supabase/server";
 import PostForm from "./post-form";
+import { readQuestionTitle, type PostSearchParams } from "@/modules/posts/search-navigation";
 
-export default async function NewPostPage() {
+export default async function NewPostPage({ searchParams }: { searchParams: Promise<PostSearchParams> }) {
   await requireUser();
+  const initialTitle = readQuestionTitle(await searchParams);
 
   const supabase = await createClient();
 
@@ -47,7 +49,9 @@ export default async function NewPostPage() {
 
       {/* SkillSwap posts are written through their own template. */}
       <PostForm
+        key={initialTitle}
         categories={(categories ?? []).filter((category) => category.name !== "SkillSwap")}
+        initialTitle={initialTitle}
       />
     </main>
 </AppShell>

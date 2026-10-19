@@ -5,6 +5,8 @@ import { handleNotifications } from "./mock-notifications.mjs";
 import { handleSkillSwap, matchingSkillSwapPosts } from "./mock-skillswap.mjs";
 import { handleCourses } from "./mock-courses.mjs";
 import { handleReviews } from "./mock-reviews.mjs";
+import { handleRatings } from "./mock-ratings.mjs";
+import { handlePostSearch, postSearchFixtures } from "./mock-post-search.mjs";
 
 const user = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -37,6 +39,9 @@ const profileAccounts = {
   "reviews-network@mail.aub.edu": "00000000-0000-4000-8000-000000000113",
   "reviews-report-owner@mail.aub.edu": "00000000-0000-4000-8000-000000000114",
   "reviews-reporter@mail.aub.edu": "00000000-0000-4000-8000-000000000115",
+  // SCRUM-172/173: the rating summary and review hydration tests.
+  "ratings-editor@mail.aub.edu": "00000000-0000-4000-8000-000000000116",
+  "reviews-hydration@mail.aub.edu": "00000000-0000-4000-8000-000000000117",
   // SP2-53..55: two students for the SkillSwap journey.
   "skillswap-sami@mail.aub.edu": "00000000-0000-4000-8000-00000000000c",
   "skillswap-dana@mail.aub.edu": "00000000-0000-4000-8000-00000000000d",
@@ -220,7 +225,10 @@ createServer(async (request, response) => {
   }
   if (path === "/rest/v1/posts" && request.method === "GET") {
     const matches = (key, value) => !url.searchParams.has(key) || url.searchParams.get(key) === `eq.${value}`;
-    const found = [pinnedPost].filter((post) => ["id", "author_id", "status"].every((key) => matches(key, post[key])));
+    // Search fixtures are visible only to exact detail-page lookups, so they
+    // never alter the existing feed/profile test datasets.
+    const candidates = url.searchParams.get("id")?.startsWith("eq.f143") ? postSearchFixtures : [pinnedPost];
+    const found = candidates.filter((post) => ["id", "author_id", "status"].every((key) => matches(key, post[key])));
     return response.end(JSON.stringify([...found, ...matchingPosts(url.searchParams), ...matchingSkillSwapPosts(url.searchParams)]));
   }
   if (path === "/rest/v1/app_logs" && request.method === "POST") {
@@ -243,7 +251,9 @@ createServer(async (request, response) => {
 
   // Sprint 2 tables: posts, comments, upvotes and saved posts.
   if (handleCourses(request, response, url, bearerEmail(request))) return;
+  if (handleRatings(request, response, url, bearerClaims(request))) return;
   if (await handleReviews(request, response, url, bearerClaims(request))) return;
+  if (await handlePostSearch(request, response, url, bearerClaims(request), [pinnedPost, ...matchingPosts(new URLSearchParams())])) return;
   if (await handleCommunity(request, response, url)) return;
   // SP2-36: conversations and messages, limited to the caller like RLS.
   const caller = bearerClaims(request).sub ?? null;

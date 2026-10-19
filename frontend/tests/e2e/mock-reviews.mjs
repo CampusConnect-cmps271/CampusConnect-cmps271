@@ -7,6 +7,30 @@ const editable = new Set(["difficulty_rating", "workload_rating", "usefulness_ra
 let tick = 0;
 const timestamp = () => new Date(Date.now() + ++tick).toISOString();
 
+export function ratingInputs(courseId) {
+  return reviews.filter((review) => review.course_id === courseId);
+}
+
+const samples = {
+  "CMPS 102": [[1, 2, 3, 4]],
+  "CMPS 103": [[1, 1, 1, 1], [5, 5, 5, 5]],
+  "CMPS 104": [[2, 3, 4, 5], [3, 4, 5, 4], [5, 1, 2, 3]],
+  "CMPS 105": [[1, 2, 3, 4], [2, 3, 4, 5], [3, 4, 5, 1], [4, 5, 1, 2]],
+  "CMPS 127": [[2, 2, 4, 3], [3, 2, 5, 4], [4, 2, 3, 5]],
+  "CMPS 261": [[1, 2, 3, 4], [5, 4, 3, 2]],
+};
+const ratingFields = ["difficulty", "workload", "usefulness", "overall"];
+
+export function ratingFixture(course) {
+  const rows = [...(samples[course.code] ?? []), ...ratingInputs(course.id).map((review) => ratingFields.map((field) => review[`${field}_rating`]))];
+  return {
+    course_id: course.id, review_count: rows.length,
+    ...Object.fromEntries(ratingFields.map((field, index) => [`average_${field}`,
+      rows.length ? rows.reduce((total, ratings) => total + ratings[index], 0) / rows.length : null,
+    ])),
+  };
+}
+
 export async function handleReviews(request, response, url, claims) {
   const fail = (code, message, status = 403) => {
     response.statusCode = status;
