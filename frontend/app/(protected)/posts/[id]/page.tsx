@@ -1,5 +1,6 @@
 
 import type { Metadata } from "next";
+import { AppShell } from "@/components/AppShell";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/modules/auth";
@@ -10,6 +11,7 @@ import DeletePostButton from "./delete-post-button";
 import UpvoteButton from "./upvote-button";
 import SaveButton from "./save-button";
 import CommentSection, { loadComments } from "./comment-section";
+import ReportDialog from "@/modules/moderation/report-dialog";
 
 type PostPageProps = {
   params: Promise<{
@@ -32,10 +34,9 @@ export default async function PostPage({
   const { data: post, error } = await supabase
     .from("posts")
     .select(
-      "id, author_id, title, body, category, created_at, edited_at"
+      "id, author_id, title, body, category, status, created_at, edited_at"
     )
     .eq("id", id)
-    .eq("status", "published")
     .maybeSingle();
 
   if (error || !post) {
@@ -44,6 +45,22 @@ export default async function PostPage({
 
   const isAuthor = post.author_id === user.id;
   const author = isAuthor ? null : await getProfile(post.author_id);
+
+  if (post.status === "removed") {
+    return (
+      <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
+        <Link href="/home" className="mb-8 inline-block text-sm text-blue-700 hover:underline dark:text-blue-300">
+          ← Back to feed
+        </Link>
+        <article className="rounded-xl border border-red-700/30 p-6">
+          <h1 className="text-2xl font-bold">Removed by a moderator</h1>
+          <p className="mt-3 text-sm opacity-75">
+            This post violated the CampusConnect community guidelines and is no longer available.
+          </p>
+        </article>
+      </main>
+    );
+  }
 
   const [countResult, myUpvoteResult, mySaveResult, comments] =
     await Promise.all([
@@ -86,23 +103,24 @@ export default async function PostPage({
   }
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
+    <AppShell>
+<main className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
       <Link
         href="/home"
-        className="mb-8 inline-block text-sm text-blue-400 hover:underline"
+        className="mb-8 inline-block text-sm text-[var(--maroon)] hover:underline"
       >
-        ← Back to feed
+        ← Back to home
       </Link>
 
-      <article className="rounded-xl border border-gray-700 p-6">
+      <article className="rounded-xl border border-[var(--border)] p-6">
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <span className="rounded-full bg-blue-600/20 px-3 py-1 text-xs font-medium text-blue-400">
+          <span className="rounded-full bg-[var(--maroon-100)] px-3 py-1 text-xs font-medium text-[var(--maroon)]">
             {post.category}
           </span>
 
-          <time className="text-xs text-gray-400">
+          <time className="text-xs text-[var(--ink-soft)]">
             Posted{" "}
-            {new Date(post.created_at).toLocaleString()}
+            {new Date(post.created_at).toLocaleString("en-US", { timeZone: "Asia/Beirut" })}
           </time>
         </div>
 
@@ -137,13 +155,13 @@ export default async function PostPage({
         </div>
 
         {post.edited_at && (
-          <p className="mt-6 text-xs text-gray-400">
+          <p className="mt-6 text-xs text-[var(--ink-soft)]">
             Last edited{" "}
-            {new Date(post.edited_at).toLocaleString()}
+            {new Date(post.edited_at).toLocaleString("en-US", { timeZone: "Asia/Beirut" })}
           </p>
         )}
 
-        <div className="mt-8 flex flex-wrap items-center gap-4 border-t border-gray-700 pt-5">
+        <div className="mt-8 flex flex-wrap items-center gap-4 border-t border-[var(--border)] pt-5">
           <UpvoteButton
             postId={post.id}
             initialCount={upvoteCount ?? 0}
@@ -155,17 +173,19 @@ export default async function PostPage({
             initiallySaved={Boolean(mySave)}
           />
 
-          <span className="text-sm text-gray-400">
+          <span className="text-sm text-[var(--ink-soft)]">
             {comments.length}{" "}
             {comments.length === 1 ? "comment" : "comments"}
           </span>
+
+          {!isAuthor ? <ReportDialog targetType="post" targetId={post.id} /> : null}
         </div>
 
         {isAuthor && (
-          <div className="mt-6 flex flex-wrap gap-3 border-t border-gray-700 pt-5">
+          <div className="mt-6 flex flex-wrap gap-3 border-t border-[var(--border)] pt-5">
             <Link
               href={`/posts/${post.id}/edit`}
-              className="inline-block rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              className="inline-block rounded-lg bg-[var(--maroon)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--maroon-dark)]"
             >
               Edit post
             </Link>
@@ -183,5 +203,6 @@ export default async function PostPage({
         />
       </article>
     </main>
+</AppShell>
   );
 }

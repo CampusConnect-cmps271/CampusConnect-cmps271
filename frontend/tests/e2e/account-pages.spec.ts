@@ -67,7 +67,8 @@ test("verified students log out and lose access to protected home", async ({ pag
   // The header's Log out; /home still has its own, scoped inside main.
   await page.getByRole("banner").getByRole("button", { name: "Log out", exact: true }).click();
   await expect(page).toHaveURL("http://127.0.0.1:3100/");
-  expect((await context.cookies()).some((cookie) => cookie.name.startsWith("sb-127-auth-token") && cookie.value)).toBe(false);
+  // Logging out is a Server Action; wait until it has cleared the session.
+  await expect.poll(async () => (await context.cookies()).some((cookie) => cookie.name.startsWith("sb-127-auth-token") && cookie.value)).toBe(false);
   await page.goto("/home");
   await expect(page).toHaveURL(/\/login\?next=%2Fhome$/);
 });
