@@ -66,7 +66,9 @@ export async function togglePostUpvote(
       user_id: user.id,
     });
 
-  if (error) {
+  // 23505: a concurrent request already added this vote; the end state is
+  // the one the user asked for.
+  if (error && error.code !== "23505") {
     console.error("Failed to add upvote:", error);
     return { error: "Unable to upvote post." };
   }

@@ -73,7 +73,7 @@ export default async function SavedPage() {
                 </span>
 
                 <time className="text-xs text-gray-400">
-                  {new Date(post.created_at).toLocaleDateString()}
+                  {new Date(post.created_at).toLocaleDateString("en-US", { timeZone: "Asia/Beirut" })}
                 </time>
               </div>
 

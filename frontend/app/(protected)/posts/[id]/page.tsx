@@ -100,7 +100,7 @@ export default async function PostPage({
 
           <time className="text-xs text-gray-400">
             Posted{" "}
-            {new Date(post.created_at).toLocaleString()}
+            {new Date(post.created_at).toLocaleString("en-US", { timeZone: "Asia/Beirut" })}
           </time>
         </div>
 
@@ -119,7 +119,7 @@ export default async function PostPage({
         {post.edited_at && (
           <p className="mt-6 text-xs text-gray-400">
             Last edited{" "}
-            {new Date(post.edited_at).toLocaleString()}
+            {new Date(post.edited_at).toLocaleString("en-US", { timeZone: "Asia/Beirut" })}
           </p>
         )}
 
