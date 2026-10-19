@@ -1,14 +1,19 @@
 import Link from "next/link";
-import { LogoutButton } from "@/modules/auth";
+import { LogoutButton, requireUser } from "@/modules/auth";
 import { countMyUnreadConversations, UnreadMessagesBadge } from "@/modules/messaging";
+import { countMyUnreadNotifications, NotificationBell } from "@/modules/notifications";
 import { NavLinks } from "./NavLinks";
 
 /**
  * The header on every signed-in page: the wordmark (to the feed), Messages
- * with the unread count, Profile and Log out.
+ * with the unread count, the notification bell, Profile and Log out.
  */
 export async function AppHeader() {
-  const unread = await countMyUnreadConversations();
+  const user = await requireUser();
+  const [unread, unreadNotifications] = await Promise.all([
+    countMyUnreadConversations(),
+    countMyUnreadNotifications(),
+  ]);
 
   return (
     <header className="border-b border-[var(--border)] bg-white text-[var(--ink)]">
@@ -25,6 +30,9 @@ export async function AppHeader() {
 
         <NavLinks
           messagesBadge={<UnreadMessagesBadge initialCount={unread} />}
+          notifications={
+            <NotificationBell userId={user.id} initialCount={unreadNotifications} />
+          }
           logout={
             <LogoutButton className="rounded-md px-2 py-1.5 text-sm font-medium text-[var(--ink-soft)] hover:bg-[var(--maroon-50)] hover:text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)] disabled:opacity-60" />
           }
