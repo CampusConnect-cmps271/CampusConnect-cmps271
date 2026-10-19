@@ -4,6 +4,7 @@ import { CourseUnavailable, getCourseDetail } from "./detail";
 import { courseUrl } from "./references";
 import { coursesUrl, type CourseFilters } from "./search";
 import styles from "./courses.module.css";
+import { ReviewSection } from "@/modules/reviews/ReviewSection";
 
 export async function CourseDetail({ code, filters }: { code: string; filters: CourseFilters }) {
   let detail;
@@ -59,7 +60,7 @@ export async function CourseDetail({ code, filters }: { code: string; filters: C
 
       <section className={styles.detailPanel} aria-labelledby="course-reviews-title">
         <h2 id="course-reviews-title">Ratings and reviews</h2>
-        <p className={styles.detailHint}>Course ratings and student reviews are not available yet.</p>
+        <ReviewSection courseId={course.id} />
       </section>
     </div>
   </main>;
