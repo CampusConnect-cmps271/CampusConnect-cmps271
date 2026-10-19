@@ -41,7 +41,7 @@ function CommentMeta({
   userId: string;
 }) {
   return (
-    <p className="mb-1 text-xs text-gray-400">
+    <p className="mb-1 text-xs text-[var(--ink-soft)]">
       {comment.author_id === userId ? "You" : "CampusConnect student"}
       {" · "}
       <time>{new Date(comment.created_at).toLocaleString()}</time>
@@ -69,7 +69,7 @@ export default function CommentSection({
   return (
     <section
       aria-labelledby="comments-heading"
-      className="mt-8 border-t border-gray-700 pt-6"
+      className="mt-8 border-t border-[var(--border)] pt-6"
     >
       <h2 id="comments-heading" className="mb-4 text-lg font-semibold">
         Comments ({comments.length})
@@ -78,7 +78,7 @@ export default function CommentSection({
       <CommentForm postId={postId} />
 
       {topLevel.length === 0 ? (
-        <p className="mt-6 text-sm text-gray-400">
+        <p className="mt-6 text-sm text-[var(--ink-soft)]">
           No comments yet. Be the first to comment.
         </p>
       ) : (
@@ -96,7 +96,7 @@ export default function CommentSection({
               </div>
 
               {(repliesByParent.get(comment.id) ?? []).length > 0 && (
-                <ul className="mt-3 space-y-3 border-l border-gray-700 pl-4">
+                <ul className="mt-3 space-y-3 border-l border-[var(--border)] pl-4">
                   {(repliesByParent.get(comment.id) ?? []).map((reply) => (
                     <li key={reply.id}>
                       <CommentMeta comment={reply} userId={userId} />
