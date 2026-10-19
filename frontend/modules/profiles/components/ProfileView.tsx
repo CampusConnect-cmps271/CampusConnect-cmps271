@@ -2,14 +2,14 @@ import type { ReactNode } from "react";
 import type { Profile } from "../types";
 import { InterestTags } from "./InterestTags";
 
-const LABEL_CLASS = "block text-sm font-bold text-gray-600 mb-1";
-const VALUE_CLASS = "bg-gray-50 p-3 rounded-md text-gray-800 break-words";
+const LABEL_CLASS = "block text-sm font-bold text-[var(--ink-soft)] mb-1";
+const VALUE_CLASS = "bg-[var(--maroon-50)] p-3 rounded-md text-[var(--ink)] break-words";
 
 /** Another student's profile, read-only. Same card as the owner's view. */
 export function ProfileView({ profile }: { profile: Profile }) {
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 sm:p-8 w-full">
-      <h1 className="text-2xl font-bold text-center text-gray-800 border-b-2 border-gray-200 pb-4 mb-6 break-words">
+    <div className="bg-white rounded-lg border border-[var(--border)] p-6 sm:p-8 w-full">
+      <h1 className="text-2xl font-bold text-center text-[var(--ink)] border-b-2 border-[var(--border)] pb-4 mb-6 break-words">
         {profile.fullName}
       </h1>
 

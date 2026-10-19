@@ -22,9 +22,9 @@ type SkillSwapFormProps = {
 };
 
 const FIELD_CLASS =
-  "w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:border-[var(--maroon)] focus:outline-none focus:ring-2 focus:ring-[var(--maroon-200)] aria-[invalid=true]:border-red-600";
+  "w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--ink)] placeholder:text-[var(--ink-soft)] focus:border-[var(--maroon)] focus:outline-none focus:ring-2 focus:ring-[var(--maroon-200)] aria-[invalid=true]:border-[var(--danger)]";
 
-const LABEL_CLASS = "block text-sm font-semibold text-gray-800";
+const LABEL_CLASS = "block text-sm font-semibold text-[var(--ink)]";
 
 /** The SkillSwap template: two boxes, meeting method, availability, details. */
 export function SkillSwapForm({
@@ -92,7 +92,7 @@ export function SkillSwapForm({
           {MEETING_METHODS.map((method) => (
             <label
               key={method}
-              className="flex cursor-pointer items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 has-[:checked]:border-[var(--maroon)] has-[:checked]:bg-[var(--maroon-50)]"
+              className="flex cursor-pointer items-center gap-2 rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--ink)] has-[:checked]:border-[var(--maroon)] has-[:checked]:bg-[var(--maroon-50)]"
             >
               <input
                 type="radio"
@@ -111,7 +111,7 @@ export function SkillSwapForm({
 
       <div className="flex flex-col gap-1">
         <label htmlFor="availability" className={LABEL_CLASS}>
-          Availability <span className="font-normal text-gray-500">(optional)</span>
+          Availability <span className="font-normal text-[var(--ink-soft)]">(optional)</span>
         </label>
         <input
           id="availability"
@@ -128,7 +128,7 @@ export function SkillSwapForm({
 
       <div className="flex flex-col gap-1">
         <label htmlFor="details" className={LABEL_CLASS}>
-          Extra details <span className="font-normal text-gray-500">(optional)</span>
+          Extra details <span className="font-normal text-[var(--ink-soft)]">(optional)</span>
         </label>
         <textarea
           id="details"
@@ -146,7 +146,7 @@ export function SkillSwapForm({
       </div>
 
       {state?.error ? (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-[var(--danger)]">
           {state.error}
         </p>
       ) : null}
@@ -159,7 +159,7 @@ export function SkillSwapForm({
         >
           {pending ? pendingLabel : submitLabel}
         </button>
-        <Link href={cancelHref} className="text-sm font-medium text-gray-700 hover:underline">
+        <Link href={cancelHref} className="text-sm font-medium text-[var(--ink-soft)] hover:underline">
           Cancel
         </Link>
       </div>
@@ -179,8 +179,8 @@ type SkillBoxProps = {
 
 function SkillBox({ id, label, placeholder, value, max, error, onChange }: SkillBoxProps) {
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-      <label htmlFor={id} className="text-base font-semibold text-gray-900">
+    <div className="flex flex-col gap-1 rounded-lg border border-[var(--border)] bg-white p-4 shadow-sm">
+      <label htmlFor={id} className="text-base font-semibold text-[var(--ink)]">
         {label}
       </label>
       <textarea
@@ -203,7 +203,7 @@ function SkillBox({ id, label, placeholder, value, max, error, onChange }: Skill
 function Counter({ id, length, max }: { id: string; length: number; max: number }) {
   const over = length > max;
   return (
-    <p id={id} className={`text-right text-xs tabular-nums ${over ? "font-semibold text-red-600" : "text-gray-500"}`}>
+    <p id={id} className={`text-right text-xs tabular-nums ${over ? "font-semibold text-[var(--danger)]" : "text-[var(--ink-soft)]"}`}>
       {length}/{max}
       {over ? <span className="sr-only"> characters, too long</span> : null}
     </p>
@@ -213,7 +213,7 @@ function Counter({ id, length, max }: { id: string; length: number; max: number 
 function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) return null;
   return (
-    <p id={id} className="text-sm text-red-600">
+    <p id={id} className="text-sm text-[var(--danger)]">
       {message}
     </p>
   );
