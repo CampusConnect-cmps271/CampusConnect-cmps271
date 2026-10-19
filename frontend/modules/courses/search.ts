@@ -1,3 +1,5 @@
+import { parseComparisonSelection } from "./codes";
+
 export const COURSES_PER_PAGE = 24;
 export const COURSE_RANGE_FILTERS = [
   { name: "Credits", minimum: "creditsMin", maximum: "creditsMax", min: 0, max: 999.99, step: 0.01 },
@@ -7,7 +9,7 @@ export const COURSE_RANGE_FILTERS = [
 type RangeKey = typeof COURSE_RANGE_FILTERS[number]["minimum" | "maximum"];
 
 export type CourseSearchParams = Record<string, string | string[] | undefined>;
-export type CourseFilters = { query: string; department: string; page: number } & Partial<Record<RangeKey, number>>;
+export type CourseFilters = { query: string; department: string; page: number; compare?: string[] } & Partial<Record<RangeKey, number>>;
 
 function first(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
@@ -20,6 +22,8 @@ export function parseCourseFilters(params: CourseSearchParams): CourseFilters {
     department: first(params.department).trim().slice(0, 200),
     page: Number.isSafeInteger(page) && page > 0 ? Math.min(page, 10000) : 1,
   };
+  const { codes } = parseComparisonSelection(params.compare);
+  if (codes.length) filters.compare = codes;
   for (const range of COURSE_RANGE_FILTERS) {
     for (const key of [range.minimum, range.maximum]) {
       const input = first(params[key]).trim();
@@ -63,6 +67,7 @@ export function coursesUrl(filters: CourseFilters, page = filters.page) {
   const params = new URLSearchParams();
   if (filters.query) params.set("q", filters.query);
   if (filters.department) params.set("department", filters.department);
+  for (const code of parseComparisonSelection(filters.compare).codes) params.append("compare", code);
   for (const range of COURSE_RANGE_FILTERS) {
     for (const key of [range.minimum, range.maximum]) {
       if (filters[key] !== undefined) params.set(key, String(filters[key]));

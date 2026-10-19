@@ -30,7 +30,7 @@ export function CourseFilterForm({ children }: { children: ReactNode }) {
     role="search" aria-label="Course catalogue">{children}</form>;
 }
 
-export function ClearCourseFilters() {
-  return <Link href="/courses" className={styles.clear}
+export function ClearCourseFilters({ href = "/courses" }: { href?: string }) {
+  return <Link href={href} className={styles.clear}
     onClick={(event) => event.currentTarget.closest("form")?.reset()}>Clear</Link>;
 }

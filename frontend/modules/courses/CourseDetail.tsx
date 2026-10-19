@@ -6,6 +6,7 @@ import { coursesUrl, type CourseFilters } from "./search";
 import styles from "./courses.module.css";
 import { ReviewSection } from "@/modules/reviews/ReviewSection";
 import { RatingSection } from "@/modules/ratings/RatingSection";
+import { ComparisonSelection, ComparisonToggle } from "./ComparisonSelection";
 
 export async function CourseDetail({ code, filters }: { code: string; filters: CourseFilters }) {
   let detail;
@@ -32,10 +33,13 @@ export async function CourseDetail({ code, filters }: { code: string; filters: C
       <h1>{course.name}</h1>
     </header>
 
+    <ComparisonSelection filters={filters} />
+    <ComparisonToggle code={course.code} filters={filters} />
+
     <dl className={styles.courseFacts} aria-label="Course facts">
       <div><dt>Credits</dt><dd>{Number(course.credits)} {Number(course.credits) === 1 ? "credit" : "credits"}</dd></div>
       <div><dt>Department</dt><dd>
-        <Link href={coursesUrl({ query: "", department: course.department, page: 1 })}>{course.department}</Link>
+        <Link href={coursesUrl({ query: "", department: course.department, page: 1, compare: filters.compare })}>{course.department}</Link>
       </dd></div>
     </dl>
 

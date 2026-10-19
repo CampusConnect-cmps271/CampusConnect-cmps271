@@ -6,6 +6,7 @@ import { courseUrl } from "./references";
 import { getCourseRatings } from "@/modules/ratings/queries";
 import { RatingSummary } from "@/modules/ratings/RatingSummary";
 import { CourseFilterForm, ClearCourseFilters } from "./CourseFilterForm";
+import { ComparisonSelection, ComparisonToggle } from "./ComparisonSelection";
 
 export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
   // Authentication redirects must escape this catch, rather than becoming
@@ -36,7 +37,9 @@ export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
   }
 
   return <>
+    <ComparisonSelection filters={{ ...filters, page }} />
     <CourseFilterForm key={coursesUrl(filters)}>
+      {filters.compare?.map((code) => <input key={code} type="hidden" name="compare" value={code} />)}
       <div className={styles.searchField}>
         <label htmlFor="course-search">Course name or code</label>
         <input id="course-search" name="q" type="search" maxLength={120}
@@ -66,7 +69,7 @@ export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
         <p className={styles.filterHint}>Leave bounds empty for any value. Difficulty and workload use displayed averages out of 5 and require at least 3 reviews.</p>
       </div>
       <button type="submit">Search courses</button>
-      <ClearCourseFilters />
+      <ClearCourseFilters href={coursesUrl({ query: "", department: "", page: 1, compare: filters.compare })} />
     </CourseFilterForm>
 
     {!filterError && <p className={styles.summary} role="status">
@@ -82,7 +85,7 @@ export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
     </section> : total === 0 ? <section className={styles.notice}>
       <h2>No courses found</h2>
       <p>Try another name or code, adjust the ranges, or choose a different department.</p>
-      <Link href="/courses">Browse all courses</Link>
+      <Link href={coursesUrl({ query: "", department: "", page: 1, compare: filters.compare })}>Browse all courses</Link>
     </section> : [...groups].map(([department, rows]) => (
       <section key={department} className={styles.department} aria-label={department}>
         <h2>{department}</h2>
@@ -108,6 +111,7 @@ export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
               aria-label={`View course ${course.code}`}>
               View course →
             </Link>
+            <div><ComparisonToggle code={course.code} filters={{ ...filters, page }} /></div>
           </article>)}
         </div>
       </section>
