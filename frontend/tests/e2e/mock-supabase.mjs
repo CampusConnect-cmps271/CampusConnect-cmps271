@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { handleCommunity, matchingPosts } from "./mock-community.mjs";
 import { handleCourses } from "./mock-courses.mjs";
+import { handleReviews } from "./mock-reviews.mjs";
 
 const user = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -14,6 +15,14 @@ const user = {
 const profileAccounts = {
   "profile-editor@mail.aub.edu": "00000000-0000-4000-8000-000000000003",
   "profile-viewer@mail.aub.edu": "00000000-0000-4000-8000-000000000005",
+  "reviews-journey@mail.aub.edu": "00000000-0000-4000-8000-000000000006",
+  "reviews-validation@mail.aub.edu": "00000000-0000-4000-8000-000000000007",
+  "reviews-owner@mail.aub.edu": "00000000-0000-4000-8000-000000000008",
+  "reviews-other@mail.aub.edu": "00000000-0000-4000-8000-000000000009",
+  "reviews-duplicate@mail.aub.edu": "00000000-0000-4000-8000-000000000010",
+  "reviews-stale@mail.aub.edu": "00000000-0000-4000-8000-000000000011",
+  "reviews-pending@mail.aub.edu": "00000000-0000-4000-8000-000000000012",
+  "reviews-network@mail.aub.edu": "00000000-0000-4000-8000-000000000013",
 };
 // Another student whose public profile the tests visit.
 const otherStudentId = "00000000-0000-4000-8000-000000000004";
@@ -200,6 +209,7 @@ createServer(async (request, response) => {
 
   // Sprint 2 tables: posts, comments, upvotes and saved posts.
   if (handleCourses(request, response, url, bearerEmail(request))) return;
+  if (await handleReviews(request, response, url, bearerClaims(request))) return;
   if (await handleCommunity(request, response, url)) return;
   if (path === "/rest/v1/user_roles") {
     roleLookups++;

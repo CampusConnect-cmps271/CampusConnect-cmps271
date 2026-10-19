@@ -26,7 +26,7 @@ test("open a course, follow prerequisites, and return to the original catalogue 
   const prerequisites = page.getByRole("region", { name: "Prerequisites" });
   await expect(prerequisites.locator("p").first()).toHaveText("Prerequisite: CMPS101 or CMPS 102. Instructor consent may also be required.");
   await expect(prerequisites.getByRole("link", { name: "CMPS101", exact: true })).toHaveAttribute("href", /\/courses\/CMPS-101\?/);
-  await expect(page.getByRole("region", { name: "Ratings and reviews" })).toContainText("not available yet");
+  await expect(page.getByRole("region", { name: "Ratings and reviews" })).toContainText("Write your review");
   await page.reload();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Operating Systems");
   await prerequisites.getByRole("link", { name: "CMPS101", exact: true }).click();

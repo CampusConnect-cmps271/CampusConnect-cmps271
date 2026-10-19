@@ -32,6 +32,8 @@ export function handleCourses(request, response, url, email) {
     return true;
   }
   let rows = [...courses];
+  const id = url.searchParams.get("id");
+  if (id?.startsWith("eq.")) rows = rows.filter((course) => course.id === id.slice(3));
   const code = url.searchParams.get("code");
   if (code?.startsWith("eq.")) rows = rows.filter((course) => course.code === code.slice(3));
   if (code?.startsWith("in.")) {
