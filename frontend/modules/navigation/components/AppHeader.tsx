@@ -5,8 +5,9 @@ import { countMyUnreadNotifications, NotificationBell } from "@/modules/notifica
 import { NavLinks } from "./NavLinks";
 
 /**
- * The header on every signed-in page: the wordmark (to the feed), Messages
- * with the unread count, the notification bell, Profile and Log out.
+ * The header on every signed-in page: the wordmark (to the feed),
+ * SkillSwap, Messages with the unread count, the notification bell,
+ * Profile and Log out.
  */
 export async function AppHeader() {
   const user = await requireUser();

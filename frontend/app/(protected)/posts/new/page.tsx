@@ -38,7 +38,17 @@ export default async function NewPostPage() {
         campus community.
       </p>
 
-      <PostForm categories={categories ?? []} />
+      <p className="mb-6 text-sm">
+        Want to trade skills?{" "}
+        <Link href="/skillswap/new" className="font-medium text-blue-400 hover:underline">
+          Offer a skill swap
+        </Link>
+      </p>
+
+      {/* SkillSwap posts are written through their own template. */}
+      <PostForm
+        categories={(categories ?? []).filter((category) => category.name !== "SkillSwap")}
+      />
     </main>
 </AppShell>
   );
