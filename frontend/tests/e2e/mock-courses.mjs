@@ -58,6 +58,11 @@ export function handleCourses(request, response, url, email) {
   const code = url.searchParams.get("code");
   if (code?.startsWith("eq.")) rows = rows.filter((course) => course.code === code.slice(3));
   if (code?.startsWith("in.")) {
+    if (email === "comparison-unavailable@mail.aub.edu") {
+      response.statusCode = 503;
+      response.end(JSON.stringify({ code: "57014", message: "Synthetic private comparison failure" }));
+      return true;
+    }
     if (email === "courses-links-unavailable@mail.aub.edu") {
       response.statusCode = 403;
       response.end(JSON.stringify({ code: "42501", message: "Synthetic prerequisite lookup failure" }));

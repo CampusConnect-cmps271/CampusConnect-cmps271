@@ -1,10 +1,5 @@
 import { coursesUrl, type CourseFilters } from "./search";
-
-/** Accept readable route codes while retaining leading zeros and suffixes. */
-export function normalizeCourseCode(value: string): string | null {
-  const match = /^([A-Z]{2,8})[\s-]*(\d{3}[A-Z]{0,3})$/i.exec(value.trim());
-  return match ? `${match[1].toUpperCase()} ${match[2].toUpperCase()}` : null;
-}
+export { normalizeCourseCode } from "./codes";
 
 export function courseUrl(code: string, filters?: CourseFilters) {
   const path = `/courses/${encodeURIComponent(code.replace(/ /g, "-"))}`;
