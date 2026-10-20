@@ -1,10 +1,14 @@
 
+import Link from "next/link";
 import { requireUser } from "@/modules/auth";
+import { AppShell } from "@/components/AppShell";
 import { createClient } from "@/lib/supabase/server";
 import PostForm from "./post-form";
+import { readQuestionTitle, type PostSearchParams } from "@/modules/posts/search-navigation";
 
-export default async function NewPostPage() {
+export default async function NewPostPage({ searchParams }: { searchParams: Promise<PostSearchParams> }) {
   await requireUser();
+  const initialTitle = readQuestionTitle(await searchParams);
 
   const supabase = await createClient();
 
@@ -18,17 +22,38 @@ export default async function NewPostPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10">
+    <AppShell>
+<main className="mx-auto max-w-2xl px-4 py-10">
+      <Link
+        href="/home"
+        className="mb-8 inline-block text-sm text-[var(--maroon)] hover:underline"
+      >
+        ← Back to home
+      </Link>
+
       <h1 className="mb-2 text-3xl font-bold">
         Create a post
       </h1>
 
-      <p className="mb-8 text-gray-500">
+      <p className="mb-8 text-[var(--ink-soft)]">
         Share a question, announcement, or update with your
         campus community.
       </p>
 
-      <PostForm categories={categories ?? []} />
+      <p className="mb-6 text-sm">
+        Want to trade skills?{" "}
+        <Link href="/skillswap/new" className="font-medium text-blue-400 hover:underline">
+          Offer a skill swap
+        </Link>
+      </p>
+
+      {/* SkillSwap posts are written through their own template. */}
+      <PostForm
+        key={initialTitle}
+        categories={(categories ?? []).filter((category) => category.name !== "SkillSwap")}
+        initialTitle={initialTitle}
+      />
     </main>
+</AppShell>
   );
 }

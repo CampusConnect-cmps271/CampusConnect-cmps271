@@ -1,3 +1,17 @@
+.section { display: grid; gap: 32px; }
+.section h3 { font-size: 18px; font-weight: 600; margin-bottom: 10px; }
+.empty { opacity: .75; font-size: 14px; }
+.reviewList { display: grid; gap: 16px; margin-top: 16px; }
+.reviewCard { border: 1px solid var(--border); border-radius: var(--radius); background: var(--white); padding: 18px; scroll-margin-top: 24px; }
+.reviewHeader { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.reviewHeader h4 { font-weight: 600; }
+.reviewHeader p { opacity: .7; font-size: 12px; margin-top: 3px; }
+.reviewRatings { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.reviewRatings div { border-radius: 8px; background: var(--maroon-50); padding: 10px; }
+.reviewRatings dt { font-size: 12px; opacity: .7; }
+.reviewRatings dd { font-size: 14px; font-weight: 600; margin-top: 3px; }
+.reviewBody { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.7; margin-top: 16px; }
+.removedNotice { border: 1px solid var(--danger); border-radius: 8px; color: var(--danger); padding: 14px; font-size: 14px; }
 .editor h3 { font-size: 18px; font-weight: 600; margin-bottom: 10px; }
 .intro, .hint { opacity: .75; font-size: 13px; line-height: 1.7; }
 .intro { margin-bottom: 24px; }
@@ -6,20 +20,19 @@
 .legend { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); }
 .ratings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .editor label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px; }
-.editor :is(select, input:not([type="hidden"]):not([type="checkbox"]), textarea) { display: block; width: 100%; border: 1px solid #a89a9f; border-radius: 8px; padding: 10px 12px; background: var(--background); color: var(--foreground); min-width: 0; }
+.editor :is(select, input:not([type="hidden"]):not([type="checkbox"]), textarea) { display: block; width: 100%; border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--white); color: var(--ink); min-width: 0; }
 .editor textarea { resize: vertical; line-height: 1.7; }
 .hint { margin-top: 6px; }
-.error { color: #b3261e; margin: 8px 0; font-size: 13px; line-height: 1.7; }
-.success { color: #1d7a43; margin: 12px 0; font-size: 14px; }
+.error { color: var(--danger); margin: 8px 0; font-size: 13px; line-height: 1.7; }
+.success { color: var(--success); margin: 12px 0; font-size: 14px; }
 .editor .checkbox { display: flex; align-items: start; gap: 10px; }
 .checkbox input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; accent-color: var(--maroon); }
 .editor button { border-radius: 8px; padding: 11px 18px; cursor: pointer; font-weight: 600; font-size: 14px; justify-self: start; }
 .editor button:disabled { cursor: wait; opacity: .65; }
 .primary { background: var(--maroon); color: white; }
-.danger { color: #b3261e; border: 1px solid currentColor; }
+.danger { color: var(--danger); border: 1px solid currentColor; }
 .deleteArea { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 22px; }
 .deleteArea p { font-size: 14px; line-height: 1.7; }
 .deleteButtons { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
-.editor :is(input, select, textarea, button):focus-visible { outline: 3px solid #b67e8d; outline-offset: 4px; }
-@media (max-width: 640px) { .ratings { grid-template-columns: minmax(0, 1fr); } }
-@media (prefers-color-scheme: dark) { .error, .danger { color: #f6a59f; } .success { color: #8cdbac; } .deleteArea { border-color: #5b4149; } }
+.editor :is(input, select, textarea, button):focus-visible { outline: 3px solid var(--maroon); outline-offset: 3px; }
+@media (max-width: 640px) { .ratings, .reviewRatings { grid-template-columns: minmax(0, 1fr); } }

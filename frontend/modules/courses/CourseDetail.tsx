@@ -1,3 +1,4 @@
+import { AppShell } from "@/components/AppShell";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CourseUnavailable, getCourseDetail } from "./detail";
@@ -6,6 +7,7 @@ import { coursesUrl, type CourseFilters } from "./search";
 import styles from "./courses.module.css";
 import { ReviewSection } from "@/modules/reviews/ReviewSection";
 import { RatingSection } from "@/modules/ratings/RatingSection";
+import { ComparisonSelection, ComparisonToggle } from "./ComparisonSelection";
 
 export async function CourseDetail({ code, filters }: { code: string; filters: CourseFilters }) {
   let detail;
@@ -13,29 +15,32 @@ export async function CourseDetail({ code, filters }: { code: string; filters: C
     detail = await getCourseDetail(code);
   } catch (error) {
     if (!(error instanceof CourseUnavailable)) throw error;
-    return <main className={styles.page}>
+    return <AppShell><main className={styles.page}>
       <Link href={coursesUrl(filters)}>← Back to courses</Link>
       <section className={`${styles.notice} ${styles.detailNotice}`} role="alert" aria-labelledby="course-error-title">
         <h1 id="course-error-title">Course couldn’t be loaded</h1>
         <p>The course information is temporarily unavailable. Please try again.</p>
         <a href={courseUrl(code, filters)}>Try again</a>
       </section>
-    </main>;
+    </main></AppShell>;
   }
   if (!detail) notFound();
   const { course, prerequisiteParts, references, linksUnavailable, hasUnresolvedReferences } = detail;
 
-  return <main className={styles.page}>
+  return <AppShell><main className={styles.page}>
     <Link href={coursesUrl(filters)}>← Back to courses</Link>
     <header className={styles.header}>
       <p className={styles.eyebrow}>{course.code}</p>
       <h1>{course.name}</h1>
     </header>
 
+    <ComparisonSelection filters={filters} />
+    <ComparisonToggle code={course.code} filters={filters} />
+
     <dl className={styles.courseFacts} aria-label="Course facts">
       <div><dt>Credits</dt><dd>{Number(course.credits)} {Number(course.credits) === 1 ? "credit" : "credits"}</dd></div>
       <div><dt>Department</dt><dd>
-        <Link href={coursesUrl({ query: "", department: course.department, page: 1 })}>{course.department}</Link>
+        <Link href={coursesUrl({ query: "", department: course.department, page: 1, compare: filters.compare })}>{course.department}</Link>
       </dd></div>
     </dl>
 
@@ -65,5 +70,5 @@ export async function CourseDetail({ code, filters }: { code: string; filters: C
         <ReviewSection courseId={course.id} />
       </section>
     </div>
-  </main>;
+  </main></AppShell>;
 }

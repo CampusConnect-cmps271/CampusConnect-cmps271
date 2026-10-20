@@ -1,8 +1,10 @@
+import { ratingFixture } from "./mock-reviews.mjs";
+
 // Entirely synthetic records: these fixtures never contact hosted Supabase.
 export const courses = [
   ...Array.from({ length: 27 }, (_, index) => ({
     code: `CMPS ${101 + index}`, name: `Computing elective ${index + 1}`,
-    credits: 3, department: "Computer Science", description: "A synthetic computing course for catalogue browser tests. Students explore programming techniques, practical problem solving, and the social context of computing.\n\nThe final project brings together the full set of topics covered during the term. This sentence marks the end of the complete course description.",
+    credits: index === 24 ? 3.25 : index === 25 ? 0 : 3, department: "Computer Science", description: "A synthetic computing course for catalogue browser tests. Students explore programming techniques, practical problem solving, and the social context of computing.\n\nThe final project brings together the full set of topics covered during the term. This sentence marks the end of the complete course description.",
   })),
   { code: "CMPS 240", name: "Operating Systems", credits: 3, department: "Computer Science", description: "A synthetic description about operating systems for browser tests.", prerequisites: "Prerequisite: CMPS101 or CMPS 102. Instructor consent may also be required." },
   { code: "CMPS 241", name: "Systems Programming", credits: 3, department: "Computer Science", description: "A synthetic description about systems programming for browser tests.", prerequisites: "Prerequisite: CMPS 101 and CHEM 999, or consent of instructor." },
@@ -25,18 +27,42 @@ function like(pattern, text) {
 }
 
 export function handleCourses(request, response, url, email) {
-  if (url.pathname !== "/rest/v1/courses") return false;
+  const ratingFilter = url.pathname === "/rest/v1/course_filter_catalogue";
+  if (url.pathname !== "/rest/v1/courses" && !ratingFilter) return false;
+  if (ratingFilter && email === "filters-unavailable@mail.aub.edu") {
+    response.statusCode = 404;
+    response.end(JSON.stringify({ code: "PGRST205", message: "Synthetic private filter-view failure" }));
+    return true;
+  }
   if (!email || email === "courses-unavailable@mail.aub.edu") {
     response.statusCode = 403;
     response.end(JSON.stringify({ code: "42501", message: "Synthetic database failure details must never reach the page" }));
     return true;
   }
   let rows = [...courses];
+  if (ratingFilter) rows = rows.map((course) => {
+    const ratings = ratingFixture(course);
+    const round = (value) => Number(new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(value));
+    return { ...course, review_count: ratings.review_count,
+      difficulty: ratings.review_count >= 3 ? round(ratings.average_difficulty) : null,
+      workload: ratings.review_count >= 3 ? round(ratings.average_workload) : null };
+  });
+  for (const field of ["credits", "difficulty", "workload"]) {
+    for (const filter of url.searchParams.getAll(field)) {
+      if (filter.startsWith("gte.")) rows = rows.filter((row) => row[field] != null && Number(row[field]) >= Number(filter.slice(4)));
+      if (filter.startsWith("lte.")) rows = rows.filter((row) => row[field] != null && Number(row[field]) <= Number(filter.slice(4)));
+    }
+  }
   const id = url.searchParams.get("id");
   if (id?.startsWith("eq.")) rows = rows.filter((course) => course.id === id.slice(3));
   const code = url.searchParams.get("code");
   if (code?.startsWith("eq.")) rows = rows.filter((course) => course.code === code.slice(3));
   if (code?.startsWith("in.")) {
+    if (email === "comparison-unavailable@mail.aub.edu") {
+      response.statusCode = 503;
+      response.end(JSON.stringify({ code: "57014", message: "Synthetic private comparison failure" }));
+      return true;
+    }
     if (email === "courses-links-unavailable@mail.aub.edu") {
       response.statusCode = 403;
       response.end(JSON.stringify({ code: "42501", message: "Synthetic prerequisite lookup failure" }));

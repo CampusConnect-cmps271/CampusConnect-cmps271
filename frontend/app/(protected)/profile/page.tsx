@@ -1,3 +1,4 @@
+import { AppShell } from "@/components/AppShell";
 import type { Metadata } from "next";
 import Link from "next/link";
 import RoleGate from "@/components/role-gate";
@@ -17,19 +18,29 @@ export default async function ProfilePage() {
   const pinnedPost = profile ? await getPinnedPost(profile) : null;
 
   return (
-    <main className="flex-1 bg-gray-100 px-4 py-8 sm:py-12">
+    <AppShell>
+<main className="flex-1 bg-white px-4 py-8 sm:py-12">
       <div className="mx-auto flex w-full max-w-md flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link href="/home" className="text-sm font-medium text-blue-700 hover:underline">
+          <Link href="/home" className="text-sm font-medium text-[var(--maroon)] hover:underline">
             ← Back to feed
           </Link>
 
           <RoleGate allow={["administrator"]}>
             <Link
               href="/admin"
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              className="rounded-md bg-[var(--maroon)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--maroon-dark)]"
             >
               Manage user roles
+            </Link>
+          </RoleGate>
+
+          <RoleGate allow={["moderator", "administrator"]}>
+            <Link
+              href="/moderation"
+              className="rounded-md border border-[var(--maroon)] px-4 py-2 text-sm font-semibold text-[var(--maroon)] hover:bg-[var(--maroon-50)]"
+            >
+              Moderation queue
             </Link>
           </RoleGate>
         </div>
@@ -39,11 +50,12 @@ export default async function ProfilePage() {
         {profile ? (
           <ProfileCard profile={profile} />
         ) : (
-          <p role="alert" className="rounded-lg bg-white p-6 text-gray-800 shadow-md">
+          <p role="alert" className="rounded-lg bg-white p-6 text-[var(--ink)] border border-[var(--border)]">
             Your profile isn&apos;t ready yet. Please try again in a moment.
           </p>
         )}
       </div>
     </main>
+</AppShell>
   );
 }

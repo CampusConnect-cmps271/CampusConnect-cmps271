@@ -25,3 +25,11 @@ Tests use isolated mock services on ports 3100 and 3101. There are no database m
 ## Delivery
 
 Prepared on branch `scrum-172` in the separate managed checkout `/home/mohamadghosn/.codex/worktrees/scrum-172-ci-fix/CampusConnect-cmps271`. Commit and push these four files to update existing PR #23; no new PR is needed for this correction. GitHub Actions must run again after the push before its status can be considered resolved.
+
+## Merge-conflict resolution — October 20, 2026
+
+Original PR #23 has been merged. Follow-up PR #34 targets `main`. Since the original preparation, `main` has received the identical hydration guard and regression test through later course work. It has also moved the review mock accounts into a separate ID range to avoid collisions with messaging and notification accounts.
+
+Resolved the follow-up branch conflict by retaining the full current `main` mock-account mapping, including the hydration account ending in `117`, and merging `main` into `scrum-172`. The form and regression test match `main` exactly. The resulting PR change is this report only; the functional fix is already on `main`.
+
+Post-merge validation: both the full review create/reload/edit/delete journey and delayed-JavaScript hydration regression passed (2 browser tests, 27.5 seconds). Mock-server syntax and the final diff against `main` passed checks.
