@@ -278,7 +278,7 @@ The course schema and CSV importer are ready for local use. Follow
 offline, and import it into local or hosted Supabase. From `frontend/`, run
 `npm run import:courses -- /path/to/catalogue.csv --dry-run` to validate without
 credentials or writes. The bundled example is synthetic, not an official AUB
-catalogue. See [the task report](TASK_REPORT.md) for implementation and validation.
+catalogue.
 
 ### Roles and permissions (SCRUM-16)
 
@@ -370,11 +370,6 @@ anyway, but check with the team first, since it runs out of order.
 - `npm run test:smoke` runs `tests/smoke/` against `SMOKE_BASE_URL` with the
   demo accounts: landing page, log in, feed, create and delete a post, log out,
   and `/admin` as the administrator. It is not part of CI.
-
-## Background
-
-[SETUP_REPORT.md](SETUP_REPORT.md) records the original Supabase setup and the
-merge that combined the two app folders.
 
 ## AI assistance
 
