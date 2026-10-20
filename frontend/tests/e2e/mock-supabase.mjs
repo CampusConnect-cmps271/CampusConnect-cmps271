@@ -25,6 +25,7 @@ const profileAccounts = {
   "reviews-pending@mail.aub.edu": "00000000-0000-4000-8000-000000000012",
   "reviews-network@mail.aub.edu": "00000000-0000-4000-8000-000000000013",
   "ratings-editor@mail.aub.edu": "00000000-0000-4000-8000-000000000014",
+  "reviews-hydration@mail.aub.edu": "00000000-0000-4000-8000-000000000015",
 };
 // Another student whose public profile the tests visit.
 const otherStudentId = "00000000-0000-4000-8000-000000000004";
