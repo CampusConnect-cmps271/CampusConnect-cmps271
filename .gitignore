@@ -38,3 +38,19 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+
+# Personal task reports stay local.
+/local-reports/
+/SCRUM_142_REPORT.md
+/SCRUM_143_REPORT.md
+/SCRUM_167_REPORT.md
+/SCRUM_168_REPORT.md
+/SCRUM_169_REPORT.md
+/SCRUM_170_REPORT.md
+/SCRUM_171_REPORT.md
+/SCRUM_172_REPORT.md
+/SCRUM_172_CI_FIX_REPORT.md
+/SCRUM_173_REPORT.md
+/SCRUM_174_REPORT.md
+/SETUP_REPORT.md
+/TASK_REPORT.md
