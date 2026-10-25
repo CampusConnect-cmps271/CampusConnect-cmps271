@@ -19,6 +19,9 @@ export default async function AdminRolesPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <h1 className="text-2xl font-bold text-gray-900">User roles</h1>
           <nav className="flex flex-wrap gap-4 text-sm">
+            <Link href="/admin/clubs" className="font-semibold text-blue-700 hover:underline">
+              Verify clubs
+            </Link>
             <Link href="/admin/accounts" className="font-semibold text-blue-700 hover:underline">
               Manage accounts
             </Link>
