@@ -1,9 +1,11 @@
 import { ProviderError, type AnswerProvider } from "./provider";
+import { searchTerms } from "./retrieval";
 import {
   isCitableUrl,
   providerAnswerSchema,
   type AssistantAnswer,
   type EvidenceChunk,
+  type HistoryTurn,
 } from "./schema";
 
 export const INSUFFICIENT_ANSWER: AssistantAnswer = {
@@ -32,16 +34,25 @@ function parseProviderJson(raw: string): unknown {
  * validated: citations are rebuilt from the stored chunks (so a made-up id,
  * URL or title cannot reach the student), and an answer that cites nothing
  * retrieved is replaced by the no-evidence answer rather than shown unsupported.
+ *
+ * A vague follow-up ("and how long does it take?") has too little to search on,
+ * so the previous question is searched along with it; a specific question (three
+ * topic words, or a course code) is not, or the old topic would crowd out the new one. Earlier turns go to the provider
+ * as context only: evidence still comes solely from retrieval, so history cannot
+ * add a citable source.
  */
 export async function answerQuestion(
   question: string,
   retrieve: (question: string) => Promise<EvidenceChunk[]>,
   provider: AnswerProvider,
+  history: HistoryTurn[] = [],
 ): Promise<AssistantAnswer> {
-  const evidence = await retrieve(question);
+  const terms = searchTerms(question);
+  const isVague = terms.length < 3 && !terms.some((term) => /\d/.test(term));
+  const evidence = await retrieve(isVague && history.length > 0 ? `${question} ${history.at(-1)?.question}` : question);
   if (evidence.length === 0) return INSUFFICIENT_ANSWER;
 
-  const parsed = providerAnswerSchema.safeParse(parseProviderJson(await provider({ question, evidence })));
+  const parsed = providerAnswerSchema.safeParse(parseProviderJson(await provider({ question, evidence, history })));
   if (!parsed.success) throw new ProviderError("invalid_response");
   if (parsed.data.insufficient_evidence || parsed.data.answer === "") return INSUFFICIENT_ANSWER;
 

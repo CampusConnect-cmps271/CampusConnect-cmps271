@@ -28,12 +28,13 @@ as $$
     pg_catalog.ts_rank_cd(i.doc, q.terms)
   from indexed i cross join search q
   where q.terms is not null and i.doc @@ q.terms
-  order by 7 desc, i.code
+  -- A course whose code appears in the question ("math 201") comes first.
+  order by pg_catalog.strpos(pg_catalog.lower(coalesce(p_query, '')), pg_catalog.lower(i.code)) > 0 desc, 7 desc, i.code
   limit least(greatest(coalesce(p_limit, 3), 1), 5);
 $$;
 
 comment on function public.search_campus_courses(text, integer) is
-  'Invoker/RLS keyword search over the course catalogue for the campus assistant: english config, any term matches, code/name weighted above department/description, query max 500 characters, 1..5 rows, descriptions cut to 800 characters.';
+  'Invoker/RLS keyword search over the course catalogue for the campus assistant: english config, any term matches, a course code named in the query first, code/name weighted above department/description, query max 500 characters, 1..5 rows, descriptions cut to 800 characters.';
 
 revoke all on function public.search_campus_courses(text, integer)
 from public, anon, authenticated, service_role;

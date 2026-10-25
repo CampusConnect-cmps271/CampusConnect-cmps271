@@ -4,7 +4,7 @@ import { createGeminiProvider, getConfiguredProvider, ProviderError, SYSTEM_PROM
 
 const KEY = "sk-test-secret-key";
 const provider = (fetchImpl: typeof fetch) => createGeminiProvider({ apiKey: KEY, model: "test-model" }, fetchImpl);
-const input = { question: "Who issues transcripts?", evidence: [REGISTRAR_CHUNK] };
+const input = { question: "Who issues transcripts?", evidence: [REGISTRAR_CHUNK], history: [] };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
 describe("Gemini provider adapter", () => {

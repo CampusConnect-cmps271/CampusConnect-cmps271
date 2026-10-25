@@ -18,8 +18,9 @@ describe("searchTerms", () => {
     expect(searchTerms(Array.from({ length: 40 }, (_, n) => `word${n}`).join(" "))).toHaveLength(12);
   });
 
-  it("splits course codes written without a space and drops the word course", () => {
-    expect(searchTerms("What are the prerequisites of CMPS271 course?")).toEqual(["prerequisites", "cmps", "271"]);
+  it("splits course codes written without a space and drops the words course and prerequisite", () => {
+    expect(searchTerms("What are the prerequisites of CMPS271 course?")).toEqual(["cmps", "271"]);
+    expect(searchTerms("does math 201 have a pre-requisite?")).toEqual(["math", "201"]);
   });
 
   it("neutralises query operators by never passing raw punctuation on", () => {

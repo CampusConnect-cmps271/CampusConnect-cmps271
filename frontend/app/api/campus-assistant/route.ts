@@ -21,8 +21,8 @@ import { log } from "@/modules/logging";
  * Logs carry the question's length and the outcome, never its text.
  */
 
-/** A question is at most 500 characters; the rest of the body is JSON framing. */
-const MAX_BODY_BYTES = 4 * 1024;
+/** A question, plus up to three earlier turns of at most 1,100 characters each, with room for Arabic and JSON framing. */
+const MAX_BODY_BYTES = 16 * 1024;
 const RATE_LIMIT = 10;
 const RATE_WINDOW_MS = 60_000;
 const checkRate = createRateLimiter(RATE_LIMIT, RATE_WINDOW_MS);
@@ -63,12 +63,12 @@ export async function POST(request: NextRequest): Promise<Response> {
   if (!parsed.success) {
     return apiError(400, "VALIDATION_FAILED", `Ask a question of 3 to ${QUESTION_MAX_LENGTH} characters.`);
   }
-  const { question } = parsed.data;
+  const { question, history } = parsed.data;
 
   try {
     const provider = getConfiguredProvider();
     const supabase = await createClient();
-    const result = await answerQuestion(question, (text) => retrieveEvidence(supabase, text), provider);
+    const result = await answerQuestion(question, (text) => retrieveEvidence(supabase, text), provider, history);
 
     log.info(
       "campus_assistant.answered",

@@ -4,7 +4,7 @@ const MAX_TERMS = 12;
 /** Words that appear in nearly every chunk and so say nothing about the topic. */
 const STOP_WORDS = new Set(
   ("a an and are as at be by can do does for from has have how i in is it me my of on or the to us was what when where which who why will with you your " +
-    "course courses " +
+    "course courses prerequisite prerequisites pre requisite prereq prereqs " +
     "ما هي هو من في على إلى عن هل كيف متى أين").split(" "),
 );
 

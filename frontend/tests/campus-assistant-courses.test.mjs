@@ -45,6 +45,15 @@ describe("SCRUM-51 campus assistant course search", () => {
     assert.equal(rows[0].prerequisites, "CMPS 200");
   });
 
+  it("ranks a course named by its code above courses that merely mention the words", async () => {
+    await db.query(
+      "insert into public.courses(code,name,description,credits,prerequisites,department) values('MATH 202','Calculus',$1,3,'','Mathematics')",
+      ["Math math math 201 math 201 math 201 with many repeated math terms."],
+    );
+    const rows = await search("math 201");
+    assert.equal(rows[0].code, "MATH 201");
+  });
+
   it("matches word forms in names and descriptions, with name matches above description matches", async () => {
     const rows = await search("software engineer");
     assert.deepEqual(rows.map((row) => row.code), ["CMPS 271", "MATH 201"]);

@@ -63,7 +63,27 @@ describe('POST /api/campus-assistant', () => {
 
   it('rejects malformed JSON and oversized bodies before calling the provider', async () => {
     expect((await POST(postRequest(URL, '{nope', true) as never)).status).toBe(400)
-    expect((await POST(postRequest(URL, { question: 'a'.repeat(5000) }) as never)).status).toBe(413)
+    expect((await POST(postRequest(URL, { question: 'a'.repeat(20000) }) as never)).status).toBe(413)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('accepts a follow-up with earlier turns and sends them to the provider as history', async () => {
+    const history = [{ question: 'How do I request a transcript?', answer: 'Use the online form.' }]
+    const res = await POST(postRequest(URL, { question: 'And how long does it take?', history }) as never)
+
+    expect(res.status).toBe(200)
+    const sent = JSON.parse((vi.mocked(fetch).mock.calls[0]?.[1] as RequestInit).body as string)
+    expect(sent.contents[0].parts[0].text).toContain('<history>')
+    expect(sent.contents[0].parts[0].text).toContain('Use the online form.')
+  })
+
+  it.each([
+    ['too many turns', Array.from({ length: 4 }, () => ({ question: 'abc', answer: 'x' }))],
+    ['an overlong answer', [{ question: 'abc', answer: 'x'.repeat(601) }]],
+    ['a malformed turn', [{ question: 'abc' }]],
+    ['not a list', 'hello'],
+  ])('rejects history with %s', async (_name, history) => {
+    expect((await POST(postRequest(URL, { question: 'And more?', history }) as never)).status).toBe(400)
     expect(fetch).not.toHaveBeenCalled()
   })
 

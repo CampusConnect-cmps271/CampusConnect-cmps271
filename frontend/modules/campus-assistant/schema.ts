@@ -23,9 +23,22 @@ export function isCitableUrl(value: string): boolean {
   }
 }
 
+/** Earlier turns sent with a follow-up so "and how long does it take?" can be understood. */
+export const HISTORY_MAX_TURNS = 3;
+export const HISTORY_ANSWER_MAX_LENGTH = 600;
+
+const questionText = z.string().trim().min(QUESTION_MIN_LENGTH).max(QUESTION_MAX_LENGTH);
+
 export const questionSchema = z.object({
-  question: z.string().trim().min(QUESTION_MIN_LENGTH).max(QUESTION_MAX_LENGTH),
+  question: questionText,
+  history: z
+    .array(z.object({ question: questionText, answer: z.string().trim().max(HISTORY_ANSWER_MAX_LENGTH) }))
+    .max(HISTORY_MAX_TURNS)
+    .default([]),
 });
+
+/** One earlier question and the answer shown for it. Context only, never evidence. */
+export type HistoryTurn = z.infer<typeof questionSchema>["history"][number];
 
 /** A stored chunk of an official AUB page, or a catalogue course, retrieved for one question. */
 export type EvidenceChunk = {
