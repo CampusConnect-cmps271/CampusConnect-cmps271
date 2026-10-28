@@ -1,0 +1,15 @@
+.page { max-width: 850px; width: 100%; margin: 0 auto; padding: 2rem 1rem 4rem; color: var(--ink); }
+.page h1 { font-size: clamp(1.8rem, 5vw, 2.5rem); font-weight: 750; margin: 1rem 0; }
+.page h2 { font-size: 1.25rem; font-weight: 700; }
+.page a { color: var(--maroon); text-decoration: underline; text-underline-offset: .2em; }
+.page p { margin: .5rem 0; }
+.form { display: grid; gap: 1.5rem; margin-top: 1.5rem; }
+.form label { font-weight: 700; display: block; }
+.form input, .form select, .form textarea { width: 100%; border: 1px solid var(--ink-soft); border-radius: .5rem; padding: .7rem; background: white; color: var(--ink); }
+.page button { background: var(--maroon); color: white; border-radius: .5rem; padding: .75rem 1rem; cursor: pointer; font-weight: 650; }
+.page button:disabled { opacity: .6; cursor: wait; }
+.page :focus-visible { outline: 3px solid var(--maroon); outline-offset: 3px; }
+.error { color: var(--danger); }
+.card { padding: 1.5rem; margin: 1rem 0; border: 1px solid var(--border); border-radius: .75rem; background: white; overflow-wrap: anywhere; }
+.muted { color: var(--ink-soft); }
+.evidence { padding: .75rem; border-left: 3px solid var(--maroon); margin: .75rem 0; white-space: pre-wrap; }
