@@ -8,6 +8,7 @@ import { handleReviews } from "./mock-reviews.mjs";
 import { handleRatings } from "./mock-ratings.mjs";
 import { handlePostSearch, postSearchFixtures } from "./mock-post-search.mjs";
 import { clubTestAccounts, handleClubs } from "./mock-clubs.mjs";
+import { electiveAccounts, handleElectives } from "./mock-electives.mjs";
 
 const user = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -19,6 +20,7 @@ const user = {
 // SP2-60: accounts of their own for the profile tests, so profile edits never
 // leak into the login and verification fixtures that share student@'s id.
 const profileAccounts = {
+  ...electiveAccounts,
   "profile-editor@mail.aub.edu": "00000000-0000-4000-8000-000000000003",
   "profile-viewer@mail.aub.edu": "00000000-0000-4000-8000-000000000005",
   // SP2-36..39: three students for the messaging tests.
@@ -253,6 +255,7 @@ createServer(async (request, response) => {
   }
 
   // Sprint 2 tables: posts, comments, upvotes and saved posts.
+  if (await handleElectives(request, response, url, bearerClaims(request))) return;
   if (handleCourses(request, response, url, bearerEmail(request))) return;
   if (handleRatings(request, response, url, bearerClaims(request))) return;
   if (await handleReviews(request, response, url, bearerClaims(request))) return;
