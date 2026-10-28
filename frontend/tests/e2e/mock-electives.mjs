@@ -16,6 +16,17 @@ export async function handleElectives(request, response, url, claims) {
     if (code?.startsWith("in.")) rows = rows.filter(row => code.includes(row.code));
     return json(rows);
   }
+  if (url.pathname === "/rest/v1/course_reviews" && request.method === "GET") {
+    const courseId = url.searchParams.get("course_id")?.slice(3) ?? courses[0].id;
+    const rows = [
+      { id: "40000000-0000-4000-8000-000000000001", course_id: courseId, body: "Clear explanations and useful projects.", overall_rating: 5, workload_rating: 2, status: "published" },
+      { id: "40000000-0000-4000-8000-000000000002", course_id: courseId, body: "Heavy weekly workload.", overall_rating: 1, workload_rating: 5, status: "published" },
+      { id: "40000000-0000-4000-8000-000000000003", course_id: courseId, body: "Useful but demanding.", overall_rating: 3, workload_rating: 4, status: "published" },
+      { id: "40000000-0000-4000-8000-000000000004", course_id: courseId, body: "Removed evidence must not appear.", overall_rating: 1, workload_rating: 5, status: "removed" },
+    ].filter(row => !url.searchParams.get("status") || url.searchParams.get("status") === `eq.${row.status}`);
+    response.setHeader("Content-Range", `0-${rows.length - 1}/${rows.length}`);
+    return json(rows);
+  }
   if (url.pathname !== "/rest/v1/elective_preferences") return false;
   if (!claims.sub) return json({ code: "42501" }, 403);
   if (request.method === "GET") {

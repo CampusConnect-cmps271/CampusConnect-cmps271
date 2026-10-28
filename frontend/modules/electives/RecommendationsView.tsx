@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ElectivePreferences } from "./schema";
 import type { RecommendationResult } from "./recommendations";
 import styles from "./electives.module.css";
+import { EvidenceView } from "./EvidenceView";
 
 export function RecommendationsView({ preferences }: { preferences: ElectivePreferences | null }) {
   const [result, setResult] = useState<RecommendationResult | null>(null);
@@ -36,6 +37,7 @@ export function RecommendationsView({ preferences }: { preferences: ElectivePref
         <p>{course.rationale}</p><p><strong>Prerequisites: {course.prerequisite_status}</strong></p>
         <p>{course.prerequisites || "No prerequisite details supplied by the catalogue."}</p>
         <p>{course.review_count} published reviews{course.review_count < 3 ? " · limited evidence" : ""}</p>
+        <EvidenceView courseId={course.course_id} code={course.code} />
       </article>)}
     </div>}
   </section>;
