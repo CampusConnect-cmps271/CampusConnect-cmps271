@@ -29,3 +29,29 @@ test("preferences keep invalid drafts, save, reload and remain private on mobile
 test("signed-out visitors are sent to login", async ({ page }) => {
   await page.goto("/electives/preferences"); await expect(page).toHaveURL(/\/login/);
 });
+test("recommendations work without AI configuration and show prerequisite uncertainty", async ({ page }) => {
+  await login(page, "electives-ranking@mail.aub.edu"); await page.goto("/electives/preferences");
+  await page.getByLabel("Interests", { exact: true }).fill("computing");
+  await page.getByLabel("Academic goals", { exact: true }).fill("Learn programming");
+  await page.getByRole("button", { name: "Save preferences" }).click();
+  await expect(page.getByRole("status")).toHaveText("Preferences saved.");
+  await page.getByRole("link", { name: "View elective recommendations →" }).click();
+  await page.getByRole("button", { name: "Get recommendations" }).click();
+  await expect(page.getByRole("status")).toHaveText("8 recommendations found.");
+  await expect(page.getByText("Showing catalogue-based recommendations.", { exact: false })).toBeVisible();
+  await expect(page.locator("article")).toHaveCount(8);
+  await expect(page.locator("article").first()).toContainText("Prerequisites: unknown");
+  await page.setViewportSize({ width: 375, height: 812 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.route("**/api/electives/recommendations", route => route.fulfill({ status: 503, json: { error: "Recommendations are temporarily unavailable." } }));
+  await page.getByRole("button", { name: "Get recommendations" }).click();
+  await expect(page.locator("main").getByRole("alert")).toHaveText("Recommendations are temporarily unavailable.");
+});
+test("empty catalogue has a useful empty state", async ({ page }) => {
+  await login(page, "electives-empty@mail.aub.edu"); await page.goto("/electives/preferences");
+  await page.getByLabel("Interests", { exact: true }).fill("computing");
+  await page.getByLabel("Academic goals", { exact: true }).fill("Learn programming");
+  await page.getByRole("button", { name: "Save preferences" }).click(); await expect(page.getByRole("status")).toHaveText("Preferences saved.");
+  await page.goto("/electives/recommendations"); await page.getByRole("button", { name: "Get recommendations" }).click();
+  await expect(page.getByRole("status")).toHaveText("0 recommendations found.");
+});

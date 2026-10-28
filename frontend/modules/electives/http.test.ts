@@ -5,7 +5,7 @@ vi.mock("@/modules/auth", () => ({ getCurrentUser: m.user }));
 vi.mock("@/modules/logging", () => ({ log: { error: vi.fn() } }));
 vi.mock("./preferences", () => ({ validateCompletedCourses: m.validate }));
 vi.mock("./catalogue", () => ({ loadCandidates: m.courses }));
-import { recommendationsPOST } from "./http";
+import { recommendationsPOST, sameOrigin } from "./http";
 const preferences = { interests: ["robotics"], preferred_workload: "light", academic_goals: "Learn design", completed_course_codes: [] };
 const request = (body: unknown = preferences, origin = "https://campus.example") => new Request("https://campus.example/api/electives/recommendations", { method: "POST", headers: { origin, "content-type": "application/json" }, body: JSON.stringify(body) });
 beforeEach(() => { vi.clearAllMocks(); m.user.mockResolvedValue({ id: "owner" }); m.validate.mockResolvedValue([]); m.courses.mockResolvedValue({ courses: [], truncated: false }); });
@@ -13,6 +13,9 @@ it("requires authentication and same-origin JSON", async () => {
   m.user.mockResolvedValue(null); expect((await recommendationsPOST(request())).status).toBe(401);
   m.user.mockResolvedValue({ id: "owner" }); expect((await recommendationsPOST(request(preferences, "https://evil.example"))).status).toBe(403);
   expect(m.courses).not.toHaveBeenCalled();
+});
+it("uses the public Host when Next's internal URL differs", () => {
+  expect(sameOrigin(new Request("http://localhost:3100/api/electives/recommendations", { headers: { host: "127.0.0.1:3100", origin: "http://127.0.0.1:3100" } }))).toBe(true);
 });
 it("rejects malformed, large and unknown-code input", async () => {
   expect((await recommendationsPOST(request({}))).status).toBe(400);

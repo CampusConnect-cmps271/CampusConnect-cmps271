@@ -1,0 +1,42 @@
+"use client";
+import Link from "next/link";
+import { useState } from "react";
+import type { ElectivePreferences } from "./schema";
+import type { RecommendationResult } from "./recommendations";
+import styles from "./electives.module.css";
+
+export function RecommendationsView({ preferences }: { preferences: ElectivePreferences | null }) {
+  const [result, setResult] = useState<RecommendationResult | null>(null);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  async function generate() {
+    setPending(true); setError(""); setResult(null);
+    try {
+      const response = await fetch("/api/electives/recommendations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(preferences), signal: AbortSignal.timeout(20000) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Recommendations are unavailable.");
+      setResult(data);
+    } catch (error) { setError(error instanceof Error && error.name !== "TimeoutError" ? error.message : "Recommendations took too long. Please try again."); }
+    finally { setPending(false); }
+  }
+  if (!preferences) return <section className={styles.card}><h2>Start with your preferences</h2><p>Save your interests, workload and goals to get recommendations.</p><Link href="/electives/preferences">Set elective preferences</Link></section>;
+  return <section aria-label="Personalized elective recommendations">
+    <p><Link href="/electives/preferences">Edit your preferences</Link></p>
+    <p>Recommendations are guidance. Verify prerequisites and registration eligibility with your adviser; completed courses are self-reported.</p>
+    <button disabled={pending} onClick={generate}>{pending ? "Finding electives…" : "Get recommendations"}</button>
+    {pending && <p role="status">Finding electives that match your preferences…</p>}
+    {error && <p role="alert" className={styles.error}>{error}</p>}
+    {result && <div aria-live="polite">
+      <p role="status">{result.recommendations.length} recommendations found.</p>
+      {result.mode === "baseline" && <p className={styles.muted}>{result.providerStatus === "failed" ? "AI assistance is temporarily unavailable." : "AI assistance is not configured."} Showing catalogue-based recommendations.</p>}
+      {result.truncated && <p>Only the first 5,000 catalogue records were considered. Browse the catalogue for more options.</p>}
+      {!result.recommendations.length && <p>No eligible catalogue candidates remain to suggest. Try updating your preferences or browse the course catalogue.</p>}
+      {result.recommendations.map(course => <article key={course.course_id} className={styles.card}>
+        <h2><Link href={`/courses/${encodeURIComponent(course.code.replace(/ /g, "-"))}`}>{course.code} · {course.name}</Link></h2>
+        <p>{course.rationale}</p><p><strong>Prerequisites: {course.prerequisite_status}</strong></p>
+        <p>{course.prerequisites || "No prerequisite details supplied by the catalogue."}</p>
+        <p>{course.review_count} published reviews{course.review_count < 3 ? " · limited evidence" : ""}</p>
+      </article>)}
+    </div>}
+  </section>;
+}
