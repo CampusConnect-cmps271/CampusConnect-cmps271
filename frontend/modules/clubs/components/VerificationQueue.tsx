@@ -1,0 +1,9 @@
+import Link from "next/link";
+import { reviewClubVerification } from "../actions";
+import type { ClubProfile } from "../types";
+import { ActionForm } from "./ActionForm";
+
+export function VerificationQueue({ clubs }: { clubs: ClubProfile[] }) {
+  if (!clubs.length) return <div className="rounded-xl border border-dashed border-[var(--border)] bg-white p-8 text-center text-[var(--ink-soft)]">No pending verification requests.</div>;
+  return <div className="space-y-5">{clubs.map((club) => <article key={club.id} className="rounded-xl border border-[var(--border)] bg-white p-5 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-semibold text-[var(--maroon)]">{club.category}</p><h2 className="text-xl font-bold"><Link href={`/clubs/${club.slug}`} className="hover:underline">{club.name}</Link></h2></div><span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-900">Pending</span></div><p className="mt-3 text-sm leading-6 text-[var(--ink-soft)]">{club.description}</p><ActionForm action={reviewClubVerification} className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto_auto]"><input type="hidden" name="clubId" value={club.id} /><input type="hidden" name="slug" value={club.slug} /><label className="sr-only" htmlFor={`reason-${club.id}`}>Decision reason</label><input id={`reason-${club.id}`} name="reason" placeholder="Required when rejecting" maxLength={500} className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--ink)]" /><button name="decision" value="verified" className="rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white">Approve</button><button name="decision" value="rejected" className="rounded-lg bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-white">Reject</button></ActionForm></article>)}</div>;
+}

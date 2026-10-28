@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 
-export type RestrictedContentType = "post" | "comment" | "review";
+export type RestrictedContentType = "post" | "comment" | "review" | "announcement";
 
 export type ContentRestrictionInput = {
   userId: string;
@@ -160,6 +160,17 @@ export async function checkContentRestrictions(
     input.contentType === "post" ? POST_WINDOW_MS : COMMENT_WINDOW_MS;
   const since = new Date(Date.now() - windowMs).toISOString();
 
+  if (input.contentType === "announcement") {
+    const { data, error } = await supabase
+      .from("club_announcements")
+      .select("id, title, body")
+      .eq("author_id", input.userId)
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(MAX_POSTS_PER_WINDOW + 10);
+    if (error) return blocked("check_unavailable");
+    return evaluateContentRestrictions(input, (data ?? []) as RecentEntry[]);
+  }
   if (input.contentType === "review") {
     const { data, error } = await supabase
       .from("course_reviews")
