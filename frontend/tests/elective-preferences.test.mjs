@@ -15,7 +15,7 @@ describe("elective preferences migration and RLS", () => {
       create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
       grant usage on schema public, auth to authenticated, anon;
       grant execute on function auth.uid() to authenticated, anon;`);
-    for (const name of ["20261017091812_create_courses.sql", "20261028064356_elective_preferences.sql"]) {
+    for (const name of ["20261017091812_create_courses.sql", "20261028094821_elective_preferences.sql"]) {
       await db.exec(await readFile(new URL(`../../supabase/migrations/${name}`, import.meta.url), "utf8"));
     }
     await db.exec("insert into public.courses(code,name,description,credits,department) values ('CMPS 101','Computing','Introduction',3,'CMPS')");
