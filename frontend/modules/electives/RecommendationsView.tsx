@@ -31,12 +31,12 @@ export function RecommendationsView({ preferences }: { preferences: ElectivePref
       <p role="status">{result.recommendations.length} recommendations found.</p>
       {result.mode === "baseline" && <p className={styles.muted}>{result.providerStatus === "failed" ? "AI assistance is temporarily unavailable." : "AI assistance is not configured."} Showing catalogue-based recommendations.</p>}
       {result.truncated && <p>Only the first 5,000 catalogue records were considered. Browse the catalogue for more options.</p>}
-      {!result.recommendations.length && <p>No eligible catalogue candidates remain to suggest. Try updating your preferences or browse the course catalogue.</p>}
+      {!result.recommendations.length && <p>No catalogue candidates remain to suggest. Try updating your preferences or browse the course catalogue.</p>}
       {result.recommendations.map(course => <article key={course.course_id} className={styles.card}>
         <h2><Link href={`/courses/${encodeURIComponent(course.code.replace(/ /g, "-"))}`}>{course.code} · {course.name}</Link></h2>
         <p>{course.rationale}</p><p><strong>Prerequisites: {course.prerequisite_status}</strong></p>
         <p>{course.prerequisites || "No prerequisite details supplied by the catalogue."}</p>
-        <p>{course.review_count} published reviews{course.review_count < 3 ? " · limited evidence" : ""}</p>
+        <p>{course.review_count === null ? "Review count unavailable" : `${course.review_count} published reviews${course.review_count < 3 ? " · limited evidence" : ""}`}</p>
         <EvidenceView courseId={course.course_id} code={course.code} />
       </article>)}
     </div>}

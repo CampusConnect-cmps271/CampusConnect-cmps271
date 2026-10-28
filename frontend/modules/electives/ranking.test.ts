@@ -19,4 +19,8 @@ describe("catalogue ranking", () => {
     expect(rankCandidates([], preferencesSchema.parse(preferences))).toEqual([]);
     expect(rankCandidates([{ ...base, prerequisites: "CMPS 101 OR consent" }], preferencesSchema.parse(preferences))[0].prerequisites).toBe("CMPS 101 OR consent");
   });
+  it("keeps missing rating data unknown and matches terms late in catalogue descriptions", () => {
+    const result = rankCandidates([{ ...base, name: "Exploration", description: Array.from({ length: 80 }, (_, i) => `topic${i}`).join(" ") + " robotics", review_count: null }], preferencesSchema.parse(preferences));
+    expect(result[0].review_count).toBeNull(); expect(result[0].rationale).toContain("unavailable"); expect(result[0].rationale).toContain("robotics");
+  });
 });

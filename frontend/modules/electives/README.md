@@ -45,7 +45,8 @@ fixtures are never enabled as a production substitute.
 Catalogue reads are ordered, paginated, and capped at 5,000 records with a
 visible truncation notice. Reviews use the latest 24 published records, with
 up to 1,500 characters per excerpt and a full sample-size count. Averages with
-fewer than three reviews are not used for workload fit. Prerequisite prose and
+fewer than three reviews are not used for workload fit; unavailable rating data
+keeps counts and workload fit unknown. Prerequisite prose and
 ambiguous AND/OR rules remain visible and marked unknown. Self-reported
 completion is not verified eligibility.
 

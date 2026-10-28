@@ -14,7 +14,7 @@ export async function loadCandidates(): Promise<{ courses: Candidate[]; truncate
       .order("code").range(start, start + PAGE - 1);
     if (error) throw new Error("The course catalogue is temporarily unavailable.");
     if (start === CAP) { truncated = Boolean(data?.length); break; }
-    courses.push(...(data ?? []).map(row => ({ ...row, review_count: 0, average_workload: null, average_overall: null })) as Candidate[]);
+    courses.push(...(data ?? []).map(row => ({ ...row, review_count: null, average_workload: null, average_overall: null })) as Candidate[]);
     if ((data ?? []).length < PAGE) break;
   }
   // Failed rating reads leave an honest no-ratings baseline; never fabricate averages.
