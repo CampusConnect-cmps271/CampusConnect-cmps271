@@ -7,20 +7,30 @@ import { postRequest } from '../helpers'
 
 vi.mock('@/modules/logging', () => ({ log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
 vi.mock('@/modules/auth', () => ({ getCurrentUser: vi.fn() }))
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(async () => ({ rpc: vi.fn(async (fn: string) => ({ data: fn === 'search_campus_chunks' ? [REGISTRAR_CHUNK] : [], error: null })) })),
-}))
+const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }))
+vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn(async () => ({ rpc })) }))
 
 const URL = '/api/campus-assistant'
 const KEY = 'sk-test-secret-key'
 let nextUser = 0
 
-function modelReplies(text: string, status = 200) {
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] }), { status })))
+/** The model API: embedContent answers with a vector, generateContent with the reply text. */
+function modelReplies(text: string, status = 200, embeddingStatus = 200) {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) =>
+    String(url).includes(':embedContent')
+      ? new Response(JSON.stringify({ embedding: { values: Array.from({ length: 768 }, () => 0.1) } }), { status: embeddingStatus })
+      : new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] }), { status })))
+}
+
+/** The request body sent to the answer model (not to the embedding model). */
+function answerRequestBody() {
+  const call = vi.mocked(fetch).mock.calls.find(([url]) => String(url).includes(':generateContent'))
+  return JSON.parse((call?.[1] as RequestInit).body as string)
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
+  rpc.mockImplementation(async (fn: string) => ({ data: fn === 'search_campus_chunks' ? [REGISTRAR_CHUNK] : [], error: null }))
   vi.unstubAllEnvs()
   vi.stubEnv('GEMINI_API_KEY', KEY)
   // A fresh user per test, so the in-memory rate limit does not carry over.
@@ -38,6 +48,29 @@ describe('POST /api/campus-assistant', () => {
     const body = await res.json()
     expect(body.answer).toBe('The Registrar issues transcripts.')
     expect(body.citations).toEqual([expect.objectContaining({ chunk_id: 'registrar:0', url: REGISTRAR_CHUNK.url })])
+  })
+
+  it('also searches by meaning when the question can be embedded', async () => {
+    const res = await POST(postRequest(URL, { question: 'When does the library shut?' }) as never)
+
+    expect(res.status).toBe(200)
+    // 768 numbers, scaled to unit length by the embedding client.
+    const vector = expect.stringMatching(/^\[0\.\d+(,0\.\d+){767}\]$/)
+    expect(rpc).toHaveBeenCalledWith('search_campus_chunks_semantic', { p_embedding: vector, p_limit: 10 })
+    expect(rpc).toHaveBeenCalledWith('search_campus_courses_semantic', { p_embedding: vector, p_limit: 10 })
+    const embedCall = vi.mocked(fetch).mock.calls.find(([url]) => String(url).includes(':embedContent'))
+    expect(JSON.parse((embedCall?.[1] as RequestInit).body as string).content.parts[0].text).toBe('When does the library shut?')
+  })
+
+  it('falls back to keyword search, logs a warning and still answers when embedding fails', async () => {
+    modelReplies(reply('The Registrar issues transcripts.', ['registrar:0']), 200, 500)
+
+    const res = await POST(postRequest(URL, { question: 'Who issues transcripts?' }) as never)
+
+    expect(res.status).toBe(200)
+    expect((await res.json()).citations).toHaveLength(1)
+    expect(rpc).not.toHaveBeenCalledWith('search_campus_chunks_semantic', expect.anything())
+    expect(log.warn).toHaveBeenCalledWith('campus_assistant.embedding_unavailable', expect.any(Object), expect.anything())
   })
 
   it('requires a signed-in student', async () => {
@@ -72,7 +105,7 @@ describe('POST /api/campus-assistant', () => {
     const res = await POST(postRequest(URL, { question: 'And how long does it take?', history }) as never)
 
     expect(res.status).toBe(200)
-    const sent = JSON.parse((vi.mocked(fetch).mock.calls[0]?.[1] as RequestInit).body as string)
+    const sent = answerRequestBody()
     expect(sent.contents[0].parts[0].text).toContain('<history>')
     expect(sent.contents[0].parts[0].text).toContain('Use the online form.')
   })

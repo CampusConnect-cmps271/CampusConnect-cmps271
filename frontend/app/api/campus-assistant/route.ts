@@ -6,11 +6,15 @@ import { getCurrentUser } from "@/modules/auth";
 import {
   answerQuestion,
   createRateLimiter,
+  embedQuerySafely,
+  EmbeddingError,
   getConfiguredProvider,
+  getConfiguredQueryEmbedder,
   ProviderError,
   QUESTION_MAX_LENGTH,
   questionSchema,
   retrieveEvidence,
+  type QueryEmbedder,
 } from "@/modules/campus-assistant";
 import { log } from "@/modules/logging";
 
@@ -26,6 +30,20 @@ const MAX_BODY_BYTES = 16 * 1024;
 const RATE_LIMIT = 10;
 const RATE_WINDOW_MS = 60_000;
 const checkRate = createRateLimiter(RATE_LIMIT, RATE_WINDOW_MS);
+
+/**
+ * The embedder that lets search find text by meaning, or null when it cannot be
+ * built; search then uses keywords alone, as it did before embeddings. Never
+ * stands between a student and an answer.
+ */
+function embedderFor(userId: string): QueryEmbedder | null {
+  try {
+    return getConfiguredQueryEmbedder();
+  } catch (error) {
+    log.warn("campus_assistant.embedding_unavailable", { kind: error instanceof EmbeddingError ? error.kind : "unknown" }, { userId });
+    return null;
+  }
+}
 
 export async function POST(request: NextRequest): Promise<Response> {
   const user = await getCurrentUser();
@@ -68,7 +86,15 @@ export async function POST(request: NextRequest): Promise<Response> {
   try {
     const provider = getConfiguredProvider();
     const supabase = await createClient();
-    const result = await answerQuestion(question, (text) => retrieveEvidence(supabase, text), provider, history);
+    const embedder = embedderFor(user.id);
+    // Embedded per searched text: a vague follow-up is searched together with the
+    // previous question, and the meaning search must see the same words.
+    const retrieve = async (text: string) => {
+      const embedding = embedder ? await embedQuerySafely(embedder, text) : null;
+      if (embedder && !embedding) log.warn("campus_assistant.embedding_unavailable", { kind: "failed" }, { userId: user.id });
+      return retrieveEvidence(supabase, text, embedding);
+    };
+    const result = await answerQuestion(question, retrieve, provider, history);
 
     log.info(
       "campus_assistant.answered",
