@@ -1,13 +1,8 @@
 
 "use client";
 
-import {
-  useActionState,
-  useEffect,
-  useState,
-} from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { useRouter } from "next/navigation";
 
 import {
   changeEventSaveAction,
@@ -74,6 +69,85 @@ function UnsaveButton() {
   );
 }
 
+function ReminderFields({
+  enabledInitially,
+  minutesInitially,
+}: {
+  enabledInitially: boolean;
+  minutesInitially: number;
+}) {
+  const [enabled, setEnabled] = useState(
+    enabledInitially,
+  );
+
+  const [minutes, setMinutes] = useState(
+    minutesInitially,
+  );
+
+  return (
+    <div className="space-y-5">
+      <label className="flex cursor-pointer items-center gap-3">
+        <input
+          type="checkbox"
+          name="reminderEnabled"
+          checked={enabled}
+          onChange={(event) =>
+            setEnabled(event.target.checked)
+          }
+          className="h-4 w-4"
+        />
+
+        <span className="font-medium">
+          Enable event reminder
+        </span>
+      </label>
+
+      <div>
+        <label
+          htmlFor="event-reminder-time"
+          className="block text-sm font-medium"
+        >
+          Remind Me
+        </label>
+
+        <select
+          id="event-reminder-time"
+          name="minutesBefore"
+          value={minutes}
+          onChange={(event) =>
+            setMinutes(Number(event.target.value))
+          }
+          disabled={!enabled}
+          className="mt-2 w-full max-w-sm rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 disabled:opacity-50"
+        >
+          {REMINDER_OPTIONS.map((option) => (
+            <option
+              key={option.value}
+              value={option.value}
+            >
+              {option.label}
+            </option>
+          ))}
+        </select>
+
+        {!enabled && (
+          <input
+            type="hidden"
+            name="minutesBefore"
+            value={minutes}
+          />
+        )}
+
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          Reminder times are calculated from the
+          event start time. Notifications appear
+          in the CampusConnect bell.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function EventSaveControls({
   eventId,
   initiallySaved,
@@ -81,8 +155,6 @@ export default function EventSaveControls({
   initiallyMinutes,
   canSave,
 }: Props) {
-  const router = useRouter();
-
   const [state, formAction] = useActionState(
     changeEventSaveAction,
     initialEventSaveState,
@@ -90,33 +162,15 @@ export default function EventSaveControls({
 
   const saved = state.saved ?? initiallySaved;
 
-  const [enabled, setEnabled] = useState(
-    initiallyEnabled,
-  );
+  const enabledInitially =
+    state.saved === false
+      ? true
+      : state.reminderEnabled ?? initiallyEnabled;
 
-  const [minutes, setMinutes] = useState(
-    initiallyMinutes,
-  );
-
-  useEffect(() => {
-    if (state.success) {
-      if (state.reminderEnabled !== null) {
-        setEnabled(state.reminderEnabled);
-      }
-
-      if (state.minutesBefore !== null) {
-        setMinutes(state.minutesBefore);
-      }
-
-      router.refresh();
-    }
-  }, [
-    state.version,
-    state.success,
-    state.reminderEnabled,
-    state.minutesBefore,
-    router,
-  ]);
+  const minutesInitially =
+    state.saved === false
+      ? 60
+      : state.minutesBefore ?? initiallyMinutes;
 
   if (!saved && !canSave) {
     return (
@@ -156,7 +210,10 @@ export default function EventSaveControls({
           : "Save this event and choose whether to receive an in-app reminder."}
       </p>
 
-      <form action={formAction} className="mt-5 space-y-5">
+      <form
+        action={formAction}
+        className="mt-5 space-y-5"
+      >
         <input
           type="hidden"
           name="eventId"
@@ -169,64 +226,11 @@ export default function EventSaveControls({
           value={saved ? "preferences" : "save"}
         />
 
-        <label className="flex cursor-pointer items-center gap-3">
-          <input
-            type="checkbox"
-            name="reminderEnabled"
-            checked={enabled}
-            onChange={(event) =>
-              setEnabled(event.target.checked)
-            }
-            className="h-4 w-4"
-          />
-
-          <span className="font-medium">
-            Enable event reminder
-          </span>
-        </label>
-
-        <div>
-          <label
-            htmlFor="event-reminder-time"
-            className="block text-sm font-medium"
-          >
-            Remind Me
-          </label>
-
-          <select
-            id="event-reminder-time"
-            name="minutesBefore"
-            value={minutes}
-            onChange={(event) =>
-              setMinutes(Number(event.target.value))
-            }
-            disabled={!enabled}
-            className="mt-2 w-full max-w-sm rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 disabled:opacity-50"
-          >
-            {REMINDER_OPTIONS.map((option) => (
-              <option
-                key={option.value}
-                value={option.value}
-              >
-                {option.label}
-              </option>
-            ))}
-          </select>
-
-          {!enabled && (
-            <input
-              type="hidden"
-              name="minutesBefore"
-              value={minutes}
-            />
-          )}
-
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Reminder times are calculated from the
-            event start time. Notifications appear
-            in the CampusConnect bell.
-          </p>
-        </div>
+        <ReminderFields
+          key={`${eventId}-${state.version}`}
+          enabledInitially={enabledInitially}
+          minutesInitially={minutesInitially}
+        />
 
         {state.message && (
           <p
