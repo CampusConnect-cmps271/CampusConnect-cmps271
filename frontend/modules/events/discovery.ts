@@ -48,7 +48,9 @@ export type EventDiscoveryResult = {
 function isValidDate(value: string): boolean {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
 
-  if (!match) return false;
+  if (!match) {
+    return false;
+  }
 
   const year = Number(match[1]);
   const month = Number(match[2]);
@@ -69,8 +71,7 @@ function validateFilters(
   filters: EventDiscoveryFilters,
 ) {
   const page = filters.page ?? 1;
-  const pageSize =
-    filters.pageSize ?? EVENT_PAGE_SIZE;
+  const pageSize = filters.pageSize ?? EVENT_PAGE_SIZE;
 
   if (
     !Number.isSafeInteger(page) ||
@@ -161,8 +162,6 @@ export async function listPublishedEvents(
     );
   }
 
-  // Request one extra event to detect whether
-  // another page exists.
   const { data, error } = await supabase.rpc(
     "list_published_events",
     {
@@ -206,4 +205,48 @@ export async function listPublishedEvents(
       includePast: checked.includePast,
     },
   };
+}
+
+export async function listPublishedEventCategories(): Promise<
+  string[]
+> {
+  const supabase = await createEventServerClient();
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    throw new Error(
+      "You must be signed in to browse event categories.",
+    );
+  }
+
+  const { data, error } = await supabase.rpc(
+    "list_published_event_categories",
+  );
+
+  if (error) {
+    console.error(
+      "Event category discovery failed:",
+      error.code,
+    );
+
+    throw new Error(
+      "Could not load event categories.",
+    );
+  }
+
+  const rows = (data ?? []) as Array<{
+    category: string;
+  }>;
+
+  return rows
+    .map((row) => row.category)
+    .filter(
+      (category) =>
+        typeof category === "string" &&
+        category.trim().length > 0,
+    );
 }
