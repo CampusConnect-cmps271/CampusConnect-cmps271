@@ -23,6 +23,16 @@ with `extract:courses`. The extractor marks courses it is unsure about as
 "need review" (about a quarter of them for 2026-27); those are not in
 `courses.csv` and are not imported.
 
+**Text written by hand.** A source in `campus-sources.json` can carry its own
+`text` instead of being downloaded (it cannot also use `start_after` or
+`end_before`). The library opening hours are kept this way (`library-hours`),
+because the AUB page loads its hours with JavaScript, so they are not in the
+page's text. The `url` is the page students are sent to for checking, and the
+text says when it was supplied. **Hours change each term:** edit the `text` of
+`library-hours`, then run `npm run ingest:campus-sources` and
+`npm run embed:campus-content`; the changed chunk's old embedding is cleared
+automatically.
+
 ## 2. Embed it
 
 ```bash
@@ -74,6 +84,3 @@ lower it.
   does not (`20261024120000`, `20261024130000`, `20261028094821`,
   `20261028150000`), so `supabase db push` is blocked until the team resolves
   them. Do not run `supabase migration repair` against hosted.
-- **Library hours:** the AUB library page loads its hours with JavaScript, so
-  they are not in the stored text. Add them as a source with real text, then run
-  step 1 and step 2 again.

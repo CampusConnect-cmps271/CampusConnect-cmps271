@@ -29,7 +29,14 @@ const sourceSchema = z.object({
   published_at: z.iso.date().optional(),
   start_after: z.string().min(1).optional(),
   end_before: z.string().min(1).optional(),
-});
+  // For content a page does not hold as text (the library hours load with
+  // JavaScript): the text itself, written by hand. The url is where students can
+  // check it, and the page is not downloaded.
+  text: z.string().trim().min(1).max(4000).optional(),
+}).refine(
+  (source) => source.text === undefined || (source.start_after === undefined && source.end_before === undefined),
+  "A source with its own text cannot also use page markers",
+);
 const manifestSchema = z.array(sourceSchema).min(1).max(50)
   .refine((sources) => new Set(sources.map((source) => source.id)).size === sources.length, "Source ids must be unique");
 
@@ -117,20 +124,27 @@ export async function fetchPage(source, fetchImpl = fetch) {
   return { html, url: response.url || source.url };
 }
 
+/** The page a source is built from. A source with its own text has none to download. */
+export async function pageFor(source, fetchImpl = fetch) {
+  return source.text !== undefined ? { url: source.url } : fetchPage(source, fetchImpl);
+}
+
 /** Builds the rows for one source. Throws if the page has no usable text. */
 export function buildRows(source, page, retrievedAt) {
-  let text;
-  try {
-    text = selectContent(htmlToText(page.html), source);
-  } catch (error) {
-    throw new Error(`${source.id}: ${error.message}`);
+  let text = source.text;
+  if (text === undefined) {
+    try {
+      text = selectContent(htmlToText(page.html), source);
+    } catch (error) {
+      throw new Error(`${source.id}: ${error.message}`);
+    }
   }
   const chunks = chunkText(text);
   if (chunks.length === 0) throw new Error(`${source.id}: no text found on the page`);
   return {
     source: {
       id: source.id,
-      url: page.url,
+      url: page?.url ?? source.url,
       title: source.title,
       publisher: source.publisher,
       published_at: source.published_at ?? null,
@@ -170,7 +184,7 @@ async function main() {
   const retrievedAt = new Date().toISOString();
   const rows = [];
   for (const source of sources) {
-    const built = buildRows(source, await fetchPage(source), retrievedAt);
+    const built = buildRows(source, await pageFor(source), retrievedAt);
     console.log(`${source.id}: ${built.chunks.length} chunks from ${built.source.url}`);
     rows.push(built);
   }
