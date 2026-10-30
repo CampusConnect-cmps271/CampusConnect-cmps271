@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { COURSE_CHUNK, REGISTRAR_CHUNK } from "./fixtures";
 import { createRateLimiter } from "./rate-limit";
-import { retrieveEvidence, searchTerms } from "./retrieval";
+import { reciprocalRankFusion, retrieveEvidence, searchTerms } from "./retrieval";
 
 describe("searchTerms", () => {
   it("drops filler words and punctuation, lower-cases and de-duplicates", () => {
@@ -47,7 +47,8 @@ describe("retrieveEvidence", () => {
     const evidence = await retrieveEvidence(supabase, "Who issues transcripts?");
 
     expect(supabase.rpc).toHaveBeenCalledWith("search_campus_chunks", { p_query: "issues transcripts", p_limit: 5 });
-    expect(supabase.rpc).toHaveBeenCalledWith("search_campus_courses", { p_query: "issues transcripts", p_limit: 3 });
+    expect(supabase.rpc).toHaveBeenCalledWith("search_campus_courses", { p_query: "issues transcripts", p_limit: 6 });
+    expect(supabase.rpc).toHaveBeenCalledTimes(2);
     expect(evidence.map((chunk) => chunk.chunk_id)).toEqual(["registrar:0", "course:CMPS 271"]);
   });
 
@@ -70,6 +71,91 @@ describe("retrieveEvidence", () => {
 
   it("reports a database error by code only", async () => {
     await expect(retrieveEvidence(client(null, null, { code: "42501" }), "registrar")).rejects.toThrow("database code: 42501");
+  });
+});
+
+describe("reciprocalRankFusion", () => {
+  const id = (item: string) => item;
+
+  it("puts an item found by both lists above items found by only one", () => {
+    expect(reciprocalRankFusion([["a", "b"], ["c", "b"]], id, 10)).toEqual(["b", "a", "c"]);
+  });
+
+  it("keeps a single list's order, breaks ties by first appearance and respects the limit", () => {
+    expect(reciprocalRankFusion([["a", "b", "c"], []], id, 10)).toEqual(["a", "b", "c"]);
+    expect(reciprocalRankFusion([["a", "b"], ["c", "d"]], id, 10)).toEqual(["a", "c", "b", "d"]);
+    expect(reciprocalRankFusion([["a", "b", "c"]], id, 2)).toEqual(["a", "b"]);
+  });
+});
+
+describe("retrieveEvidence with an embedding", () => {
+  const embedding = [0.5, 0.25];
+  const row = (code: string) => ({
+    code, name: `Course ${code}`, department: "Test", credits: "3.00", prerequisites: "", description: "About it.",
+  });
+  const libraryChunk = { ...REGISTRAR_CHUNK, chunk_id: "libraries:1", source_id: "libraries" };
+  const answers = (by: Record<string, { data: unknown[] | null; error?: { code?: string } | null }>) => ({
+    rpc: vi.fn(async (fn: string) => ({ data: by[fn]?.data ?? [], error: by[fn]?.error ?? null })),
+  });
+
+  it("calls the keyword and the semantic searches and merges their pages", async () => {
+    const supabase = answers({
+      search_campus_chunks: { data: [REGISTRAR_CHUNK] },
+      search_campus_chunks_semantic: { data: [libraryChunk, REGISTRAR_CHUNK] },
+    });
+
+    const evidence = await retrieveEvidence(supabase, "when does the library shut", embedding);
+
+    expect(supabase.rpc).toHaveBeenCalledTimes(4);
+    expect(supabase.rpc).toHaveBeenCalledWith("search_campus_chunks_semantic", { p_embedding: "[0.5,0.25]", p_limit: 10 });
+    expect(supabase.rpc).toHaveBeenCalledWith("search_campus_courses_semantic", { p_embedding: "[0.5,0.25]", p_limit: 10 });
+    expect(evidence.map((chunk) => chunk.chunk_id)).toEqual(["registrar:0", "libraries:1"]);
+  });
+
+  it("keeps a course named by its code first after merging", async () => {
+    const supabase = answers({
+      search_campus_courses: { data: [row("CMPS 271")] },
+      search_campus_courses_semantic: { data: [row("PSYC 201"), row("CMPS 271")] },
+    });
+
+    const evidence = await retrieveEvidence(supabase, "CMPS 271", embedding);
+
+    expect(evidence.map((chunk) => chunk.chunk_id)).toEqual(["course:CMPS 271", "course:PSYC 201"]);
+  });
+
+  it("finds a course the keywords missed through the semantic search", async () => {
+    const supabase = answers({ search_campus_courses_semantic: { data: [row("PSYC 201")] } });
+    const evidence = await retrieveEvidence(supabase, "classes about how people think", embedding);
+    expect(evidence.map((chunk) => chunk.chunk_id)).toEqual(["course:PSYC 201"]);
+  });
+
+  it("ignores an error from the semantic searches and still returns the keyword results", async () => {
+    const supabase = answers({
+      search_campus_chunks: { data: [REGISTRAR_CHUNK] },
+      search_campus_chunks_semantic: { data: null, error: { code: "PGRST202" } },
+      search_campus_courses_semantic: { data: null, error: { code: "PGRST202" } },
+    });
+
+    const evidence = await retrieveEvidence(supabase, "registrar", embedding);
+
+    expect(evidence.map((chunk) => chunk.chunk_id)).toEqual(["registrar:0"]);
+  });
+
+  it("still throws on an error from the keyword searches", async () => {
+    const supabase = answers({ search_campus_chunks: { data: null, error: { code: "42501" } } });
+    await expect(retrieveEvidence(supabase, "registrar", embedding)).rejects.toThrow("database code: 42501");
+  });
+
+  it("calls nothing when the question is only filler words, even with an embedding", async () => {
+    const supabase = answers({});
+    expect(await retrieveEvidence(supabase, "what is the", embedding)).toEqual([]);
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("uses only the keyword searches when the embedding is missing", async () => {
+    const supabase = answers({ search_campus_chunks: { data: [REGISTRAR_CHUNK] } });
+    await retrieveEvidence(supabase, "registrar", null);
+    expect(supabase.rpc).toHaveBeenCalledTimes(2);
   });
 });
 
