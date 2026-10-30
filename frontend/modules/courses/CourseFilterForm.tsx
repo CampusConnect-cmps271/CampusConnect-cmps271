@@ -4,6 +4,16 @@ import Link from "next/link";
 import { useEffect, useRef, type ReactNode } from "react";
 import styles from "./courses.module.css";
 
+// Set once the form that came with the document's HTML has been reconciled.
+// Forms rendered after a client-side navigation start from their defaults.
+let documentFormReconciled = false;
+
+/** Back/forward and reload document loads are when browsers restore inputs. */
+function restoredDocumentLoad() {
+  const [entry] = performance.getEntriesByType("navigation") as PerformanceNavigationTiming[];
+  return entry?.type === "back_forward" || entry?.type === "reload";
+}
+
 export function CourseFilterForm({ children }: { children: ReactNode }) {
   const form = useRef<HTMLFormElement>(null);
   useEffect(() => {
@@ -12,16 +22,24 @@ export function CourseFilterForm({ children }: { children: ReactNode }) {
       cancelAnimationFrame(frame);
       // Browsers can restore dirty input values after a history event even
       // though this document's default values and results belong to its URL.
-      frame = requestAnimationFrame(() => form.current?.reset());
+      frame = requestAnimationFrame(() => {
+        documentFormReconciled = true;
+        form.current?.reset();
+      });
     };
-    window.addEventListener("pageshow", restoreUrlValues);
+    const restoreFromCache = (event: PageTransitionEvent) => {
+      if (event.persisted) restoreUrlValues();
+    };
+    window.addEventListener("pageshow", restoreFromCache);
     window.addEventListener("popstate", restoreUrlValues);
-    // A full document navigation can restore inputs before hydration attaches
-    // these listeners. Also reconcile once when this form mounts.
-    restoreUrlValues();
+    // A back/forward or reload document load can restore inputs before
+    // hydration attaches these listeners, so reconcile once on mount. Only
+    // then: the reset lands a frame later and would wipe what a student
+    // typed while the page was loading.
+    if (!documentFormReconciled && restoredDocumentLoad()) restoreUrlValues();
     return () => {
       cancelAnimationFrame(frame);
-      window.removeEventListener("pageshow", restoreUrlValues);
+      window.removeEventListener("pageshow", restoreFromCache);
       window.removeEventListener("popstate", restoreUrlValues);
     };
   }, []);

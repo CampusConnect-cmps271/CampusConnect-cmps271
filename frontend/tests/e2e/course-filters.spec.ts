@@ -80,6 +80,17 @@ test("pagination retains range filters and changing a filter resets the page", a
   await expect(page.getByLabel("Maximum credits", { exact: true })).toHaveValue("3");
 });
 
+test("going back shows the URL's filters, not edits that were never searched", async ({ page }) => {
+  await login(page);
+  await page.goto("/courses?creditsMin=3&creditsMax=3");
+  await expect(page.getByRole("status")).toContainText("30 courses found");
+  await page.getByLabel("Minimum credits", { exact: true }).fill("1");
+  await page.goto("/home");
+  await page.goBack();
+  await expect(page.getByRole("status")).toContainText("30 courses found");
+  await expect(page.getByLabel("Minimum credits", { exact: true })).toHaveValue("3");
+});
+
 test("inverted ranges show a correction and Clear removes every applied bound", async ({ page }) => {
   await login(page);
   await page.goto("/courses?creditsMin=6&creditsMax=3&difficultyMin=2&workloadMax=4");
