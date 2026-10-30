@@ -2,15 +2,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { createClient } from "@/lib/supabase/server";
 import {
   getEventDetail,
   type EventDetail,
 } from "@/modules/events/detail";
+import EventSaveControls from "@/modules/events/EventSaveControls";
 
 type PageProps = {
-  params: Promise<{
-    id: string;
-  }>;
+  params: Promise<{ id: string }>;
 };
 
 function formatEventDate(value: string) {
@@ -27,9 +27,7 @@ function formatEventDate(value: string) {
 }
 
 function safeRegistrationUrl(value: string | null) {
-  if (!value) {
-    return null;
-  }
+  if (!value) return null;
 
   try {
     const url = new URL(value);
@@ -55,25 +53,24 @@ function EventStatus({
 }: {
   status: EventDetail["status"];
 }) {
-  if (status === "cancelled") {
-    return (
-      <span className="inline-block rounded-full border border-red-400 px-3 py-1 text-sm font-semibold text-red-600 dark:text-red-400">
-        Cancelled
-      </span>
-    );
-  }
-
-  if (status === "draft") {
-    return (
-      <span className="inline-block rounded-full border border-yellow-500 px-3 py-1 text-sm font-semibold text-yellow-700 dark:text-yellow-400">
-        Draft
-      </span>
-    );
-  }
+  const styles = {
+    published:
+      "border-green-500 text-green-700 dark:text-green-400",
+    draft:
+      "border-yellow-500 text-yellow-700 dark:text-yellow-400",
+    cancelled:
+      "border-red-400 text-red-600 dark:text-red-400",
+  };
 
   return (
-    <span className="inline-block rounded-full border border-green-500 px-3 py-1 text-sm font-semibold text-green-700 dark:text-green-400">
-      Published
+    <span
+      className={`inline-block rounded-full border px-3 py-1 text-sm font-semibold ${styles[status]}`}
+    >
+      {status === "published"
+        ? "Published"
+        : status === "draft"
+          ? "Draft"
+          : "Cancelled"}
     </span>
   );
 }
@@ -128,7 +125,6 @@ function EventInformation({
             <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
               {item.label}
             </dt>
-
             <dd className="mt-1 font-medium">
               {item.value}
             </dd>
@@ -141,7 +137,6 @@ function EventInformation({
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Club or Organization
           </p>
-
           <p className="mt-1 font-medium">
             {event.club_name}
           </p>
@@ -160,9 +155,6 @@ function RegistrationSection({
     event.registration_url,
   );
 
-  const cancelled = event.status === "cancelled";
-  const draft = event.status === "draft";
-
   return (
     <section
       aria-labelledby="registration-heading"
@@ -175,12 +167,12 @@ function RegistrationSection({
         Registration
       </h2>
 
-      {cancelled ? (
+      {event.status === "cancelled" ? (
         <p className="mt-4 text-red-600 dark:text-red-400">
           This event has been cancelled. Registration
           is no longer available through this page.
         </p>
-      ) : draft ? (
+      ) : event.status === "draft" ? (
         <p className="mt-4 text-gray-600 dark:text-gray-300">
           This event is still a draft. Registration
           information is not publicly available.
@@ -196,13 +188,10 @@ function RegistrationSection({
             href={registrationUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-5 inline-flex items-center rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+            className="mt-5 inline-flex items-center rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700"
           >
             Open Registration Website
-            <span
-              className="ml-2"
-              aria-hidden="true"
-            >
+            <span className="ml-2" aria-hidden="true">
               ↗
             </span>
           </a>
@@ -217,21 +206,77 @@ function RegistrationSection({
         <p className="mt-4 text-gray-600 dark:text-gray-300">
           No online registration link has been
           provided for this event. Contact the
-          organizer if you need additional
-          registration information.
+          organizer if you need more information.
         </p>
       )}
 
-      {!cancelled && !draft && (
+      {event.status === "published" && (
         <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
           CampusConnect displays event information
-          but does not confirm reservations,
-          availability, or registration requirements.
-          Check event dates and registration
-          availability with the organizer.
+          but does not confirm registration,
+          availability, or requirements. Check with
+          the organizer before attending.
         </p>
       )}
     </section>
+  );
+}
+
+async function SavedEventSection({
+  event,
+}: {
+  event: EventDetail;
+}) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("saved_events")
+    .select(
+      "event_id, reminder_enabled, reminder_minutes_before",
+    )
+    .eq("student_id", user.id)
+    .eq("event_id", event.id)
+    .maybeSingle();
+
+  if (error) {
+    return (
+      <section
+        role="alert"
+        className="rounded-xl border border-red-400 p-6"
+      >
+        <h2 className="text-xl font-semibold">
+          Save This Event
+        </h2>
+        <p className="mt-3">
+          Saved event preferences are temporarily
+          unavailable. Please reload the page.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <EventSaveControls
+      key={event.id}
+      eventId={event.id}
+      initiallySaved={Boolean(data)}
+      initiallyEnabled={
+        data?.reminder_enabled ?? true
+      }
+      initiallyMinutes={
+        data?.reminder_minutes_before ?? 60
+      }
+      canSave={event.status === "published"}
+    />
   );
 }
 
@@ -239,7 +284,6 @@ export default async function EventDetailsPage({
   params,
 }: PageProps) {
   const { id } = await params;
-
   const result = await getEventDetail(id);
 
   if (!result.success) {
@@ -250,27 +294,6 @@ export default async function EventDetailsPage({
       notFound();
     }
 
-    if (result.reason === "unauthenticated") {
-      return (
-        <main className="mx-auto max-w-3xl px-5 py-12">
-          <h1 className="text-2xl font-bold">
-            Sign In Required
-          </h1>
-
-          <p className="mt-4">
-            Please sign in to view event details.
-          </p>
-
-          <Link
-            href="/events"
-            className="mt-5 inline-block text-blue-600 hover:underline"
-          >
-            Back to Events
-          </Link>
-        </main>
-      );
-    }
-
     return (
       <main className="mx-auto max-w-3xl px-5 py-12">
         <section
@@ -278,17 +301,18 @@ export default async function EventDetailsPage({
           className="rounded-xl border border-red-300 p-6"
         >
           <h1 className="text-2xl font-bold">
-            Could Not Load Event
+            {result.reason === "unauthenticated"
+              ? "Sign In Required"
+              : "Could Not Load Event"}
           </h1>
 
           <p className="mt-3">
-            The event details could not be loaded.
-            Please try again.
+            {result.message}
           </p>
 
           <Link
             href="/events"
-            className="mt-5 inline-block text-blue-600 hover:underline"
+            className="mt-5 inline-block text-blue-600 hover:underline dark:text-blue-400"
           >
             Back to Events
           </Link>
@@ -356,12 +380,6 @@ export default async function EventDetailsPage({
             organizer. The information below is
             retained for reference only.
           </p>
-
-          <p className="mt-3 text-sm">
-            Do not rely on the original event time
-            or registration link as an active event
-            invitation.
-          </p>
         </section>
       )}
 
@@ -384,6 +402,8 @@ export default async function EventDetailsPage({
         </section>
 
         <EventInformation event={event} />
+
+        <SavedEventSection event={event} />
 
         <RegistrationSection event={event} />
       </div>
