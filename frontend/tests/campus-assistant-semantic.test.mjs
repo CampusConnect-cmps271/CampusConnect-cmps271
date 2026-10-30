@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { after, before, describe, it } from "node:test";
 import { createClient } from "@supabase/supabase-js";
@@ -30,8 +31,18 @@ describe("campus assistant semantic search", { skip: reachable ? false : "local 
   const SOURCE = "test-embed-src";
 
   async function cleanUp() {
-    await supabase.from("campus_sources").delete().eq("id", SOURCE);
-    await supabase.from("courses").delete().like("code", "ZZTEST %");
+    const removed = await supabase.from("campus_sources").delete().eq("id", SOURCE);
+    assert.equal(removed.error, null);
+    // The courses table does not let even the secret key delete rows (by design),
+    // so the test courses are removed through the local database container.
+    try {
+      execFileSync("docker", [
+        "exec", "supabase_db_campusconnect", "psql", "-U", "postgres", "-c",
+        "delete from public.courses where code like 'ZZTEST %'",
+      ], { stdio: "ignore" });
+    } catch {
+      console.warn("Could not remove the ZZTEST courses; delete them by hand: delete from public.courses where code like 'ZZTEST %'");
+    }
   }
 
   before(async () => {
@@ -47,11 +58,12 @@ describe("campus assistant semantic search", { skip: reachable ? false : "local 
       { id: "test-embed:2", source_id: SOURCE, position: 2, text: "Gamma text" },
     ]);
     assert.equal(chunks.error, null);
-    const courses = await supabase.from("courses").insert([
+    // An upsert, so a run that could not clean up after itself never breaks the next one.
+    const courses = await supabase.from("courses").upsert([
       { code: "ZZTEST 100", name: "Alpha course", description: "About alpha.", credits: 3, department: "Test", embedding: axis(0) },
       { code: "ZZTEST 200", name: "Beta course", description: "About beta.", credits: 3, department: "Test", embedding: axis(1) },
-      { code: "ZZTEST 300", name: "Gamma course", description: "About gamma.", credits: 3, department: "Test" },
-    ]);
+      { code: "ZZTEST 300", name: "Gamma course", description: "About gamma.", credits: 3, department: "Test", embedding: null },
+    ], { onConflict: "code" });
     assert.equal(courses.error, null);
   });
   after(async () => { if (reachable) await cleanUp(); });
