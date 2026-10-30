@@ -114,10 +114,15 @@ export async function retrieveEvidence(
     (chunk) => chunk.chunk_id,
     MAX_PAGE_EVIDENCE,
   );
+  const keywordCourseRows = (courses.data ?? []) as CourseRow[];
   const mergedCourses = reciprocalRankFusion(
-    [(courses.data ?? []) as CourseRow[], semanticRows<CourseRow>(meaningCourses)],
+    [keywordCourseRows, semanticRows<CourseRow>(meaningCourses)],
     (course) => course.code,
     MAX_COURSE_EVIDENCE,
   );
-  return [...mergedPages, ...mergedCourses.map(courseEvidence)];
+  // A course the question names by its code goes first, as the keyword search
+  // ranks it, whatever the meaning search thinks of the other courses.
+  const named = keywordCourseRows.filter((course) => p_query.includes(course.code.toLowerCase()));
+  const orderedCourses = [...new Map([...named, ...mergedCourses].map((course) => [course.code, course])).values()].slice(0, MAX_COURSE_EVIDENCE);
+  return [...mergedPages, ...orderedCourses.map(courseEvidence)];
 }

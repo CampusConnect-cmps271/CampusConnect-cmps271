@@ -123,6 +123,17 @@ describe("retrieveEvidence with an embedding", () => {
     expect(evidence.map((chunk) => chunk.chunk_id)).toEqual(["course:CMPS 271", "course:PSYC 201"]);
   });
 
+  it("keeps a course named in the question first even when the meaning search ranks another course higher", async () => {
+    const supabase = answers({
+      search_campus_courses: { data: [row("CMPS 271"), row("CMPS 289")] },
+      search_campus_courses_semantic: { data: [row("CMPS 289")] },
+    });
+
+    const evidence = await retrieveEvidence(supabase, "CMPS 271 software engineering", embedding);
+
+    expect(evidence.map((chunk) => chunk.chunk_id)).toEqual(["course:CMPS 271", "course:CMPS 289"]);
+  });
+
   it("finds a course the keywords missed through the semantic search", async () => {
     const supabase = answers({ search_campus_courses_semantic: { data: [row("PSYC 201")] } });
     const evidence = await retrieveEvidence(supabase, "classes about how people think", embedding);

@@ -14,6 +14,7 @@ import {
   QUESTION_MAX_LENGTH,
   questionSchema,
   retrieveEvidence,
+  searchTerms,
   type QueryEmbedder,
 } from "@/modules/campus-assistant";
 import { log } from "@/modules/logging";
@@ -90,6 +91,8 @@ export async function POST(request: NextRequest): Promise<Response> {
     // Embedded per searched text: a vague follow-up is searched together with the
     // previous question, and the meaning search must see the same words.
     const retrieve = async (text: string) => {
+      // Nothing to search for (only filler words): no reason to spend an embedding call.
+      if (searchTerms(text).length === 0) return [];
       const embedding = embedder ? await embedQuerySafely(embedder, text) : null;
       if (embedder && !embedding) log.warn("campus_assistant.embedding_unavailable", { kind: "failed" }, { userId: user.id });
       return retrieveEvidence(supabase, text, embedding);

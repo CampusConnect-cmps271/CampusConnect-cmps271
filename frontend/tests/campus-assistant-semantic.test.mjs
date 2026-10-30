@@ -14,10 +14,14 @@ function localEnv() {
   const path = new URL("../.env.local", import.meta.url);
   const file = existsSync(path) ? readFileSync(path, "utf8") : "";
   const read = (name) => process.env[name] ?? file.match(new RegExp(`^${name}=(.*)$`, "m"))?.[1]?.trim().replace(/^"|"$/g, "");
-  return { url: read("NEXT_PUBLIC_SUPABASE_URL"), key: read("SUPABASE_SECRET_KEY") };
+  return {
+    url: read("NEXT_PUBLIC_SUPABASE_URL"),
+    key: read("SUPABASE_SECRET_KEY"),
+    publishableKey: read("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
+  };
 }
 
-const { url, key } = localEnv();
+const { url, key, publishableKey } = localEnv();
 const isLoopback = Boolean(url) && /^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(url);
 const reachable = isLoopback && Boolean(key)
   && await fetch(`${url}/auth/v1/health`, { signal: AbortSignal.timeout(3000) }).then(() => true, () => false);
@@ -107,6 +111,30 @@ describe("campus assistant semantic search", { skip: reachable ? false : "local 
     const { data, error } = await supabase.rpc("search_campus_chunks_semantic", { p_embedding: axis(0), p_limit: 1, p_min_similarity: -1 });
     assert.equal(error, null);
     assert.equal(data.length, 1);
+  });
+
+  it("lets a signed-in student, not only the secret key, call both semantic searches", { skip: publishableKey ? false : "no publishable key" }, async () => {
+    // The app searches as the signed-in student, so row-level security and the
+    // function grants apply; the secret key used elsewhere here bypasses both.
+    const email = `semantic-test-${Date.now()}@mail.aub.edu`;
+    const password = "Test-Only-Password-1!";
+    const created = await supabase.auth.admin.createUser({ email, password, email_confirm: true });
+    assert.equal(created.error, null);
+    try {
+      const student = createClient(url, publishableKey, { auth: { persistSession: false } });
+      const signedIn = await student.auth.signInWithPassword({ email, password });
+      assert.equal(signedIn.error, null);
+      for (const fn of ["search_campus_chunks_semantic", "search_campus_courses_semantic"]) {
+        const { data, error } = await student.rpc(fn, { p_embedding: axis(0), p_limit: 3, p_min_similarity: -1 });
+        assert.equal(error, null, fn);
+        assert.ok(Array.isArray(data), fn);
+      }
+      const anonymous = createClient(url, publishableKey, { auth: { persistSession: false } });
+      const refused = await anonymous.rpc("search_campus_chunks_semantic", { p_embedding: axis(0), p_limit: 1 });
+      assert.notEqual(refused.error, null, "a signed-out visitor must not be able to search");
+    } finally {
+      await supabase.auth.admin.deleteUser(created.data.user.id);
+    }
   });
 
   it("clears a chunk's embedding when its text changes but not when another column does", async () => {

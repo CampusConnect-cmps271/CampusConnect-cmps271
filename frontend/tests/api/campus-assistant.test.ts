@@ -73,6 +73,15 @@ describe('POST /api/campus-assistant', () => {
     expect(log.warn).toHaveBeenCalledWith('campus_assistant.embedding_unavailable', expect.any(Object), expect.anything())
   })
 
+  it('does not embed or call any model when the question has no searchable words', async () => {
+    const res = await POST(postRequest(URL, { question: 'what is the' }) as never)
+
+    expect(res.status).toBe(200)
+    expect((await res.json()).insufficient_evidence).toBe(true)
+    expect(fetch).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
   it('requires a signed-in student', async () => {
     vi.mocked(getCurrentUser).mockResolvedValue(null)
     expect((await POST(postRequest(URL, { question: 'Who issues transcripts?' }) as never)).status).toBe(401)
