@@ -1,6 +1,7 @@
 
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
@@ -155,15 +156,14 @@ export default function EventEditForm({
     },
   );
 
-  // Use the new revision after a successful save.
-  // Otherwise, retain the revision loaded from Supabase.
   const currentRevision =
     cancelState.revision ??
     updateState.revision ??
     event.revision;
 
   const isCancelled =
-    cancelState.success || event.status === "cancelled";
+    cancelState.success ||
+    event.status === "cancelled";
 
   useEffect(() => {
     if (updateState.success || cancelState.success) {
@@ -198,16 +198,19 @@ export default function EventEditForm({
             longer be edited or published.
           </p>
 
-          <a
+          <Link
             href="/events/manage"
             className="mt-4 inline-block text-blue-600 hover:underline"
           >
             Return to My Events
-          </a>
+          </Link>
         </div>
       ) : (
         <>
-          <form action={updateAction} className="space-y-6">
+          <form
+            action={updateAction}
+            className="space-y-6"
+          >
             <input
               type="hidden"
               name="eventId"
@@ -363,7 +366,10 @@ export default function EventEditForm({
                 className={inputStyle}
               >
                 {categories.map((category) => (
-                  <option key={category} value={category}>
+                  <option
+                    key={category}
+                    value={category}
+                  >
                     {category}
                   </option>
                 ))}
@@ -409,7 +415,9 @@ export default function EventEditForm({
                 id="edit-registration"
                 name="registrationUrl"
                 type="url"
-                defaultValue={event.registration_url ?? ""}
+                defaultValue={
+                  event.registration_url ?? ""
+                }
                 maxLength={2048}
                 className={inputStyle}
               />
@@ -443,8 +451,8 @@ export default function EventEditForm({
 
             <p className="mt-2 text-sm text-gray-600">
               Cancellation is permanent. The event
-              record will be retained, but it cannot be
-              edited or restored afterward.
+              record will be retained, but it cannot
+              be edited or restored afterward.
             </p>
 
             <form

@@ -162,8 +162,6 @@ function RegistrationSection({
 
   const cancelled = event.status === "cancelled";
   const draft = event.status === "draft";
-  const isPast =
-    new Date(event.ends_at).getTime() <= Date.now();
 
   return (
     <section
@@ -187,10 +185,6 @@ function RegistrationSection({
           This event is still a draft. Registration
           information is not publicly available.
         </p>
-      ) : isPast ? (
-        <p className="mt-4 text-gray-600 dark:text-gray-300">
-          This event has already ended.
-        </p>
       ) : registrationUrl ? (
         <>
           <p className="mt-4 text-gray-600 dark:text-gray-300">
@@ -205,7 +199,10 @@ function RegistrationSection({
             className="mt-5 inline-flex items-center rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
           >
             Open Registration Website
-            <span className="ml-2" aria-hidden="true">
+            <span
+              className="ml-2"
+              aria-hidden="true"
+            >
               ↗
             </span>
           </a>
@@ -230,6 +227,8 @@ function RegistrationSection({
           CampusConnect displays event information
           but does not confirm reservations,
           availability, or registration requirements.
+          Check event dates and registration
+          availability with the organizer.
         </p>
       )}
     </section>
