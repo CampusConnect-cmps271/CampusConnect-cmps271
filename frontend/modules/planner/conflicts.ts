@@ -227,6 +227,23 @@ function pairConflicts(first: Placed, second: Placed): ScheduleConflict[] {
   return conflicts;
 }
 
+/** Where a meeting first falls in Beirut time during the term, or null if it can't be placed. */
+export function firstBeirutSlot(
+  meeting: ConflictInput["courses"][number]["meetings"][number],
+  term: Pick<ConflictInput, "starts_on" | "ends_on">,
+): { weekday: Weekday; start_minute: number; end_minute: number } | null {
+  const [first] = expand(meeting, parseDate(term.starts_on), parseDate(term.ends_on)).occurrences;
+  const display = wallClock(DISPLAY_TIMEZONE);
+  if (!first || !display) return null;
+  const startWall = wallAt(display, first.start);
+  const day = startWall - (startWall % DAY);
+  return {
+    weekday: isoWeekday(day),
+    start_minute: (startWall - day) / MINUTE,
+    end_minute: (wallAt(display, first.end) - day) / MINUTE,
+  };
+}
+
 /** Checks a plan's meetings for overlaps on the term's dates. */
 export function detectConflicts(plan: ConflictInput): ConflictReport {
   const firstDay = parseDate(plan.starts_on);

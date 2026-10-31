@@ -2,6 +2,7 @@ import "server-only";
 import { requireUser } from "@/modules/auth";
 import { log } from "@/modules/logging";
 import { createClient } from "@/lib/supabase/server";
+import { detectConflicts, type ConflictReport } from "./conflicts";
 import { PLANNER_LIMITS, plannerIdSchema } from "./schema";
 import { courseSearchFilter } from "./search";
 import { sortMeetings } from "./time";
@@ -140,4 +141,25 @@ export async function searchCoursesForPlan(query: string): Promise<CourseSearchR
   }
 
   return data ?? [];
+}
+
+/**
+ * Runs the conflict engine on a plan as just read from the database. The
+ * plan page calls it on every render, which every planner action triggers,
+ * so the result always matches the saved data. Logs counts only.
+ */
+export function checkPlanConflicts(plan: PlanDetails): ConflictReport {
+  const report = detectConflicts(plan);
+  log.info(
+    "planner.conflicts.checked",
+    {
+      planId: plan.id,
+      status: report.status,
+      conflicts: report.conflicts.length,
+      unknown: report.unknown.length,
+      invalid: report.invalid.length,
+    },
+    { userId: plan.student_id },
+  );
+  return report;
 }

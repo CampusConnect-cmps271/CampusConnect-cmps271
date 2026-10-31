@@ -10,6 +10,22 @@ export const WEEKDAYS: readonly { value: Weekday; short: string; long: string }[
   { value: 7, short: "Sun", long: "Sunday" },
 ];
 
+/** The <datalist> of zone names the plan page renders once for every meeting form. */
+export const TIME_ZONE_LIST_ID = "planner-time-zones";
+
+/**
+ * The name Intl uses for a time zone the student typed ("asia/beirut" ->
+ * "Asia/Beirut"), or null when it isn't an IANA zone this runtime knows.
+ */
+export function normalizeTimeZone(value: string): string | null {
+  if (!/^[A-Za-z][A-Za-z0-9_+\-/]*$/.test(value)) return null;
+  try {
+    return new Intl.DateTimeFormat("en-US", { timeZone: value }).resolvedOptions().timeZone;
+  } catch {
+    return null;
+  }
+}
+
 /** Minutes after midnight for "HH:MM" (00:00-23:59), or null. */
 export function minutesFromTime(value: string): number | null {
   const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);

@@ -47,7 +47,7 @@ export function plannerErrorMessage(operation: PlannerOperation, code: string | 
       if (code === "23505") return "That meeting is already listed for this course.";
       if (code === "54000") return `A course can have up to ${PLANNER_LIMITS.meetingsPerCourse} meetings.`;
       if (code === "23514") return "Check the day and times: the meeting must end after it starts, on the same day.";
-      if (code === "22023") return "Meetings use Asia/Beirut time for now.";
+      if (code === "22023") return "That time zone isn't recognised. Use an IANA name such as Asia/Beirut.";
       if (code === "42501") return "That course isn't in one of your plans.";
       break;
     case "deletePlan":
