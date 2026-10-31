@@ -9,10 +9,14 @@
 
 export {
   addCourse,
+  addMeeting,
   createPlan,
   deletePlan,
   moveCourse,
   removeCourse,
+  removeMeeting,
+  updateMeeting,
+  type MeetingActionState,
   type NewPlanState,
   type PlannerActionState,
 } from "./actions";
@@ -41,6 +45,7 @@ export {
 
 export {
   AUB_CALENDAR_SOURCE,
+  availableTerms,
   beirutToday,
   formatTermDate,
   OFFICIAL_TERMS,
@@ -68,3 +73,8 @@ export type {
   SemesterPlan,
   Weekday,
 } from "./types";
+
+export { NewPlanForm } from "./components/NewPlanForm";
+export { PlanList } from "./components/PlanList";
+export { PlannerNotice } from "./components/PlannerNotice";
+export { PlanView } from "./components/PlanView";

@@ -45,7 +45,12 @@ export function openTerms(today: string): OfficialTerm[] {
   return OFFICIAL_TERMS.filter((official) => official.endsOn >= today);
 }
 
-/** "Wed 13 Jan 2027" for a YYYY-MM-DD calendar date. */
+/** Open terms the student has no plan for yet: what "New plan" offers. */
+export function availableTerms(plannedTerms: readonly string[], today: string): OfficialTerm[] {
+  return openTerms(today).filter((official) => !plannedTerms.includes(official.term));
+}
+
+/** "Wed, 13 Jan 2027" for a YYYY-MM-DD calendar date. */
 export function formatTermDate(date: string): string {
   const [year, month, day] = date.split("-").map(Number);
   return new Intl.DateTimeFormat("en-GB", {
