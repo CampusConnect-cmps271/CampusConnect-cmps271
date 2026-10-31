@@ -9,6 +9,7 @@ import { handleRatings } from "./mock-ratings.mjs";
 import { handlePostSearch, postSearchFixtures } from "./mock-post-search.mjs";
 import { clubTestAccounts, handleClubs } from "./mock-clubs.mjs";
 import { handlePlanner, plannerTestAccounts } from "./mock-planner.mjs";
+import { electivePreferenceAccounts, handleElectivePreferences } from "./mock-elective-preferences.mjs";
 
 const user = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -50,6 +51,7 @@ const profileAccounts = {
   "clubs-representative@mail.aub.edu": clubTestAccounts.REP_ID,
   "clubs-admin@mail.aub.edu": clubTestAccounts.ADMIN_ID,
   ...plannerTestAccounts,
+  ...electivePreferenceAccounts,
 };
 // Another student whose public profile the tests visit.
 const otherStudentId = "00000000-0000-4000-8000-000000000004";
@@ -255,6 +257,7 @@ createServer(async (request, response) => {
   }
 
   // Sprint 2 tables: posts, comments, upvotes and saved posts.
+  if (await handleElectivePreferences(request, response, url, bearerClaims(request))) return;
   if (handleCourses(request, response, url, bearerEmail(request))) return;
   if (handleRatings(request, response, url, bearerClaims(request))) return;
   if (await handleReviews(request, response, url, bearerClaims(request))) return;
