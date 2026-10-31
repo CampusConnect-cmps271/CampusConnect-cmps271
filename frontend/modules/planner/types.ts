@@ -40,14 +40,36 @@ export type PlannedCourse = {
   name: string;
   /** numeric(5,2) from the catalogue, as PostgREST sends it. */
   credits: number | string;
-  department: string;
-  /** The catalogue's prose. CampusConnect does not check it. */
-  prerequisites: string;
-  /** Empty when the student has not typed any: "Schedule unknown". */
+  /** Empty when the student has not typed any: "No times yet". */
   meetings: Meeting[];
 };
 
-export type PlanDetails = SemesterPlan & { courses: PlannedCourse[] };
+/** Something the student added to a plan's calendar: an exam, a meeting, anything. */
+export type PlanItem = {
+  id: string;
+  plan_id: string;
+  /** The planned course it belongs to, if any. */
+  plan_course_id: string | null;
+  title: string;
+  /** A Beirut calendar date, YYYY-MM-DD. */
+  on_date: string;
+  /** Minutes after Beirut midnight; both null for an all-day item. */
+  start_minute: number | null;
+  end_minute: number | null;
+};
+
+export type PlanDetails = SemesterPlan & { courses: PlannedCourse[]; items: PlanItem[] };
+
+/** A saved event near a plan's term. Only events the student is going to are on the calendar. */
+export type PlannerEvent = {
+  id: string;
+  title: string;
+  /** ISO timestamps. */
+  starts_at: string;
+  ends_at: string;
+  location: string;
+  going: boolean;
+};
 
 export type PlanSummary = {
   id: string;
@@ -62,5 +84,4 @@ export type CourseSearchResult = {
   code: string;
   name: string;
   credits: number | string;
-  department: string;
 };
