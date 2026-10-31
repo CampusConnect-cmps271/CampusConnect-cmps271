@@ -233,8 +233,11 @@ test("the planner can be used with the keyboard alone", async ({ page }) => {
   await page.goto("/planner");
 
   // Term, then the calendar link, then Create plan.
-  await page.getByLabel("Term").focus();
-  await page.keyboard.press("Tab");
+  const term = page.getByLabel("Term");
+  await expect(term).toBeVisible();
+  await term.focus();
+  await expect(term).toBeFocused();
+  await term.press("Tab");
   await expect(page.getByRole("link", { name: "official AUB academic calendar" })).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(page.getByRole("button", { name: "Create plan" })).toBeFocused();
