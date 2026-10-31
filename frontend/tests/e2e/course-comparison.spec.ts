@@ -55,7 +55,8 @@ test("compares complete prerequisites, departments, fractional and zero credits"
   await expect(table.getByRole("row").filter({ has: page.getByRole("rowheader", { name: "Credits", exact: true }) })).toHaveText("Credits33.250");
   await expect(table.getByRole("row").filter({ has: page.getByRole("rowheader", { name: "Department", exact: true }) })).toHaveText("DepartmentComputer ScienceComputer ScienceComputer Science");
   await table.getByRole("link", { name: "CMPS 240", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Operating Systems", exact: true })).toBeVisible();
+  // The first detail navigation compiles this route in the dev-server suite.
+  await expect(page.getByRole("heading", { name: "Operating Systems", exact: true })).toBeVisible({ timeout: 15_000 });
   await expect(selection(page)).toContainText("3 of 3 selected");
   await page.getByRole("link", { name: "← Back to courses", exact: true }).click();
   await expect(selection(page)).toContainText("3 of 3 selected");

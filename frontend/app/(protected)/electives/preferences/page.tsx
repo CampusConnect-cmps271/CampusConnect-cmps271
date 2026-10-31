@@ -9,5 +9,6 @@ export default async function PreferencesPage() {
     <Link href="/home">← Back to feed</Link><h1>Elective preferences</h1>
     <p>Tell us what you want from your next elective. Only you can access these preferences.</p>
     <PreferenceForm initial={preferences} />
+    <p><Link href="/electives/recommendations">View elective recommendations →</Link></p>
   </main></AppShell>;
 }
