@@ -12,15 +12,15 @@ type InboxListProps = {
 export function InboxList({ conversations, now }: InboxListProps) {
   if (conversations.length === 0) {
     return (
-      <div className="rounded-lg bg-white p-6 text-center text-gray-700 shadow-md">
-        <p className="font-medium text-gray-900">No conversations yet.</p>
+      <div className="rounded-lg border border-[var(--border)] bg-white p-6 text-center text-[var(--ink-soft)] shadow-sm">
+        <p className="font-medium text-[var(--ink)]">No conversations yet.</p>
         <p className="mt-2 text-sm">
           Open a student&apos;s profile, for example from a post&apos;s author name, and choose{" "}
           <strong>Message</strong> to start one.
         </p>
         <Link
           href="/home"
-          className="mt-4 inline-block text-sm font-medium text-blue-700 hover:underline"
+          className="mt-4 inline-block text-sm font-medium text-[var(--maroon)] hover:underline"
         >
           Browse the feed
         </Link>
@@ -29,12 +29,12 @@ export function InboxList({ conversations, now }: InboxListProps) {
   }
 
   return (
-    <ul aria-label="Conversations" className="divide-y divide-gray-200 overflow-hidden rounded-lg bg-white shadow-md">
+    <ul aria-label="Conversations" className="divide-y divide-[var(--border)] overflow-hidden rounded-lg border border-[var(--border)] bg-white shadow-sm">
       {conversations.map((conversation) => (
         <li key={conversation.id}>
           <Link
             href={`/messages/${conversation.id}`}
-            className="flex items-start gap-3 px-4 py-3 text-gray-900 hover:bg-gray-50 focus-visible:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--maroon)]"
+            className="flex items-start gap-3 px-4 py-3 text-[var(--ink)] hover:bg-[var(--maroon-50)] focus-visible:bg-[var(--maroon-50)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--maroon)]"
           >
             <span
               aria-hidden="true"
@@ -50,14 +50,14 @@ export function InboxList({ conversations, now }: InboxListProps) {
                 </span>
                 <time
                   dateTime={conversation.lastMessageAt}
-                  className="shrink-0 text-xs text-gray-500"
+                  className="shrink-0 text-xs text-[var(--ink-soft)]"
                 >
                   {formatRelativeTime(conversation.lastMessageAt, now)}
                 </time>
               </span>
 
               <span
-                className={`truncate text-sm ${conversation.unread ? "text-gray-900" : "text-gray-600"}`}
+                className={`truncate text-sm ${conversation.unread ? "text-[var(--ink)]" : "text-[var(--ink-soft)]"}`}
               >
                 {conversation.unread ? <span className="sr-only">Unread: </span> : null}
                 {messagePreview(conversation.lastMessagePreview)}

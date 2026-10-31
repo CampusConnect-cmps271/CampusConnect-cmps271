@@ -4,7 +4,7 @@ import { AppShell } from "@/components/AppShell";
 export default function Loading() {
   return (
     <AppShell>
-<main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 py-12 sm:px-6">
+<main className="flex w-full flex-1 flex-col gap-8 px-5 py-8 sm:px-8 lg:px-12">
       <div className="animate-pulse space-y-3">
         <div className="h-8 w-64 rounded-lg bg-[var(--maroon-100)]" />
         <div className="h-4 w-48 rounded-lg bg-[var(--maroon-100)]" />
@@ -23,7 +23,7 @@ export default function Loading() {
       </section>
 
       <section
-        className="space-y-4"
+        className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
         aria-label="Loading campus feed"
         aria-busy="true"
       >

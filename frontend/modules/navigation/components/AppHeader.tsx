@@ -20,12 +20,18 @@ export async function AppHeader() {
     <header className="border-b border-[var(--border)] bg-white text-[var(--ink)]">
       <nav
         aria-label="Main"
-        className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3"
+        className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3 sm:px-8 lg:px-12"
       >
         <Link
           href="/home"
-          className="rounded-md text-base font-bold tracking-tight text-[var(--maroon)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]"
+          className="inline-flex items-center gap-2 rounded-md text-base font-bold tracking-tight text-[var(--maroon)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]"
         >
+          <span
+            aria-hidden="true"
+            className="grid size-8 place-items-center rounded-[10px] bg-[var(--maroon)] text-lg text-white"
+          >
+            C
+          </span>
           CampusConnect
         </Link>
 

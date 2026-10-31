@@ -88,18 +88,12 @@ export default async function HomePage({
 
   return (
     <AppShell>
-<main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 py-12 sm:px-6">
+<main className="flex w-full flex-1 flex-col gap-8 px-5 py-8 sm:px-8 lg:px-12">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
           Welcome, {user.name}
         </h1>
       </header>
-
-      <nav aria-label="Explore campus">
-        <Link href="/courses" className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-medium">
-          Browse courses
-        </Link>
-      </nav>
 
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-4">
@@ -192,11 +186,11 @@ export default async function HomePage({
           </p>
         </div>
       ) : (
-        <section className="space-y-4">
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {posts.map((post) => (
             <article
               key={post.id}
-              className="rounded-xl border border-[var(--border)] p-5"
+              className="flex flex-col rounded-xl border border-[var(--border)] p-5"
             >
               <div className="mb-3 flex items-center justify-between gap-3">
                 <span className="rounded-full bg-[var(--maroon-100)] px-3 py-1 text-xs font-medium text-[var(--maroon)]">
@@ -220,7 +214,7 @@ export default async function HomePage({
                 {post.body}
               </p>
 
-              <div className="mt-4 flex gap-4 text-xs text-[var(--ink-soft)]">
+              <div className="mt-auto flex gap-4 pt-4 text-xs text-[var(--ink-soft)]">
                 <span>
                   {post.upvote_count} upvotes
                 </span>

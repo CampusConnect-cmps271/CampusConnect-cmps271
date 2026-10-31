@@ -1101,7 +1101,7 @@ html {
 }
 
 .app-shell article,
-.app-shell main form:not([action="/home"]) {
+.app-shell main form:not([action="/home"], .plain-form) {
   background: var(--white);
 }
 

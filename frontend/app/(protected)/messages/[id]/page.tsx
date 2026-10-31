@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AppShell } from "@/components/AppShell";
 import { requireUser } from "@/modules/auth";
 import { ConversationView, getConversation } from "@/modules/messaging";
 
@@ -35,17 +36,18 @@ export default async function ConversationPage({ params }: ConversationPageProps
   const { otherStudent } = conversation;
 
   return (
-    <main className="flex-1 bg-gray-100 px-4 py-6 sm:py-10">
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
-        <Link href="/messages" className="text-sm font-medium text-blue-700 hover:underline">
+    <AppShell>
+    <main className="flex-1 px-5 py-6 sm:px-8 sm:py-8 lg:px-12">
+      <div className="flex w-full flex-col gap-4">
+        <Link href="/messages" className="text-sm font-medium text-[var(--maroon)] hover:underline">
           ← All messages
         </Link>
 
         <section
           aria-labelledby="conversation-heading"
-          className="overflow-hidden rounded-lg bg-white text-gray-900 shadow-md"
+          className="overflow-hidden rounded-lg border border-[var(--border)] bg-white text-[var(--ink)] shadow-sm"
         >
-          <header className="border-b border-gray-200 px-4 py-3">
+          <header className="border-b border-[var(--border)] px-4 py-3">
             <h1 id="conversation-heading" className="break-words text-lg font-semibold">
               <Link
                 href={`/profile/${otherStudent.id}`}
@@ -68,5 +70,6 @@ export default async function ConversationPage({ params }: ConversationPageProps
         </section>
       </div>
     </main>
+    </AppShell>
   );
 }
