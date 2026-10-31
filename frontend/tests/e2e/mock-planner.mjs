@@ -13,6 +13,10 @@ export const plannerTestAccounts = {
   "planner-keys@mail.aub.edu": "00000000-0000-4000-8000-000000000305",
   "planner-owner@mail.aub.edu": "00000000-0000-4000-8000-000000000306",
   "planner-dupes@mail.aub.edu": "00000000-0000-4000-8000-000000000307",
+  // SCRUM-67: the conflict warnings.
+  "planner-conflicts@mail.aub.edu": "00000000-0000-4000-8000-000000000308",
+  "planner-incomplete@mail.aub.edu": "00000000-0000-4000-8000-000000000309",
+  "planner-zones@mail.aub.edu": "00000000-0000-4000-8000-00000000030a",
 };
 
 const plans = [];
@@ -94,12 +98,22 @@ function planWithCourses(plan) {
   };
 }
 
+/** Like planner_check_meeting's pg_timezone_names lookup, through Intl. */
+function knownZone(zone) {
+  try {
+    return new Intl.DateTimeFormat("en-US", { timeZone: zone }).resolvedOptions().timeZone === zone;
+  } catch {
+    return false;
+  }
+}
+
 /** The meeting checks from the migration; returns an error code or null. */
 function meetingProblem(meeting, ownId) {
   const { weekday, start_minute: start, end_minute: end } = meeting;
   if (!(weekday >= 1 && weekday <= 7) || !(start >= 0 && start <= 1439) || !(end >= 1 && end <= 1440) || end <= start) {
     return "23514";
   }
+  if (!knownZone(meeting.timezone)) return "22023";
   const duplicate = meetings.some(
     (row) =>
       row.id !== ownId &&

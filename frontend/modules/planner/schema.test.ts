@@ -83,11 +83,30 @@ describe("validateMeetingForm", () => {
     }
   });
 
-  it("only offers Asia/Beirut for now, though the database accepts any IANA zone", () => {
-    for (const timezone of ["Europe/London", "UTC", "Beirut", ""]) {
-      const result = validateMeetingForm(meeting({ timezone, start: "08:00", end: "09:00" }));
-      expect(result).toEqual({ success: false, errors: { timezone: "Meetings use Asia/Beirut time for now." } });
+  it("accepts any IANA zone, saved under Intl's name for it", () => {
+    for (const [typed, saved] of [
+      ["America/New_York", "America/New_York"],
+      ["Europe/London", "Europe/London"],
+      ["asia/beirut", "Asia/Beirut"],
+      [" UTC ", "UTC"],
+    ]) {
+      const result = validateMeetingForm(meeting({ timezone: typed, start: "08:00", end: "09:00" }));
+      expect(result.success && result.data.timezone).toBe(saved);
     }
+  });
+
+  it("rejects names that aren't IANA time zones", () => {
+    for (const timezone of ["Beirut", "Mars/Olympus_Mons", "GMT+3 ", "../etc"]) {
+      const result = validateMeetingForm(meeting({ timezone, start: "08:00", end: "09:00" }));
+      expect(result).toEqual({
+        success: false,
+        errors: { timezone: "Enter an IANA time zone, such as Asia/Beirut or America/New_York." },
+      });
+    }
+    expect(validateMeetingForm(meeting({ timezone: "", start: "08:00", end: "09:00" }))).toEqual({
+      success: false,
+      errors: { timezone: "Enter a time zone, such as Asia/Beirut." },
+    });
   });
 
   it("reads missing form fields as empty", () => {

@@ -23,7 +23,7 @@ describe("plannerErrorMessage", () => {
     expect(plannerErrorMessage("saveMeeting", "23505")).toBe("That meeting is already listed for this course.");
     expect(plannerErrorMessage("saveMeeting", "54000")).toBe("A course can have up to 7 meetings.");
     expect(plannerErrorMessage("saveMeeting", "23514")).toMatch(/must end after it starts/);
-    expect(plannerErrorMessage("saveMeeting", "22023")).toBe("Meetings use Asia/Beirut time for now.");
+    expect(plannerErrorMessage("saveMeeting", "22023")).toBe("That time zone isn't recognised. Use an IANA name such as Asia/Beirut.");
     expect(plannerErrorMessage("saveMeeting", "42501")).toBe("That course isn't in one of your plans.");
   });
 

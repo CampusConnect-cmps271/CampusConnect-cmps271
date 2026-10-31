@@ -1,6 +1,6 @@
 import * as z from "zod";
 import { officialTerm, TERM_PATTERN } from "./terms";
-import { minutesFromTime } from "./time";
+import { minutesFromTime, normalizeTimeZone } from "./time";
 import type { Weekday } from "./types";
 
 /**
@@ -16,7 +16,7 @@ export const PLANNER_LIMITS = {
   searchResults: 10,
 } as const;
 
-/** The only zone the planner offers for now; the database accepts any IANA zone. */
+/** The default zone for a meeting; any IANA zone is accepted. */
 export const PLANNER_TIMEZONE = "Asia/Beirut";
 
 /** Plans, plan courses, meetings and catalogue courses are named by UUIDs. */
@@ -63,8 +63,19 @@ export const meetingSchema = z
     ),
     start: timeField("Enter a start time.", "Enter the start time as HH:MM."),
     end: timeField("Enter an end time.", "Enter the end time as HH:MM."),
+    // Saved under Intl's name for the zone, which the database recognises.
     timezone: formText.pipe(
-      z.literal(PLANNER_TIMEZONE, { error: "Meetings use Asia/Beirut time for now." }),
+      z
+        .string()
+        .min(1, "Enter a time zone, such as Asia/Beirut.")
+        .transform((value, context) => {
+          const zone = normalizeTimeZone(value);
+          if (!zone) {
+            context.addIssue({ code: "custom", message: "Enter an IANA time zone, such as Asia/Beirut or America/New_York." });
+            return z.NEVER;
+          }
+          return zone;
+        }),
     ),
   })
   .refine((meeting) => meeting.end > meeting.start, {

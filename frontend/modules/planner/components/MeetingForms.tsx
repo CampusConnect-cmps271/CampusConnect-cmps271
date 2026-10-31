@@ -4,12 +4,11 @@ import { useActionState, useState, useSyncExternalStore, type FormEvent } from "
 import { addMeeting, removeMeeting, updateMeeting, type MeetingActionState } from "../actions";
 import {
   EMPTY_MEETING_FORM,
-  PLANNER_TIMEZONE,
   validateMeetingForm,
   type MeetingFieldErrors,
   type MeetingFormValues,
 } from "../schema";
-import { formatMeeting, timeFromMinutes, WEEKDAYS } from "../time";
+import { formatMeeting, TIME_ZONE_LIST_ID, timeFromMinutes, WEEKDAYS } from "../time";
 import type { Meeting } from "../types";
 import { PlannerButton } from "./PlannerButton";
 
@@ -152,13 +151,17 @@ function MeetingFields({
           <input
             id={id("timezone")}
             name="timezone"
-            value={PLANNER_TIMEZONE}
-            readOnly
-            aria-describedby={id("timezone-hint")}
-            className={`${FIELD_CLASS} bg-[var(--maroon-50)]`}
+            value={values.timezone}
+            onChange={(event) => update("timezone", event.target.value)}
+            list={TIME_ZONE_LIST_ID}
+            autoComplete="off"
+            spellCheck={false}
+            aria-invalid={errors.timezone ? true : undefined}
+            aria-describedby={[id("timezone-hint"), describedBy("timezone")].filter(Boolean).join(" ")}
+            className={FIELD_CLASS}
           />
           <p id={id("timezone-hint")} className="text-xs text-[var(--ink-soft)]">
-            Beirut time only, for now.
+            An IANA name. AUB classes use Asia/Beirut.
           </p>
           <FieldError id={id("timezone-error")} message={errors.timezone} />
         </div>
@@ -190,6 +193,22 @@ function MeetingFields({
         </p>
       </div>
     </form>
+  );
+}
+
+/**
+ * Zone-name suggestions for every meeting form's time zone field. Built in
+ * the browser, so the list isn't re-sent with each server render.
+ */
+export function TimeZoneList() {
+  const hydrated = useHydrated();
+  if (!hydrated) return null;
+  return (
+    <datalist id={TIME_ZONE_LIST_ID}>
+      {Intl.supportedValuesOf("timeZone").map((zone) => (
+        <option key={zone} value={zone} />
+      ))}
+    </datalist>
   );
 }
 
@@ -231,8 +250,20 @@ export function AddMeetingForm({ planId, planCourseId, courseCode }: { planId: s
   );
 }
 
-/** One typed meeting, labelled tentative, with Edit and Remove. */
-export function MeetingItem({ planId, meeting }: { planId: string; meeting: Meeting }) {
+type MeetingItemProps = {
+  planId: string;
+  meeting: Meeting;
+  /** This meeting overlaps another in the plan. */
+  conflict?: boolean;
+  /** Why the conflict check couldn't place it, and what to fix. */
+  problem?: string;
+};
+
+/**
+ * One typed meeting, labelled tentative, with Edit and Remove. Its id is
+ * the anchor the conflict panel links to.
+ */
+export function MeetingItem({ planId, meeting, conflict = false, problem }: MeetingItemProps) {
   const [state, formAction, pending] = useActionState(updateMeeting, undefined);
   const [editing, setEditing] = useState(false);
   // Edit needs JavaScript; until the page hydrates it is disabled, not dead.
@@ -248,12 +279,22 @@ export function MeetingItem({ planId, meeting }: { planId: string; meeting: Meet
   const label = formatMeeting(meeting);
 
   return (
-    <li className="flex flex-col gap-2 rounded-md bg-[var(--maroon-50)] px-3 py-2">
+    <li
+      id={`meeting-${meeting.id}`}
+      className={`flex scroll-mt-24 flex-col gap-2 rounded-md px-3 py-2 ${
+        conflict || problem ? "border-l-4 border-[var(--danger)] bg-[#fdecea]" : "bg-[var(--maroon-50)]"
+      }`}
+    >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="text-sm font-medium text-[var(--ink)]">{label}</span>
         <span className="rounded-full border border-[var(--maroon-200)] bg-white px-2 py-0.5 text-xs text-[var(--maroon)]">
           Tentative, entered by you
         </span>
+        {conflict ? (
+          <span className="rounded-full border border-[var(--danger)] bg-white px-2 py-0.5 text-xs font-semibold text-[var(--danger)]">
+            <span aria-hidden="true">⚠ </span>Overlaps another meeting
+          </span>
+        ) : null}
         <div className="ml-auto flex items-start gap-2">
           {editing ? null : (
             <button
@@ -276,6 +317,7 @@ export function MeetingItem({ planId, meeting }: { planId: string; meeting: Meet
           </PlannerButton>
         </div>
       </div>
+      {problem ? <p className="text-xs text-[var(--danger)]">{problem}</p> : null}
       {state?.ok && !editing ? (
         <p role="status" aria-live="polite" className="text-xs text-[var(--success)]">
           {state.message}
@@ -291,7 +333,7 @@ export function MeetingItem({ planId, meeting }: { planId: string; meeting: Meet
             weekday: String(meeting.weekday),
             start: timeFromMinutes(meeting.start_minute),
             end: timeFromMinutes(meeting.end_minute),
-            timezone: PLANNER_TIMEZONE,
+            timezone: meeting.timezone,
           }}
           fields={{ planId, meetingId: meeting.id }}
           submitLabel="Save changes"

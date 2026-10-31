@@ -1,26 +1,40 @@
 import Link from "next/link";
 import { addCourse, deletePlan, moveCourse, removeCourse } from "../actions";
+import type { ConflictReport } from "../conflicts";
+import { invalidMeetingHelp } from "../conflict-text";
 import { creditHundredths, creditLabel, totalCreditHundredths } from "../credits";
 import { AUB_CALENDAR_SOURCE, formatTermDate } from "../terms";
 import type { CourseSearchResult, PlanDetails, PlannedCourse } from "../types";
-import { AddMeetingForm, MeetingItem } from "./MeetingForms";
+import { ConflictPanel } from "./ConflictPanel";
+import { AddMeetingForm, MeetingItem, TimeZoneList } from "./MeetingForms";
 import { PlannerButton } from "./PlannerButton";
 import { PlannerNotice } from "./PlannerNotice";
+import { WeekView } from "./WeekView";
 
 type PlanViewProps = {
   plan: PlanDetails;
+  /** The conflict engine's report on the saved plan. */
+  report: ConflictReport;
   /** The catalogue search text from ?q=. */
   query: string;
   /** Search results; null when the search failed. */
   results: readonly CourseSearchResult[] | null;
 };
 
+/** What the course list marks on each meeting. */
+type MeetingNotes = { conflicting: ReadonlySet<string>; problems: ReadonlyMap<string, string> };
+
 const SECTION_HEADING = "text-lg font-semibold text-[var(--ink)]";
 
-/** One plan: credit total, course search, the ordered courses and their meetings. */
-export function PlanView({ plan, query, results }: PlanViewProps) {
+/** One plan: credit total, conflicts, course search, the ordered courses and their meetings. */
+export function PlanView({ plan, report, query, results }: PlanViewProps) {
   const total = totalCreditHundredths(plan.courses);
   const count = plan.courses.length;
+  const meetings = new Map(plan.courses.flatMap((planned) => planned.meetings.map((meeting) => [meeting.id, meeting] as const)));
+  const notes: MeetingNotes = {
+    conflicting: new Set(report.conflicts.flatMap((conflict) => conflict.meetings.map((side) => side.meeting_id))),
+    problems: new Map(report.invalid.map((invalid) => [invalid.meeting_id, invalidMeetingHelp(invalid, meetings.get(invalid.meeting_id), plan)])),
+  };
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
@@ -45,9 +59,15 @@ export function PlanView({ plan, query, results }: PlanViewProps) {
         </p>
       </header>
 
+      <ConflictPanel plan={plan} report={report} />
+
       <PlannerNotice />
 
+      <WeekView plan={plan} report={report} />
+
       <CourseSearch plan={plan} query={query} results={results} />
+
+      <TimeZoneList />
 
       <section aria-labelledby="planned-courses-heading" className="flex flex-col gap-3">
         <h2 id="planned-courses-heading" className={SECTION_HEADING}>
@@ -66,6 +86,7 @@ export function PlanView({ plan, query, results }: PlanViewProps) {
                 planned={planned}
                 first={index === 0}
                 last={index === count - 1}
+                notes={notes}
               />
             ))}
           </ol>
@@ -87,7 +108,7 @@ export function PlanView({ plan, query, results }: PlanViewProps) {
   );
 }
 
-function CourseSearch({ plan, query, results }: PlanViewProps) {
+function CourseSearch({ plan, query, results }: Omit<PlanViewProps, "report">) {
   const planned = new Set(plan.course_ids);
 
   return (
@@ -169,11 +190,13 @@ function PlannedCourseCard({
   planned,
   first,
   last,
+  notes,
 }: {
   planId: string;
   planned: PlannedCourse;
   first: boolean;
   last: boolean;
+  notes: MeetingNotes;
 }) {
   const headingId = `planned-${planned.plan_course_id}`;
   const fields = { planId, planCourseId: planned.plan_course_id };
@@ -181,8 +204,9 @@ function PlannedCourseCard({
   return (
     <li>
       <article
+        id={`course-${planned.plan_course_id}`}
         aria-labelledby={headingId}
-        className="flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-white p-4"
+        className="flex scroll-mt-24 flex-col gap-3 rounded-xl border border-[var(--border)] bg-white p-4"
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
@@ -237,7 +261,13 @@ function PlannedCourseCard({
           ) : (
             <ul className="flex flex-col gap-2">
               {planned.meetings.map((meeting) => (
-                <MeetingItem key={meeting.id} planId={planId} meeting={meeting} />
+                <MeetingItem
+                  key={meeting.id}
+                  planId={planId}
+                  meeting={meeting}
+                  conflict={notes.conflicting.has(meeting.id)}
+                  problem={notes.problems.get(meeting.id)}
+                />
               ))}
             </ul>
           )}

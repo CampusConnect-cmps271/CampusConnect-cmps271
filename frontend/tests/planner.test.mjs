@@ -368,6 +368,85 @@ describe("SP3-44 private semester plans and the manual meeting contract", () => 
     });
   });
 
+  describe("what the conflict check reads (SCRUM-67)", () => {
+    let planId;
+    let firstId;
+    let secondId;
+
+    before(async () => {
+      [planId, firstId, secondId] = await asUser(db, users.studentA, async () => {
+        const plan = await createPlan(db, "Spring 2030", "2030-01-14", "2030-04-29");
+        const first = await addCourse(db, plan.id, courseIds[6]);
+        const second = await addCourse(db, plan.id, courseIds[7]);
+        return [plan.id, first.id, second.id];
+      });
+    });
+
+    // The plan as the planner page reads it: courses in order, with meetings.
+    const readPlan = () =>
+      db.query(
+        `select pc.course_id, pc.position, m.weekday, m.start_minute, m.end_minute, m.timezone, m.source
+         from public.plan_courses pc
+         left join public.plan_meetings m on m.plan_course_id = pc.id
+         where pc.plan_id = $1
+         order by pc.position, m.weekday`,
+        [planId],
+      );
+
+    it("reads back an edited meeting's new day, times and zone", async () => {
+      await asUser(db, users.studentA, async () => {
+        const meeting = await addMeeting(db, firstId, { weekday: 2, start: 600, end: 675 });
+        await db.query(
+          `update public.plan_meetings
+           set weekday = 4, start_minute = 645, end_minute = 720, timezone = 'America/New_York'
+           where id = $1`,
+          [meeting.id],
+        );
+
+        const { rows } = await readPlan();
+        assert.deepEqual(rows.find((row) => row.course_id === courseIds[6]), {
+          course_id: courseIds[6],
+          position: 1,
+          weekday: 4,
+          start_minute: 645,
+          end_minute: 720,
+          timezone: "America/New_York",
+          source: "manual",
+        });
+      });
+    });
+
+    it("keeps meetings with their course when the plan is reordered", async () => {
+      await asUser(db, users.studentA, async () => {
+        await addMeeting(db, secondId, { weekday: 1, start: 480, end: 540 });
+        await db.query("select public.reorder_plan_courses($1, $2::uuid[])", [planId, [courseIds[7], courseIds[6]]]);
+
+        const { rows } = await readPlan();
+        assert.deepEqual(
+          rows.map((row) => [row.course_id, row.position, row.weekday]),
+          [[courseIds[7], 1, 1], [courseIds[6], 2, 4]],
+        );
+      });
+    });
+
+    it("reads a course without meetings as having none, so it can be reported unknown", async () => {
+      await asUser(db, users.studentA, async () => {
+        await addCourse(db, planId, courseIds[8]);
+        const { rows } = await readPlan();
+        const unknown = rows.find((row) => row.course_id === courseIds[8]);
+        assert.equal(unknown.position, 3);
+        assert.equal(unknown.weekday, null);
+      });
+    });
+
+    it("keeps one student's meetings out of another student's reads", async () => {
+      await asUser(db, users.studentB, async () => {
+        const { rows } = await readPlan();
+        assert.equal(rows.length, 0);
+      });
+    });
+  });
+
   describe("plan meetings", () => {
     let planId;
     let planCourseId;

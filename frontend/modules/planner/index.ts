@@ -21,7 +21,7 @@ export {
   type PlannerActionState,
 } from "./actions";
 
-export { getMyPlan, listMyPlans, searchCoursesForPlan } from "./queries";
+export { checkPlanConflicts, getMyPlan, listMyPlans, searchCoursesForPlan } from "./queries";
 
 export { creditHundredths, creditLabel, formatCredits, totalCreditHundredths } from "./credits";
 
@@ -58,6 +58,7 @@ export {
 export {
   formatMeeting,
   minutesFromTime,
+  normalizeTimeZone,
   sortMeetings,
   timeFromMinutes,
   weekdayLabel,
@@ -78,3 +79,22 @@ export { NewPlanForm } from "./components/NewPlanForm";
 export { PlanList } from "./components/PlanList";
 export { PlannerNotice } from "./components/PlannerNotice";
 export { PlanView } from "./components/PlanView";
+
+export {
+  detectConflicts,
+  firstBeirutSlot,
+  DISPLAY_TIMEZONE,
+  type ConflictInput,
+  type ConflictReport,
+  type ConflictSide,
+  type ConflictStatus,
+  type InvalidMeeting,
+  type InvalidReason,
+  type ScheduleConflict,
+  type UnknownCourse,
+} from "./conflicts";
+
+export { conflictHeadline, invalidMeetingHelp, overlapDates, overlapWindow } from "./conflict-text";
+
+export { ConflictPanel } from "./components/ConflictPanel";
+export { WeekView } from "./components/WeekView";

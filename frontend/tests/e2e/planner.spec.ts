@@ -11,9 +11,15 @@ const students = {
   meetings: "planner-meetings@mail.aub.edu",
   phone: "planner-phone@mail.aub.edu",
   keys: "planner-keys@mail.aub.edu",
+  conflicts: "planner-conflicts@mail.aub.edu",
+  incomplete: "planner-incomplete@mail.aub.edu",
+  zones: "planner-zones@mail.aub.edu",
 };
 
 const PLAN_URL = /\/planner\/[0-9a-f-]{36}$/;
+
+// These journeys save many times in a row against the dev server.
+test.describe.configure({ timeout: 90_000 });
 
 async function logIn(page: Page, email: string) {
   await page.goto("/login");
@@ -250,4 +256,142 @@ test("the planner can be used with the keyboard alone", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(page.getByRole("article").first()).toHaveAccessibleName(/^MATH 202 /);
   await expect(total(page)).toHaveText("Total: 6 credits · 2 courses");
+});
+
+// SP3-50 (SCRUM-67): conflict warnings, checked against what is saved.
+
+const status = (page: Page) => page.getByRole("heading", { level: 2 }).filter({ hasText: /conflict|No overlaps|No courses to check/ });
+const conflictLine = (page: Page, text: string) => page.getByRole("listitem").filter({ hasText: text });
+
+/** Adds a meeting through the course's "Add a meeting" form. */
+async function addMeeting(page: Page, code: string, day: string, start: string, end: string, timezone?: string) {
+  const form = planned(page, code).locator("details");
+  if (!(await form.evaluate((details) => (details as HTMLDetailsElement).open))) {
+    await form.getByText(`Add a meeting for ${code}`).click();
+  }
+  await form.getByLabel("Day").selectOption(day);
+  await form.getByLabel("Starts").fill(start);
+  await form.getByLabel("Ends").fill(end);
+  if (timezone) await form.getByLabel("Time zone").fill(timezone);
+  const saved = planned(page, code).getByText("Tentative, entered by you");
+  const count = await saved.count();
+  await form.getByRole("button", { name: "Save meeting" }).click();
+  await expect(saved).toHaveCount(count + 1);
+}
+
+/** Edits the course's meeting labelled `current`. */
+async function editMeeting(page: Page, code: string, current: string, start: string, end: string) {
+  const row = planned(page, code).getByRole("listitem").filter({ hasText: current });
+  await row.getByRole("button", { name: `Edit meeting ${current}` }).click();
+  await row.getByLabel("Starts").fill(start);
+  await row.getByLabel("Ends").fill(end);
+  await row.getByRole("button", { name: "Save changes" }).click();
+  await expect(row).toHaveCount(0);
+}
+
+test("an overlap is flagged until it is actually fixed, and stays fixed after a reload", async ({ page, browser }) => {
+  await logIn(page, students.conflicts);
+  await createPlan(page, "Spring 2027");
+  await expect(status(page)).toHaveText("No courses to check yet");
+  await addCourse(page, "MATH 201", "MATH 201");
+  await addCourse(page, "MATH 202", "MATH 202");
+
+  await test.step("a course without times is incomplete, not clear", async () => {
+    await addMeeting(page, "MATH 201", "2", "09:30", "10:45");
+    await expect(status(page)).toHaveText("No overlaps among the times you entered, but 1 course has no times");
+  });
+
+  await test.step("overlapping Tuesday meetings show a conflict naming both courses, the day and the times", async () => {
+    await addMeeting(page, "MATH 202", "2", "10:00", "11:15");
+    await expect(status(page)).toHaveText("1 conflict found");
+    const line = conflictLine(page, "MATH 201 and MATH 202 overlap on Tuesday 10:00–10:45 (Beirut time), every week.");
+    await expect(line).toBeVisible();
+    await expect(page.getByText("Overlaps another meeting")).toHaveCount(2);
+
+    await line.getByRole("link", { name: "MATH 202" }).click();
+    await expect(page).toHaveURL(/#meeting-[0-9a-f-]{36}$/);
+    await expect(planned(page, "MATH 202").getByRole("button", { name: /^Edit meeting Tue 10:00–11:15/ })).toBeInViewport();
+  });
+
+  await test.step("an unrelated edit leaves the warning in place", async () => {
+    await addCourse(page, "CMPS 240", "CMPS 240");
+    await addMeeting(page, "CMPS 240", "4", "12:00", "13:00");
+    await editMeeting(page, "CMPS 240", "Thu 12:00–13:00 (Asia/Beirut)", "13:00", "14:00");
+    await expect(status(page)).toHaveText("1 conflict found");
+  });
+
+  await test.step("starting exactly when the other ends clears it", async () => {
+    await editMeeting(page, "MATH 202", "Tue 10:00–11:15 (Asia/Beirut)", "10:45", "12:00");
+    await expect(status(page)).toHaveText("No conflicts among the times you entered");
+    await expect(page.getByText("Overlaps another meeting")).toHaveCount(0);
+
+    await page.reload();
+    await expect(status(page)).toHaveText("No conflicts among the times you entered");
+    await expect(planned(page, "MATH 202").getByText("Tue 10:45–12:00 (Asia/Beirut)")).toBeVisible();
+  });
+
+  await test.step("removing one of two conflicting courses clears the warning", async () => {
+    await editMeeting(page, "MATH 202", "Tue 10:45–12:00 (Asia/Beirut)", "10:30", "12:00");
+    await expect(status(page)).toHaveText("1 conflict found");
+    await page.getByRole("button", { name: "Remove MATH 202 from this plan" }).click();
+    await expect(status(page)).toHaveText("No conflicts among the times you entered");
+    await page.reload();
+    await expect(status(page)).toHaveText("No conflicts among the times you entered");
+  });
+
+  await test.step("a second student sees none of it", async () => {
+    const planUrl = page.url();
+    const other = await browser.newPage();
+    await logIn(other, students.omar);
+    await other.goto(planUrl);
+    await expect(other.getByRole("heading", { name: "Plan not found" })).toBeVisible();
+    await expect(other.getByText(/conflict/i)).toHaveCount(0);
+    await other.goto("/planner");
+    await expect(other.getByText("You have no plans yet.")).toBeVisible();
+  });
+});
+
+test("a plan with a course that has no times never says there are no conflicts", async ({ page }) => {
+  await logIn(page, students.incomplete);
+  await createPlan(page, "Summer 2027");
+  await addCourse(page, "CMPS 240", "CMPS 240");
+  await addCourse(page, "CMPS 241", "CMPS 241");
+  await addMeeting(page, "CMPS 240", "1", "09:00", "10:00");
+
+  await expect(status(page)).toHaveText("No overlaps among the times you entered, but 1 course has no times");
+  await expect(page.getByText("No conflicts among the times you entered")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "CMPS 241" })).toHaveAttribute("href", /^#course-/);
+
+  await addMeeting(page, "CMPS 241", "3", "09:00", "10:00");
+  await expect(status(page)).toHaveText("No conflicts among the times you entered");
+  await expect(page.getByText(/check the official AUB schedule/i)).toBeVisible();
+
+  await page.reload();
+  await expect(status(page)).toHaveText("No conflicts among the times you entered");
+});
+
+test("a Beirut and a New York meeting are flagged only on the dates the clocks make them overlap", async ({ page }) => {
+  await logIn(page, students.zones);
+  await createPlan(page, "Spring 2027");
+  await addCourse(page, "MATH 201", "MATH 201");
+  await addCourse(page, "MATH 202", "MATH 202");
+  await addMeeting(page, "MATH 201", "1", "08:00", "09:00");
+  await addMeeting(page, "MATH 202", "1", "02:00", "03:00", "America/New_York");
+
+  await expect(planned(page, "MATH 202").getByText("Mon 02:00–03:00 (America/New_York)")).toBeVisible();
+  await expect(status(page)).toHaveText("1 conflict found");
+  await expect(
+    conflictLine(page, "overlap on Monday 08:00–09:00 (Beirut time), only on Mon, 15 Mar 2027 and Mon, 22 Mar 2027."),
+  ).toBeVisible();
+
+  await test.step("an unknown time zone is refused inline", async () => {
+    const form = planned(page, "MATH 201").locator("details");
+    await form.getByLabel("Day").selectOption("3");
+    await form.getByLabel("Starts").fill("08:00");
+    await form.getByLabel("Ends").fill("09:00");
+    await form.getByLabel("Time zone").fill("Beirut");
+    await form.getByRole("button", { name: "Save meeting" }).click();
+    await expect(form.getByText("Enter an IANA time zone, such as Asia/Beirut or America/New_York.")).toBeVisible();
+    await expect(planned(page, "MATH 201").getByText(/^Wed /)).toHaveCount(0);
+  });
 });
