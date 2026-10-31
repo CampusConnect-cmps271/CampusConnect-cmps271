@@ -1,22 +1,66 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ from: vi.fn(), upsert: vi.fn(), user: vi.fn() }));
+const mocks = vi.hoisted(() => ({ user: vi.fn(), from: vi.fn(), select: vi.fn(), eq: vi.fn(), read: vi.fn(), codes: vi.fn(), upsert: vi.fn() }));
 vi.mock("server-only", () => ({}));
-vi.mock("@/modules/auth", () => ({ requireUser: m.user }));
-vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ from: m.from }) }));
-import { saveMyPreferences } from "./preferences";
-const input = { interests: ["فن"], preferred_workload: "light", academic_goals: "Learn design", completed_course_codes: [] };
-beforeEach(() => { vi.clearAllMocks(); m.user.mockResolvedValue({ id: "owner" }); m.upsert.mockResolvedValue({ error: null }); m.from.mockReturnValue({ upsert: m.upsert }); });
-it("derives ownership from authentication", async () => {
-  await saveMyPreferences(input); expect(m.upsert).toHaveBeenCalledWith({ ...input, student_id: "owner" }, { onConflict: "student_id" });
+vi.mock("@/modules/auth", () => ({ requireUser: mocks.user }));
+vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ from: mocks.from }) }));
+import { getMyPreferences, saveMyPreferences } from "./preferences";
+import { electivePreferencesFixture as preferences } from "./test-fixtures";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.user.mockResolvedValue({ id: "owner" });
+  mocks.read.mockResolvedValue({ data: preferences, error: null });
+  mocks.codes.mockResolvedValue({ data: [{ code: "CMPS 101" }], error: null });
+  mocks.upsert.mockResolvedValue({ error: null });
+  mocks.eq.mockReturnValue({ maybeSingle: mocks.read });
+  mocks.select.mockReturnValue({ eq: mocks.eq, in: mocks.codes });
+  mocks.from.mockReturnValue({ select: mocks.select, upsert: mocks.upsert });
 });
-it("rejects unknown codes before writing", async () => {
-  m.from.mockReturnValue({ select: () => ({ in: async () => ({ data: [], error: null }) }) });
-  await expect(saveMyPreferences({ ...input, completed_course_codes: ["FAKE 999"] })).rejects.toThrow("catalogue");
-  expect(m.upsert).not.toHaveBeenCalled();
+it("scopes saved-state reads to the authenticated owner", async () => {
+  expect(await getMyPreferences()).toEqual(preferences);
+  expect(mocks.eq).toHaveBeenCalledWith("student_id", "owner");
+  mocks.user.mockResolvedValue({ id: "other" });
+  await getMyPreferences();
+  expect(mocks.eq).toHaveBeenLastCalledWith("student_id", "other");
 });
-it("does not expose database errors or write when signed out", async () => {
-  m.upsert.mockResolvedValue({ error: { message: "private SQL details" } });
-  await expect(saveMyPreferences(input)).rejects.toThrow("couldn't save");
-  m.user.mockRejectedValue(new Error("redirect"));
-  await expect(saveMyPreferences(input)).rejects.toThrow("redirect");
+it("represents a new student with no saved preferences", async () => {
+  mocks.read.mockResolvedValue({ data: null, error: null });
+  expect(await getMyPreferences()).toBeNull();
+});
+it("normalizes known course codes and upserts under the authenticated owner", async () => {
+  await saveMyPreferences({ ...preferences, completed_course_codes: [" cmps   101 ", "CMPS 101"] });
+  expect(mocks.codes).toHaveBeenCalledWith("code", ["CMPS 101"]);
+  expect(mocks.upsert).toHaveBeenCalledWith({ ...preferences, student_id: "owner" }, { onConflict: "student_id" });
+});
+it("rejects unknown codes without writing", async () => {
+  mocks.codes.mockResolvedValue({ data: [], error: null });
+  await expect(saveMyPreferences({ ...preferences, completed_course_codes: ["FAKE 999"] })).rejects.toThrow("catalogue");
+  expect(mocks.upsert).not.toHaveBeenCalled();
+});
+it("rejects a forged owner rather than passing it to the database", async () => {
+  await expect(saveMyPreferences({ ...preferences, student_id: "other" })).rejects.toThrow();
+  expect(mocks.from).not.toHaveBeenCalled();
+});
+it("requires authentication before reading or writing", async () => {
+  mocks.user.mockRejectedValue(new Error("redirect to login"));
+  await expect(getMyPreferences()).rejects.toThrow("redirect");
+  await expect(saveMyPreferences(preferences)).rejects.toThrow("redirect");
+  expect(mocks.from).not.toHaveBeenCalled();
+});
+it("hides read, catalogue and write failure details", async () => {
+  const error = { message: "private SQL and infrastructure details" };
+  mocks.read.mockResolvedValue({ data: null, error });
+  await expect(getMyPreferences()).rejects.toMatchObject({ message: expect.not.stringContaining("private") });
+  mocks.codes.mockResolvedValue({ data: null, error });
+  await expect(saveMyPreferences(preferences)).rejects.toMatchObject({ message: expect.not.stringContaining("private") });
+  expect(mocks.upsert).not.toHaveBeenCalled();
+  mocks.codes.mockResolvedValue({ data: [{ code: "CMPS 101" }], error: null });
+  mocks.upsert.mockResolvedValue({ error });
+  await expect(saveMyPreferences(preferences)).rejects.toMatchObject({ message: expect.not.stringContaining("private") });
+});
+it("saves Unicode preferences without a catalogue lookup when no courses are completed", async () => {
+  const input = { ...preferences, completed_course_codes: [] };
+  await saveMyPreferences(input);
+  expect(mocks.codes).not.toHaveBeenCalled();
+  expect(mocks.upsert).toHaveBeenCalledWith({ ...input, student_id: "owner" }, { onConflict: "student_id" });
 });

@@ -28,6 +28,7 @@ test("mobile questionnaire preserves invalid drafts, saves, reloads and edits pr
   await expect(page.getByRole("status")).toHaveText("Preferences saved.");
   await page.reload();
   await expect(page.getByLabel("Academic goals", { exact: true })).toHaveValue("Learn design");
+  await expect(page.getByLabel("Interests", { exact: true })).toHaveValue("robotics, فن");
   await expect(page.getByLabel("Completed course codes (self-reported)")).toHaveValue("CMPS 101");
   await page.getByLabel("Preferred workload", { exact: true }).selectOption("light");
   await page.getByLabel("Academic goals", { exact: true }).fill("Build a robot");
@@ -76,4 +77,43 @@ test("save failures keep the draft and hide database details", async ({ page }) 
 test("signed-out visitors are sent to login", async ({ page }) => {
   await page.goto("/electives/preferences");
   await expect(page).toHaveURL(/\/login/);
+});
+test("empty, whitespace and over-limit drafts can be corrected to saved Unicode preferences", async ({ page }) => {
+  test.setTimeout(45_000);
+  await login(page, "electives-validation@mail.aub.edu");
+  await page.goto("/electives/preferences");
+  const interests = page.getByLabel("Interests", { exact: true });
+  const goals = page.getByLabel("Academic goals", { exact: true });
+  const completed = page.getByLabel("Completed course codes (self-reported)");
+  const save = page.getByRole("button", { name: "Save preferences" });
+  let submissions = 0;
+  page.on("request", request => {
+    if (request.method() === "POST" && new URL(request.url()).pathname === "/electives/preferences") submissions++;
+  });
+  await save.click();
+  await expect(page.locator("#interests:invalid")).toBeVisible();
+  expect(submissions).toBe(0);
+  await interests.fill("  ,  ");
+  await goals.fill("   ");
+  await save.click();
+  await expect(page.locator("main").getByRole("alert")).toBeVisible();
+  await expect(interests).toHaveAttribute("aria-invalid", "true");
+  await expect(goals).toHaveAttribute("aria-invalid", "true");
+  await expect(interests).toHaveValue("  ,  ");
+  await goals.fill("تعلم تصميم الروبوتات");
+  await interests.fill(Array.from({ length: 11 }, (_, i) => `interest${i}`).join(", "));
+  await save.click();
+  await expect(page.locator("#interests-error")).toContainText("10");
+  await expect(goals).toHaveValue("تعلم تصميم الروبوتات");
+  await interests.fill("تعلم الآلة, فن, فن");
+  await completed.fill("cmps 101, CMPS 101");
+  await completed.press("Tab");
+  await expect(save).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("status")).toHaveText("Preferences saved.");
+  await page.reload();
+  await expect(interests).toHaveValue("تعلم الآلة, فن");
+  await expect(goals).toHaveValue("تعلم تصميم الروبوتات");
+  await expect(completed).toHaveValue("CMPS 101");
+  await expect(page.getByText("These are not verified academic records.", { exact: false })).toBeVisible();
 });
