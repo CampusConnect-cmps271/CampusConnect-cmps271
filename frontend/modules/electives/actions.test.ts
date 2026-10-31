@@ -57,4 +57,12 @@ describe("questionnaire submission", () => {
     expect(mocks.validate).not.toHaveBeenCalled();
     expect(mocks.save).not.toHaveBeenCalled();
   });
+  it("keeps the draft and does not save when catalogue validation is unavailable", async () => {
+    mocks.validate.mockRejectedValue(new Error("private catalogue failure"));
+    const result = await updatePreferences({ status: "idle" }, form());
+    expect(result).toMatchObject({ status: "error", values });
+    expect(result.message).not.toContain("private");
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(mocks.revalidate).not.toHaveBeenCalled();
+  });
 });
