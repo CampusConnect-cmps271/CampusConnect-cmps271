@@ -8,6 +8,7 @@ import { handleReviews } from "./mock-reviews.mjs";
 import { handleRatings } from "./mock-ratings.mjs";
 import { handlePostSearch, postSearchFixtures } from "./mock-post-search.mjs";
 import { clubTestAccounts, handleClubs } from "./mock-clubs.mjs";
+import { handlePlanner, plannerTestAccounts } from "./mock-planner.mjs";
 
 const user = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -48,6 +49,7 @@ const profileAccounts = {
   "skillswap-dana@mail.aub.edu": "00000000-0000-4000-8000-00000000000d",
   "clubs-representative@mail.aub.edu": clubTestAccounts.REP_ID,
   "clubs-admin@mail.aub.edu": clubTestAccounts.ADMIN_ID,
+  ...plannerTestAccounts,
 };
 // Another student whose public profile the tests visit.
 const otherStudentId = "00000000-0000-4000-8000-000000000004";
@@ -267,6 +269,7 @@ createServer(async (request, response) => {
   // SP2-53: SkillSwap posts and their details.
   if (await handleSkillSwap(request, response, url, { userId: caller })) return;
   if (await handleClubs(request, response, url, bearerClaims(request))) return;
+  if (await handlePlanner(request, response, url, bearerClaims(request))) return;
   if (path === "/rest/v1/user_roles") {
     roleLookups++;
     const email = bearerEmail(request);
