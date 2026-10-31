@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { ConflictReport, ScheduleConflict } from "./conflicts";
-import { conflictHeadline, invalidMeetingHelp, overlapDates, overlapWindow } from "./conflict-text";
+import { conflictHeadline, invalidItemHelp, invalidMeetingHelp, overlapDates, overlapWindow } from "./conflict-text";
 
-const side = { meeting_id: "m", plan_course_id: "pc", course_id: "c" };
+const side = { kind: "meeting" as const, meeting_id: "m", plan_course_id: "pc", course_id: "c" };
 const report = (fields: Partial<ConflictReport>): ConflictReport => ({
   status: "clear",
   conflicts: [],
@@ -11,7 +11,7 @@ const report = (fields: Partial<ConflictReport>): ConflictReport => ({
   ...fields,
 });
 const conflict = (fields: Partial<ScheduleConflict>): ScheduleConflict => ({
-  meetings: [side, side],
+  sides: [side, side],
   weekday: 2,
   start_minute: 600,
   end_minute: 645,
@@ -76,5 +76,27 @@ describe("invalidMeetingHelp", () => {
         term,
       ),
     ).toBe("00:30 doesn't exist on Sun, 28 Mar 2027 in Asia/Beirut: the clocks go forward an hour. Move its start time.");
+  });
+});
+
+describe("own items", () => {
+  const itemSide = { kind: "item" as const, item_id: "i" };
+
+  it("counts meetings and items to fix separately", () => {
+    const invalid = [
+      { ...side, reason: "bad_range" as const, dates: [] },
+      { ...itemSide, reason: "bad_range" as const, dates: [] },
+      { ...itemSide, reason: "starts_in_dst_gap" as const, dates: ["2027-03-28"] },
+    ];
+    expect(conflictHeadline(report({ status: "incomplete", invalid }))).toBe(
+      "No overlaps among the times you entered, but 1 meeting needs fixing and 2 items need fixing",
+    );
+  });
+
+  it("says what to fix on an item", () => {
+    expect(invalidItemHelp({ ...itemSide, reason: "bad_range", dates: [] }, { start_minute: 600 })).toMatch(/must end after it starts/);
+    expect(invalidItemHelp({ ...itemSide, reason: "starts_in_dst_gap", dates: ["2027-03-28"] }, { start_minute: 30 })).toBe(
+      "00:30 doesn't exist on Sun, 28 Mar 2027 in Beirut: the clocks go forward an hour. Move its start time.",
+    );
   });
 });

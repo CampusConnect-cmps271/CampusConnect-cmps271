@@ -12,15 +12,15 @@ import { formatMeeting, TIME_ZONE_LIST_ID, timeFromMinutes, WEEKDAYS } from "../
 import type { Meeting } from "../types";
 import { PlannerButton } from "./PlannerButton";
 
-const FIELD_CLASS =
+export const FIELD_CLASS =
   "w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--ink)] focus:border-[var(--maroon)] focus:outline-none focus:ring-2 focus:ring-[var(--maroon-200)] aria-[invalid=true]:border-[var(--danger)]";
 
-const LABEL_CLASS = "block text-xs font-semibold text-[var(--ink)]";
+export const LABEL_CLASS = "block text-xs font-semibold text-[var(--ink)]";
 
 const noSubscription = () => () => {};
 
 /** False in the server HTML and until hydration, then true. */
-function useHydrated(): boolean {
+export function useHydrated(): boolean {
   return useSyncExternalStore(noSubscription, () => true, () => false);
 }
 
@@ -212,7 +212,7 @@ export function TimeZoneList() {
   );
 }
 
-function FieldError({ id, message }: { id: string; message?: string }) {
+export function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) return null;
   return (
     <p id={id} className="text-xs text-[var(--danger)]">
@@ -260,8 +260,8 @@ type MeetingItemProps = {
 };
 
 /**
- * One typed meeting, labelled tentative, with Edit and Remove. Its id is
- * the anchor the conflict panel links to.
+ * One typed meeting, with Edit and Remove. Its id is the anchor the
+ * conflict panel and the calendar link to.
  */
 export function MeetingItem({ planId, meeting, conflict = false, problem }: MeetingItemProps) {
   const [state, formAction, pending] = useActionState(updateMeeting, undefined);
@@ -287,12 +287,9 @@ export function MeetingItem({ planId, meeting, conflict = false, problem }: Meet
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="text-sm font-medium text-[var(--ink)]">{label}</span>
-        <span className="rounded-full border border-[var(--maroon-200)] bg-white px-2 py-0.5 text-xs text-[var(--maroon)]">
-          Tentative, entered by you
-        </span>
         {conflict ? (
           <span className="rounded-full border border-[var(--danger)] bg-white px-2 py-0.5 text-xs font-semibold text-[var(--danger)]">
-            <span aria-hidden="true">⚠ </span>Overlaps another meeting
+            <span aria-hidden="true">⚠ </span>Overlaps something else
           </span>
         ) : null}
         <div className="ml-auto flex items-start gap-2">

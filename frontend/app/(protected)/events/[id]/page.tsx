@@ -8,6 +8,7 @@ import {
   type EventDetail,
 } from "@/modules/events/detail";
 import EventSaveControls from "@/modules/events/EventSaveControls";
+import { EventGoingControl } from "@/modules/planner";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -404,6 +405,8 @@ export default async function EventDetailsPage({
         <EventInformation event={event} />
 
         <SavedEventSection event={event} />
+
+        <EventGoingControl eventId={event.id} />
 
         <RegistrationSection event={event} />
       </div>

@@ -1,5 +1,5 @@
 /**
- * Public API of the planner module (SCRUM-66/67). Import from
+ * Public API of the planner module (SCRUM-66/67 and the calendar). Import from
  * "@/modules/planner", never from a file inside it.
  *
  * Note: this barrel re-exports server-only code, so a Client Component must
@@ -9,19 +9,51 @@
 
 export {
   addCourse,
+  addItem,
   addMeeting,
   createPlan,
   deletePlan,
+  markGoing,
   moveCourse,
   removeCourse,
+  removeItem,
   removeMeeting,
+  unmarkGoing,
+  updateItem,
   updateMeeting,
+  type ItemActionState,
   type MeetingActionState,
   type NewPlanState,
   type PlannerActionState,
 } from "./actions";
 
-export { checkPlanConflicts, getMyPlan, listMyPlans, searchCoursesForPlan } from "./queries";
+export {
+  checkPlanConflicts,
+  getEventPlannerState,
+  getMyPlan,
+  listMyPlans,
+  listSavedEventsNear,
+  searchCoursesForPlan,
+} from "./queries";
+
+export {
+  addDays,
+  calendarRange,
+  classWeekLabel,
+  formatEventWhen,
+  formatItemWhen,
+  formatWeekRange,
+  ITEM_WINDOW_DAYS,
+  itemWindow,
+  mondayOf,
+  parseCalendarDate,
+  pickWeek,
+  planCalendar,
+  weekDates,
+  weekEntries,
+  type CalendarEntry,
+  type CalendarEntryKind,
+} from "./calendar";
 
 export { creditHundredths, creditLabel, formatCredits, totalCreditHundredths } from "./credits";
 
@@ -30,14 +62,21 @@ export { PLAN_NOT_FOUND, plannerErrorMessage, type PlannerOperation } from "./er
 export { courseSearchFilter, parsePlannerSearch } from "./search";
 
 export {
+  EMPTY_ITEM_FORM,
   EMPTY_MEETING_FORM,
+  itemSchema,
   meetingSchema,
   PLANNER_LIMITS,
   PLANNER_TIMEZONE,
   plannerIdSchema,
   planSchema,
+  readItemForm,
   readMeetingForm,
+  validateItemForm,
   validateMeetingForm,
+  type ItemFieldErrors,
+  type ItemFormValues,
+  type ItemInput,
   type MeetingFieldErrors,
   type MeetingFormValues,
   type MeetingInput,
@@ -69,32 +108,40 @@ export type {
   CourseSearchResult,
   Meeting,
   PlanDetails,
+  PlanItem,
   PlannedCourse,
+  PlannerEvent,
   PlanSummary,
   SemesterPlan,
   Weekday,
 } from "./types";
 
+export { EventGoingControl } from "./components/EventGoingControl";
 export { NewPlanForm } from "./components/NewPlanForm";
 export { PlanList } from "./components/PlanList";
 export { PlannerNotice } from "./components/PlannerNotice";
 export { PlanView } from "./components/PlanView";
 
 export {
+  calendarSlots,
   detectConflicts,
-  firstBeirutSlot,
   DISPLAY_TIMEZONE,
+  type CalendarSlot,
   type ConflictInput,
   type ConflictReport,
   type ConflictSide,
   type ConflictStatus,
-  type InvalidMeeting,
+  type EventSide,
+  type InvalidEntry,
   type InvalidReason,
+  type ItemSide,
+  type MeetingSide,
   type ScheduleConflict,
   type UnknownCourse,
 } from "./conflicts";
 
-export { conflictHeadline, invalidMeetingHelp, overlapDates, overlapWindow } from "./conflict-text";
+export { conflictHeadline, invalidItemHelp, invalidMeetingHelp, overlapDates, overlapWindow } from "./conflict-text";
 
+export { CalendarWeek } from "./components/CalendarWeek";
 export { ConflictPanel } from "./components/ConflictPanel";
-export { WeekView } from "./components/WeekView";
+export { EventsSection } from "./components/EventsSection";

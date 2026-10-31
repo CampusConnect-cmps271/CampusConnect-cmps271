@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectConflicts, type ConflictInput } from "./conflicts";
+import { calendarSlots, detectConflicts, type ConflictInput, type ConflictSide } from "./conflicts";
 import { FIXTURE_COURSES, FIXTURE_PLAN } from "./fixtures";
 import type { Weekday } from "./types";
 
@@ -30,6 +30,20 @@ function course(name: string, ...meetings: MeetingSpec[]) {
 const plan = (term: { starts_on: string; ends_on: string }, ...courses: ConflictInput["courses"][number][]): ConflictInput => ({
   ...term,
   courses,
+});
+
+/** The side as a meeting; these tests only build meetings unless they say otherwise. */
+function meetingOf(side: ConflictSide) {
+  if (side.kind !== "meeting") throw new Error(`expected a meeting, got ${side.kind}`);
+  return side;
+}
+
+/** A Beirut-time item; all-day without times. */
+const item = (id: string, on_date: string, start?: string, end?: string) => ({
+  id,
+  on_date,
+  start_minute: start === undefined ? null : minutes(start),
+  end_minute: end === undefined ? null : minutes(end),
 });
 
 /** Dates in [from, to] falling on an ISO weekday, as YYYY-MM-DD. */
@@ -98,9 +112,9 @@ describe("detectConflicts: weekly overlaps", () => {
     const report = detectConflicts(plan(SPRING_2027, course("a", [2, "09:30", "10:45"]), course("b", [2, "10:00", "11:15"])));
     expect(report.conflicts).toEqual([
       {
-        meetings: [
-          { meeting_id: "m-a-1", plan_course_id: "pc-a", course_id: "c-a" },
-          { meeting_id: "m-b-1", plan_course_id: "pc-b", course_id: "c-b" },
+        sides: [
+          { kind: "meeting", meeting_id: "m-a-1", plan_course_id: "pc-a", course_id: "c-a" },
+          { kind: "meeting", meeting_id: "m-b-1", plan_course_id: "pc-b", course_id: "c-b" },
         ],
         weekday: 2,
         start_minute: minutes("10:00"),
@@ -134,7 +148,7 @@ describe("detectConflicts: weekly overlaps", () => {
     const report = detectConflicts(
       plan(SPRING_2027, course("a", [3, "09:00", "11:00"]), course("b", [3, "10:00", "12:00"]), course("c", [3, "10:30", "10:50"])),
     );
-    expect(report.conflicts.map((conflict) => conflict.meetings.map((side) => side.course_id).join("+")).sort()).toEqual([
+    expect(report.conflicts.map((conflict) => conflict.sides.map((side) => meetingOf(side).course_id).join("+")).sort()).toEqual([
       "c-a+c-b",
       "c-a+c-c",
       "c-b+c-c",
@@ -147,20 +161,20 @@ describe("detectConflicts: weekly overlaps", () => {
     );
     expect(report.conflicts).toHaveLength(1);
     expect(report.conflicts[0].weekday).toBe(3);
-    expect(report.conflicts[0].meetings[0].meeting_id).toBe("m-a-2");
+    expect(meetingOf(report.conflicts[0].sides[0]).meeting_id).toBe("m-a-2");
   });
 
   it("reports a course whose own meetings overlap", () => {
     const report = detectConflicts(plan(SPRING_2027, course("a", [4, "09:00", "10:00"], [4, "09:30", "10:30"])));
     expect(report.status).toBe("conflicts");
-    expect(report.conflicts[0].meetings.map((side) => side.plan_course_id)).toEqual(["pc-a", "pc-a"]);
+    expect(report.conflicts[0].sides.map((side) => meetingOf(side).plan_course_id)).toEqual(["pc-a", "pc-a"]);
   });
 
   it("matches the fixture plan: one Monday overlap, an adjacency, a course without times", () => {
     const report = detectConflicts(FIXTURE_PLAN);
     expect(report.status).toBe("conflicts");
     expect(report.conflicts).toHaveLength(1);
-    expect(report.conflicts[0].meetings.map((side) => side.course_id)).toEqual([FIXTURE_COURSES[0].course_id, FIXTURE_COURSES[1].course_id]);
+    expect(report.conflicts[0].sides.map((side) => meetingOf(side).course_id)).toEqual([FIXTURE_COURSES[0].course_id, FIXTURE_COURSES[1].course_id]);
     expect([report.conflicts[0].weekday, report.conflicts[0].start_minute, report.conflicts[0].end_minute]).toEqual([1, 600, 645]);
     expect(report.unknown).toEqual([{ plan_course_id: FIXTURE_COURSES[3].plan_course_id, course_id: FIXTURE_COURSES[3].course_id }]);
   });
@@ -177,7 +191,7 @@ describe("detectConflicts: meetings it can't place", () => {
     for (const meeting of ranges) {
       const report = detectConflicts(plan(SPRING_2027, bad(meeting)));
       expect(report.status).toBe("incomplete");
-      expect(report.invalid).toEqual([{ meeting_id: "m-x", plan_course_id: "pc-x", course_id: "c-x", reason: "bad_range", dates: [] }]);
+      expect(report.invalid).toEqual([{ kind: "meeting", meeting_id: "m-x", plan_course_id: "pc-x", course_id: "c-x", reason: "bad_range", dates: [] }]);
     }
   });
 
@@ -191,7 +205,7 @@ describe("detectConflicts: meetings it can't place", () => {
     const short = { starts_on: "2027-05-26", ends_on: "2027-05-28" };
     const report = detectConflicts(plan(short, course("a", [1, "09:00", "10:00"]), course("b", [3, "09:00", "10:00"])));
     expect(report.status).toBe("incomplete");
-    expect(report.invalid).toEqual([{ meeting_id: "m-a-1", plan_course_id: "pc-a", course_id: "c-a", reason: "no_dates_in_term", dates: [] }]);
+    expect(report.invalid).toEqual([{ kind: "meeting", meeting_id: "m-a-1", plan_course_id: "pc-a", course_id: "c-a", reason: "no_dates_in_term", dates: [] }]);
   });
 
   it("does not let an invalid meeting hide a real overlap elsewhere", () => {
@@ -230,12 +244,12 @@ describe("detectConflicts: Beirut daylight-saving changes", () => {
 
   it("autumn 2026: Beirut meetings on the repeated night still compare like any other week", () => {
     const report = detectConflicts(plan(FALL_2026, course("a", [6, "23:00", "24:00"]), course("b", [6, "23:30", "24:00"]), course("c", [6, "22:00", "23:00"])));
-    const ab = report.conflicts.filter((conflict) => conflict.meetings[1].course_id === "c-b");
+    const ab = report.conflicts.filter((conflict) => meetingOf(conflict.sides[1]).course_id === "c-b");
     expect(ab).toHaveLength(1);
     expect(ab[0].every_week).toBe(true);
     expect(ab[0].dates).toContain("2026-10-24");
     // 22:00-23:00 and 23:00-24:00 stay adjacent, even on 24 Oct.
-    expect(report.conflicts.some((conflict) => conflict.meetings.some((side) => side.course_id === "c-c"))).toBe(false);
+    expect(report.conflicts.some((conflict) => conflict.sides.some((side) => meetingOf(side).course_id === "c-c"))).toBe(false);
   });
 
   it("spring 2027: Sunday 28 Mar 00:00-01:00 doesn't exist; a start in it is reported, other weeks still count", () => {
@@ -244,7 +258,7 @@ describe("detectConflicts: Beirut daylight-saving changes", () => {
 
     const report = detectConflicts(plan(SPRING_2027, course("a", [7, "00:30", "01:30"]), course("b", [7, "01:00", "02:00"])));
     expect(report.invalid).toEqual([
-      { meeting_id: "m-a-1", plan_course_id: "pc-a", course_id: "c-a", reason: "starts_in_dst_gap", dates: ["2027-03-28"] },
+      { kind: "meeting", meeting_id: "m-a-1", plan_course_id: "pc-a", course_id: "c-a", reason: "starts_in_dst_gap", dates: ["2027-03-28"] },
     ]);
     expect(report.status).toBe("conflicts");
     expect(report.conflicts[0].dates).not.toContain("2027-03-28");
@@ -300,5 +314,105 @@ describe("detectConflicts: Beirut and New York", () => {
     expect(report.conflicts.every((conflict) => !conflict.every_week)).toBe(true);
     const allDates = report.conflicts.flatMap((conflict) => conflict.dates).sort();
     expect(allDates).toEqual(datesOn(1, FALL_2026.starts_on, FALL_2026.ends_on));
+  });
+});
+
+describe("detectConflicts: own items and going events", () => {
+  // Tue 16 Feb 2027 in Spring 2027. Beirut is UTC+2 then.
+  const exam = item("i-exam", "2027-02-16", "10:00", "11:00");
+
+  it("flags an item that overlaps a class on its date only, never every week", () => {
+    const report = detectConflicts({ ...plan(SPRING_2027, course("a", [2, "09:30", "10:45"])), items: [exam] });
+    expect(report.status).toBe("conflicts");
+    expect(report.conflicts).toEqual([
+      {
+        sides: [
+          { kind: "meeting", meeting_id: "m-a-1", plan_course_id: "pc-a", course_id: "c-a" },
+          { kind: "item", item_id: "i-exam" },
+        ],
+        weekday: 2,
+        start_minute: minutes("10:00"),
+        end_minute: minutes("10:45"),
+        every_week: false,
+        dates: ["2027-02-16"],
+      },
+    ]);
+  });
+
+  it("flags an event that overlaps an item, and an event that overlaps a class", () => {
+    const report = detectConflicts({
+      ...plan(SPRING_2027, course("a", [3, "14:00", "15:15"])),
+      items: [exam],
+      events: [
+        { id: "e-talk", starts_at: "2027-02-16T08:30:00Z", ends_at: "2027-02-16T09:30:00Z" },
+        { id: "e-fair", starts_at: "2027-02-17T11:00:00Z", ends_at: "2027-02-17T13:00:00Z" },
+      ],
+    });
+    expect(report.conflicts.map((conflict) => [conflict.sides.map((side) => side.kind).join("+"), conflict.dates[0], conflict.start_minute, conflict.end_minute])).toEqual([
+      ["item+event", "2027-02-16", minutes("10:30"), minutes("11:00")],
+      ["meeting+event", "2027-02-17", minutes("14:00"), minutes("15:00")],
+    ]);
+  });
+
+  it("never checks all-day items, and doesn't count them as something to check", () => {
+    const allDay = item("i-due", "2027-02-16");
+    expect(detectConflicts({ ...plan(SPRING_2027), items: [allDay] }).status).toBe("empty");
+    expect(detectConflicts({ ...plan(SPRING_2027, course("a", [2, "09:30", "10:45"])), items: [allDay] }).status).toBe("clear");
+  });
+
+  it("is clear for items alone that don't overlap, and adjacent ones don't", () => {
+    const report = detectConflicts({ ...plan(SPRING_2027), items: [exam, item("i-next", "2027-02-16", "11:00", "12:00")] });
+    expect(report.status).toBe("clear");
+  });
+
+  it("reports an item it can't place, without hiding real overlaps", () => {
+    const report = detectConflicts({
+      ...plan(SPRING_2027, course("a", [2, "09:30", "10:45"])),
+      items: [exam, item("i-bad", "2027-02-17", "12:00", "11:00"), item("i-gap", "2027-03-28", "00:30", "01:30")],
+    });
+    expect(report.status).toBe("conflicts");
+    expect(report.invalid).toEqual([
+      { kind: "item", item_id: "i-bad", reason: "bad_range", dates: [] },
+      { kind: "item", item_id: "i-gap", reason: "starts_in_dst_gap", dates: ["2027-03-28"] },
+    ]);
+  });
+
+  it("places items outside the class dates too, such as during finals", () => {
+    const report = detectConflicts({
+      ...plan(SPRING_2027),
+      items: [item("i-final", "2027-05-10", "08:00", "10:00"), item("i-other", "2027-05-10", "09:00", "11:00")],
+    });
+    expect(report.conflicts).toHaveLength(1);
+    expect(report.conflicts[0].dates).toEqual(["2027-05-10"]);
+  });
+});
+
+describe("calendarSlots", () => {
+  it("places weekly meetings on each date of the term, in Beirut time", () => {
+    const slots = calendarSlots(plan(SPRING_2027, course("ny", [1, "02:00", "03:00", "America/New_York"])));
+    const mondays = datesOn(1, SPRING_2027.starts_on, SPRING_2027.ends_on);
+    expect(slots.map((slot) => slot.date)).toEqual(mondays);
+    // 09:00 Beirut while both zones are on winter time; 08:00 in the weeks New York has changed first.
+    expect(slots.find((slot) => slot.date === "2027-01-18")).toMatchObject({ start_minute: minutes("09:00"), end_minute: minutes("10:00") });
+    expect(slots.find((slot) => slot.date === "2027-03-15")).toMatchObject({ start_minute: minutes("08:00"), end_minute: minutes("09:00") });
+  });
+
+  it("splits an event that runs past midnight into one stretch per day", () => {
+    const slots = calendarSlots({
+      ...plan(SPRING_2027),
+      events: [{ id: "e-night", starts_at: "2027-02-19T20:00:00Z", ends_at: "2027-02-20T00:30:00Z" }],
+    });
+    expect(slots).toEqual([
+      { side: { kind: "event", event_id: "e-night" }, date: "2027-02-19", start_minute: minutes("22:00"), end_minute: 1440 },
+      { side: { kind: "event", event_id: "e-night" }, date: "2027-02-20", start_minute: 0, end_minute: minutes("02:30") },
+    ]);
+  });
+
+  it("leaves out all-day items and anything it can't place", () => {
+    const slots = calendarSlots({
+      ...plan(SPRING_2027, course("x", [2, "11:00", "10:00"])),
+      items: [item("i-due", "2027-02-16"), item("i-exam", "2027-02-16", "10:00", "11:00")],
+    });
+    expect(slots).toEqual([{ side: { kind: "item", item_id: "i-exam" }, date: "2027-02-16", start_minute: 600, end_minute: 660 }]);
   });
 });

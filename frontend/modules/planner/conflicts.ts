@@ -1,42 +1,51 @@
-import type { Meeting, PlannedCourse, Weekday } from "./types";
+import type { Meeting, PlanItem, PlannedCourse, PlannerEvent, Weekday } from "./types";
 
 /**
- * Weekly schedule-conflict engine (SCRUM-67). Pure: no database, no current
- * time and no use of the machine's time zone. It only uses Date.UTC, the
+ * Schedule-conflict engine (SCRUM-67). Pure: no database, no current time
+ * and no use of the machine's time zone. It only uses Date.UTC, the
  * getUTC* methods and Intl with an explicit timeZone.
  *
- * Every meeting is expanded into dated occurrences on the term's dates, in
- * the meeting's own time zone, and each occurrence is converted to UTC with
- * Intl. Two meetings conflict when occurrences overlap as half-open
- * intervals [start, end): a meeting ending at 10:45 and one starting at
- * 10:45 do not. Every pair is compared this way; there is no same-zone
- * shortcut, so zones and daylight-saving changes are always handled alike.
+ * It places everything with a time on the calendar as UTC intervals:
+ * - weekly meetings, on every matching date of the term, in the meeting's
+ *   own time zone;
+ * - the student's own items, once, in Beirut time (all-day items have no
+ *   time and are never checked);
+ * - events the student is going to, at their stored instants.
+ * Two of them conflict when their intervals overlap as half-open intervals
+ * [start, end): one ending at 10:45 and one starting at 10:45 do not.
+ * Every pair is compared this way; there is no same-zone shortcut, so zones
+ * and daylight-saving changes are always handled alike.
  *
  * Daylight-saving rules (as Temporal's "compatible" disambiguation):
  * - A wall-clock time that happens twice, in the hour repeated when clocks
  *   go back, means its first occurrence.
  * - A start time that doesn't exist, skipped when clocks go forward, can't
- *   be placed: that date is left out and the meeting is reported invalid
- *   ("starts_in_dst_gap") with the dates. An end time that doesn't exist
- *   means the moment the clocks jump.
+ *   be placed: that date is left out and the meeting or item is reported
+ *   invalid ("starts_in_dst_gap") with the dates. An end time that doesn't
+ *   exist means the moment the clocks jump.
  */
 
-/** Overlaps are reported in Beirut time, whatever zones the meetings use. */
+/** Overlaps are reported in Beirut time, whatever zones the meetings use. Items are in Beirut time. */
 export const DISPLAY_TIMEZONE = "Asia/Beirut";
 
 export type ConflictStatus = "empty" | "conflicts" | "incomplete" | "clear";
 
-export type ConflictSide = { meeting_id: string; plan_course_id: string; course_id: string };
+export type MeetingSide = { kind: "meeting"; meeting_id: string; plan_course_id: string; course_id: string };
+export type ItemSide = { kind: "item"; item_id: string };
+export type EventSide = { kind: "event"; event_id: string };
+
+/** One of the two things in a conflict. */
+export type ConflictSide = MeetingSide | ItemSide | EventSide;
 
 export type ScheduleConflict = {
-  /** The two meetings, in plan order. They may belong to the same course. */
-  meetings: [ConflictSide, ConflictSide];
+  /** The two sides: meetings in plan order, then items, then events. */
+  sides: [ConflictSide, ConflictSide];
   /** The overlap's weekday and window in Asia/Beirut. */
   weekday: Weekday;
   start_minute: number;
   /** Over 1440 when the overlap runs past Beirut midnight. */
   end_minute: number;
-  /** True when they overlap like this every week both meet. */
+  /** True when two weekly meetings overlap like this every week both meet. */
   every_week: boolean;
   /** Beirut dates (YYYY-MM-DD) of each overlap, in order. */
   dates: string[];
@@ -44,9 +53,10 @@ export type ScheduleConflict = {
 
 export type InvalidReason = "bad_range" | "unknown_timezone" | "no_dates_in_term" | "starts_in_dst_gap";
 
-export type InvalidMeeting = ConflictSide & {
+/** A meeting or item the check couldn't place. Events always can be. */
+export type InvalidEntry = (MeetingSide | ItemSide) & {
   reason: InvalidReason;
-  /** For starts_in_dst_gap, the dates (in the meeting's zone) it was left out. */
+  /** For starts_in_dst_gap, the dates (in the entry's zone) it was left out. */
   dates: string[];
 };
 
@@ -57,15 +67,19 @@ export type ConflictReport = {
   conflicts: ScheduleConflict[];
   /** Courses with no meetings: their schedule is unknown. */
   unknown: UnknownCourse[];
-  invalid: InvalidMeeting[];
+  invalid: InvalidEntry[];
 };
+
+type MeetingTimes = Pick<Meeting, "id" | "weekday" | "start_minute" | "end_minute" | "timezone">;
 
 export type ConflictInput = {
   starts_on: string;
   ends_on: string;
-  courses: readonly (Pick<PlannedCourse, "plan_course_id" | "course_id"> & {
-    meetings: readonly Pick<Meeting, "id" | "weekday" | "start_minute" | "end_minute" | "timezone">[];
-  })[];
+  courses: readonly (Pick<PlannedCourse, "plan_course_id" | "course_id"> & { meetings: readonly MeetingTimes[] })[];
+  /** The student's own items; all-day ones are skipped. */
+  items?: readonly Pick<PlanItem, "id" | "on_date" | "start_minute" | "end_minute">[];
+  /** Events the student is going to. */
+  events?: readonly Pick<PlannerEvent, "id" | "starts_at" | "ends_at">[];
 };
 
 const MINUTE = 60_000;
@@ -137,24 +151,20 @@ const isoWeekday = (day: number) => (((new Date(day).getUTCDay() + 6) % 7) + 1) 
 
 type Occurrence = { start: number; end: number };
 
-type Placed = { side: ConflictSide; occurrences: Occurrence[] };
+type Expanded = { occurrences: Occurrence[]; reason?: InvalidReason; dates: string[] };
 
-function validRange(meeting: ConflictInput["courses"][number]["meetings"][number]): boolean {
+/** Something placed on the calendar, with its sorted, non-overlapping occurrences. */
+type Placed = { side: ConflictSide; occurrences: Occurrence[]; weekly: boolean };
+
+const isMinute = (value: number, min: number, max: number) => Number.isInteger(value) && value >= min && value <= max;
+
+function validRange(meeting: MeetingTimes): boolean {
   const { weekday, start_minute: start, end_minute: end } = meeting;
-  return (
-    Number.isInteger(weekday) && weekday >= 1 && weekday <= 7 &&
-    Number.isInteger(start) && start >= 0 && start <= 1439 &&
-    Number.isInteger(end) && end >= 1 && end <= 1440 &&
-    end > start
-  );
+  return isMinute(weekday, 1, 7) && isMinute(start, 0, 1439) && isMinute(end, 1, 1440) && end > start;
 }
 
 /** A meeting's occurrences in the term, or why it can't be placed. */
-function expand(
-  meeting: ConflictInput["courses"][number]["meetings"][number],
-  firstDay: number | null,
-  lastDay: number | null,
-): { occurrences: Occurrence[]; reason?: InvalidReason; dates: string[] } {
+function expandMeeting(meeting: MeetingTimes, firstDay: number | null, lastDay: number | null): Expanded {
   if (!validRange(meeting)) return { occurrences: [], reason: "bad_range", dates: [] };
 
   const format = wallClock(meeting.timezone);
@@ -178,6 +188,66 @@ function expand(
   if (skipped.length) return { occurrences, reason: "starts_in_dst_gap", dates: skipped };
   if (!occurrences.length) return { occurrences, reason: "no_dates_in_term", dates: [] };
   return { occurrences, dates: [] };
+}
+
+/** A timed item's single occurrence in Beirut time, or why it can't be placed. */
+function expandItem(item: NonNullable<ConflictInput["items"]>[number]): Expanded {
+  const day = parseDate(item.on_date);
+  const { start_minute: start, end_minute: end } = item;
+  if (day === null || start === null || end === null || !isMinute(start, 0, 1439) || !isMinute(end, 1, 1440) || end <= start) {
+    return { occurrences: [], reason: "bad_range", dates: [] };
+  }
+
+  const format = wallClock(DISPLAY_TIMEZONE);
+  if (!format) return { occurrences: [], dates: [] };
+  const placedStart = placeWallTime(format, day + start * MINUTE);
+  if (placedStart.skipped) return { occurrences: [], reason: "starts_in_dst_gap", dates: [item.on_date] };
+  return { occurrences: [{ start: placedStart.instant, end: placeWallTime(format, day + end * MINUTE).instant }], dates: [] };
+}
+
+/** Everything with a time, plus what couldn't be placed. */
+function placeAll(input: ConflictInput): { placed: Placed[]; unknown: UnknownCourse[]; invalid: InvalidEntry[] } {
+  const firstDay = parseDate(input.starts_on);
+  const lastDay = parseDate(input.ends_on);
+
+  const unknown: UnknownCourse[] = [];
+  const invalid: InvalidEntry[] = [];
+  const placed: Placed[] = [];
+
+  for (const course of input.courses) {
+    if (course.meetings.length === 0) {
+      unknown.push({ plan_course_id: course.plan_course_id, course_id: course.course_id });
+      continue;
+    }
+    for (const meeting of course.meetings) {
+      const side: MeetingSide = {
+        kind: "meeting",
+        meeting_id: meeting.id,
+        plan_course_id: course.plan_course_id,
+        course_id: course.course_id,
+      };
+      const result = expandMeeting(meeting, firstDay, lastDay);
+      if (result.reason) invalid.push({ ...side, reason: result.reason, dates: result.dates });
+      if (result.occurrences.length) placed.push({ side, occurrences: result.occurrences, weekly: true });
+    }
+  }
+
+  for (const item of input.items ?? []) {
+    if (item.start_minute === null && item.end_minute === null) continue;
+    const side: ItemSide = { kind: "item", item_id: item.id };
+    const result = expandItem(item);
+    if (result.reason) invalid.push({ ...side, reason: result.reason, dates: result.dates });
+    if (result.occurrences.length) placed.push({ side, occurrences: result.occurrences, weekly: false });
+  }
+
+  for (const event of input.events ?? []) {
+    const start = Date.parse(event.starts_at);
+    const end = Date.parse(event.ends_at);
+    if (!(end > start)) continue;
+    placed.push({ side: { kind: "event", event_id: event.id }, occurrences: [{ start, end }], weekly: false });
+  }
+
+  return { placed, unknown, invalid };
 }
 
 /** Overlapping parts of two sorted, non-overlapping occurrence lists. */
@@ -210,7 +280,7 @@ function pairConflicts(first: Placed, second: Placed): ScheduleConflict[] {
     const endMinute = (endWall - day) / MINUTE;
     const key = `${weekday}|${startMinute}|${endMinute}`;
     const group = groups.get(key) ?? {
-      meetings: [first.side, second.side],
+      sides: [first.side, second.side],
       weekday,
       start_minute: startMinute,
       end_minute: endMinute,
@@ -221,50 +291,17 @@ function pairConflicts(first: Placed, second: Placed): ScheduleConflict[] {
     groups.set(key, group);
   }
 
-  const bothMeet = Math.min(first.occurrences.length, second.occurrences.length);
   const conflicts = [...groups.values()];
-  if (conflicts.length === 1 && conflicts[0].dates.length === bothMeet) conflicts[0].every_week = true;
+  const bothMeet = Math.min(first.occurrences.length, second.occurrences.length);
+  if (first.weekly && second.weekly && conflicts.length === 1 && conflicts[0].dates.length === bothMeet) {
+    conflicts[0].every_week = true;
+  }
   return conflicts;
 }
 
-/** Where a meeting first falls in Beirut time during the term, or null if it can't be placed. */
-export function firstBeirutSlot(
-  meeting: ConflictInput["courses"][number]["meetings"][number],
-  term: Pick<ConflictInput, "starts_on" | "ends_on">,
-): { weekday: Weekday; start_minute: number; end_minute: number } | null {
-  const [first] = expand(meeting, parseDate(term.starts_on), parseDate(term.ends_on)).occurrences;
-  const display = wallClock(DISPLAY_TIMEZONE);
-  if (!first || !display) return null;
-  const startWall = wallAt(display, first.start);
-  const day = startWall - (startWall % DAY);
-  return {
-    weekday: isoWeekday(day),
-    start_minute: (startWall - day) / MINUTE,
-    end_minute: (wallAt(display, first.end) - day) / MINUTE,
-  };
-}
-
-/** Checks a plan's meetings for overlaps on the term's dates. */
-export function detectConflicts(plan: ConflictInput): ConflictReport {
-  const firstDay = parseDate(plan.starts_on);
-  const lastDay = parseDate(plan.ends_on);
-
-  const unknown: UnknownCourse[] = [];
-  const invalid: InvalidMeeting[] = [];
-  const placed: Placed[] = [];
-
-  for (const course of plan.courses) {
-    if (course.meetings.length === 0) {
-      unknown.push({ plan_course_id: course.plan_course_id, course_id: course.course_id });
-      continue;
-    }
-    for (const meeting of course.meetings) {
-      const side = { meeting_id: meeting.id, plan_course_id: course.plan_course_id, course_id: course.course_id };
-      const result = expand(meeting, firstDay, lastDay);
-      if (result.reason) invalid.push({ ...side, reason: result.reason, dates: result.dates });
-      if (result.occurrences.length) placed.push({ side, occurrences: result.occurrences });
-    }
-  }
+/** Checks a plan's meetings, timed items and going events for overlaps. */
+export function detectConflicts(input: ConflictInput): ConflictReport {
+  const { placed, unknown, invalid } = placeAll(input);
 
   const conflicts: ScheduleConflict[] = [];
   for (let i = 0; i < placed.length; i += 1) {
@@ -273,7 +310,7 @@ export function detectConflicts(plan: ConflictInput): ConflictReport {
   conflicts.sort((a, b) => a.dates[0].localeCompare(b.dates[0]) || a.start_minute - b.start_minute);
 
   const status: ConflictStatus =
-    plan.courses.length === 0
+    placed.length + unknown.length + invalid.length === 0
       ? "empty"
       : conflicts.length
         ? "conflicts"
@@ -282,4 +319,39 @@ export function detectConflicts(plan: ConflictInput): ConflictReport {
           : "clear";
 
   return { status, conflicts, unknown, invalid };
+}
+
+/** One stretch of something on one Beirut day of the calendar. */
+export type CalendarSlot = {
+  side: ConflictSide;
+  /** Beirut date, YYYY-MM-DD. */
+  date: string;
+  /** Minutes after Beirut midnight; a stretch never crosses midnight. */
+  start_minute: number;
+  end_minute: number;
+};
+
+/**
+ * Where everything with a time falls in Beirut, day by day: what the
+ * calendar draws. Things running past midnight are split at it.
+ */
+export function calendarSlots(input: ConflictInput): CalendarSlot[] {
+  const display = wallClock(DISPLAY_TIMEZONE);
+  if (!display) return [];
+
+  const slots: CalendarSlot[] = [];
+  for (const { side, occurrences } of placeAll(input).placed) {
+    for (const occurrence of occurrences) {
+      const startWall = wallAt(display, occurrence.start);
+      const endWall = wallAt(display, occurrence.end);
+      for (let day = startWall - (startWall % DAY); day < endWall; day += DAY) {
+        const from = Math.max(startWall, day);
+        const to = Math.min(endWall, day + DAY);
+        if (to > from) {
+          slots.push({ side, date: isoDate(day), start_minute: (from - day) / MINUTE, end_minute: (to - day) / MINUTE });
+        }
+      }
+    }
+  }
+  return slots.sort((a, b) => a.date.localeCompare(b.date) || a.start_minute - b.start_minute || a.end_minute - b.end_minute);
 }
