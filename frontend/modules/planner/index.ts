@@ -78,3 +78,16 @@ export { NewPlanForm } from "./components/NewPlanForm";
 export { PlanList } from "./components/PlanList";
 export { PlannerNotice } from "./components/PlannerNotice";
 export { PlanView } from "./components/PlanView";
+
+export {
+  detectConflicts,
+  DISPLAY_TIMEZONE,
+  type ConflictInput,
+  type ConflictReport,
+  type ConflictSide,
+  type ConflictStatus,
+  type InvalidMeeting,
+  type InvalidReason,
+  type ScheduleConflict,
+  type UnknownCourse,
+} from "./conflicts";
