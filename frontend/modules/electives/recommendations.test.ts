@@ -25,4 +25,18 @@ describe("bounded recommendation service", () => {
     await expect(recommend({ ...preferences, student_id: "forged" }, catalogue)).rejects.toThrow();
     const provider = vi.fn(); expect((await recommend(preferences, { courses: [], truncated: false }, provider)).recommendations).toEqual([]); expect(provider).not.toHaveBeenCalled();
   });
+  it("keeps twenty results and authoritative registration guidance with partial AI output", async () => {
+    const courses = Array.from({ length: 25 }, (_, index) => ({ ...course, id: `eece-${index}`, code: `EECE ${400 + index}`, department: "Electrical and Computer Engineering" }));
+    const result = await recommend(preferences, { courses, truncated: false }, async () => ({ items: [{ course_id: "eece-0", rationale: "Explore robotics.", evidence_review_ids: [] }] }), { major: "Computer Science", majorStatus: "known" });
+    expect(result.recommendations).toHaveLength(20);
+    expect(result.catalogueCount).toBe(25);
+    expect(result.studentMajor).toBe("Computer Science");
+    expect(result.recommendations[0].registration.message).toContain("petition may be required");
+  });
+  it("accepts twenty grounded provider items", async () => {
+    const courses = Array.from({ length: 20 }, (_, index) => ({ ...course, id: `course-${index}`, code: `CMPS ${300 + index}` }));
+    const result = await recommend(preferences, { courses, truncated: false }, async () => ({ items: courses.map(row => ({ course_id: row.id, rationale: "Explore robotics.", evidence_review_ids: [] })) }));
+    expect(result.mode).toBe("provider");
+    expect(result.recommendations).toHaveLength(20);
+  });
 });

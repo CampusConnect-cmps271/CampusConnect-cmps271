@@ -4,7 +4,7 @@ async function login(page: Page, email = "electives-owner@mail.aub.edu") {
   await page.getByLabel("University email", { exact: true }).fill(email);
   await page.getByLabel("Password", { exact: true }).fill("test-verified-password");
   await page.getByRole("button", { name: "Log in", exact: true }).click();
-  await expect(page).toHaveURL(/\/home$/);
+  await expect(page).toHaveURL(/\/home$/, { timeout: 15_000 });
 }
 test("preferences keep invalid drafts, save, reload and remain private on mobile", async ({ page, browser }) => {
   await login(page); await page.setViewportSize({ width: 375, height: 812 });
@@ -37,9 +37,13 @@ test("recommendations work without AI configuration and show prerequisite uncert
   await expect(page.getByRole("status")).toHaveText("Preferences saved.");
   await page.getByRole("link", { name: "View elective recommendations →" }).click();
   await page.getByRole("button", { name: "Get recommendations" }).click();
-  await expect(page.getByRole("status")).toHaveText("8 recommendations found.");
+  await expect(page.getByRole("status")).toHaveText("20 recommendations found.");
   await expect(page.getByText("Showing catalogue-based recommendations.", { exact: false })).toBeVisible();
-  await expect(page.locator("article")).toHaveCount(8);
+  await expect(page.locator("article")).toHaveCount(20);
+  await expect(page.getByText("Searched 33 courses across all departments.")).toBeVisible();
+  const eece = page.locator("article").filter({ has: page.getByRole("link", { name: "EECE 463 · Computing and Robotics" }) });
+  await expect(eece).toContainText("Department approval check");
+  await expect(eece).toContainText("petition may be required");
   await expect(page.locator("article").first()).toContainText("Prerequisites: unknown");
   const first = page.locator("article").first();
   await first.getByRole("button", { name: "Explore review evidence" }).click();
@@ -54,7 +58,7 @@ test("recommendations work without AI configuration and show prerequisite uncert
   await page.route("**/api/electives/analysis", route => route.fulfill({ status: 503, json: { error: "unavailable" } }));
   await first.getByRole("button", { name: "Refresh review evidence" }).click();
   await expect(first.getByRole("alert")).toContainText("recommendations are still available");
-  await expect(page.locator("article")).toHaveCount(8);
+  await expect(page.locator("article")).toHaveCount(20);
   await page.route("**/api/electives/recommendations", route => route.fulfill({ status: 503, json: { error: "Recommendations are temporarily unavailable." } }));
   await page.getByRole("button", { name: "Get recommendations" }).click();
   await expect(page.locator("main").getByRole("alert")).toHaveText("Recommendations are temporarily unavailable.");
@@ -66,4 +70,19 @@ test("empty catalogue has a useful empty state", async ({ page }) => {
   await page.getByRole("button", { name: "Save preferences" }).click(); await expect(page.getByRole("status")).toHaveText("Preferences saved.");
   await page.goto("/electives/recommendations"); await page.getByRole("button", { name: "Get recommendations" }).click();
   await expect(page.getByRole("status")).toHaveText("0 recommendations found.");
+});
+test("students without a major still get all-department results and a Profile prompt", async ({ page }) => {
+  await login(page, "electives-no-major@mail.aub.edu");
+  await page.goto("/electives/preferences");
+  await page.getByLabel("Interests", { exact: true }).fill("computing");
+  await page.getByLabel("Academic goals", { exact: true }).fill("Learn programming");
+  await page.getByRole("button", { name: "Save preferences" }).click();
+  await expect(page.getByRole("status")).toHaveText("Preferences saved.");
+  await page.goto("/electives/recommendations");
+  await page.getByRole("button", { name: "Get recommendations" }).click();
+  await expect(page.getByRole("status")).toHaveText("20 recommendations found.");
+  await expect(page.getByText("Add your major in Profile", { exact: false })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open Profile" })).toHaveAttribute("href", "/profile");
+  await expect(page.getByRole("link", { name: "EECE 463 · Computing and Robotics" })).toBeVisible();
+  await expect(page.getByText("petition may be required", { exact: false })).toHaveCount(0);
 });

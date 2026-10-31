@@ -1,11 +1,13 @@
 import "server-only";
 import { getCurrentUser } from "@/modules/auth";
+import { getMyProfile } from "@/modules/profiles";
 import { log } from "@/modules/logging";
 import { preferencesSchema } from "./schema";
 import { validateCompletedCourses } from "./preferences";
 import { loadCandidates } from "./catalogue";
 import { configuredProvider, boundedJson } from "./provider";
 import { recommend } from "./recommendations";
+import type { StudentContext } from "./types";
 
 const headers = { "Cache-Control": "private, no-store" };
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers });
@@ -28,7 +30,18 @@ export async function recommendationsPOST(request: Request) {
   if (!parsed.success) return json({ error: "Check your elective preferences." }, 400);
   try {
     if ((await validateCompletedCourses(parsed.data)).length) return json({ error: "Use completed course codes from the catalogue." }, 400);
-    return json(await recommend(parsed.data, await loadCandidates(), configuredProvider()));
+    const context = async (): Promise<StudentContext> => {
+      try {
+        const profile = await getMyProfile();
+        const major = profile?.major?.trim() || null;
+        return { major, majorStatus: major ? "known" : "missing" };
+      } catch {
+        log.warn("electives.recommendations.major_unavailable", {}, { userId: user.id });
+        return { major: null, majorStatus: "unavailable" };
+      }
+    };
+    const [catalogue, student] = await Promise.all([loadCandidates(), context()]);
+    return json(await recommend(parsed.data, catalogue, configuredProvider(), student));
   } catch {
     log.error("electives.recommendations.failure", {}, { userId: user.id });
     return json({ error: "Recommendations are temporarily unavailable. Please try again." }, 503);

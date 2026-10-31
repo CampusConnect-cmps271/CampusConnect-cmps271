@@ -22,7 +22,7 @@ assume a vendor-specific API. No production gateway or credentials are bundled.
 Requests contain `{ operation, input, instructions }` with bearer authentication.
 Operations are `recommend`, `defender`, `prosecutor`, `judge`.
 
-- `recommend`: `input` contains bounded preferences and up to eight catalogue
+- `recommend`: `input` contains bounded preferences and up to twenty catalogue
   candidates. Return `{ "items": [{ "course_id": "supplied ID", "rationale":
   "explanation", "evidence_review_ids": [] }] }`. Identifiers must be unique,
   refer to the supplied candidates, and cannot override catalogue facts or
@@ -42,8 +42,19 @@ limits before enabling AI in production. Provider failures leave the catalogue
 baseline and source evidence usable. Tests inject deterministic providers;
 fixtures are never enabled as a production substitute.
 
-Catalogue reads are ordered, paginated, and capped at 5,000 records with a
-visible truncation notice. Reviews use the latest 24 published records, with
+Catalogue reads are ordered and paginated through every accessible course,
+across all departments, without a 5,000-record cutoff. The top twenty results
+are shown (or fewer when fewer candidates exist). Rating reads overlap up to
+four requests at a time; each ID filter contains at most 100 courses.
+The authenticated profile supplies the student's major. Computer Science
+students see an approval/petition check on EECE courses, and an elective-credit
+check on other departments. These notices are advisory, not a blanket claim
+that every cross-department course requires a petition. Explicit catalogue
+exclusions for Computer Science are preserved and demoted in ranking. Missing
+or unavailable profile data is disclosed rather than defaulting a student to CS.
+Provider output cannot override these registration checks, and partial provider
+output is filled from the catalogue baseline to retain up to twenty results.
+Reviews use the latest 24 published records, with
 up to 1,500 characters per excerpt and a full sample-size count. Averages with
 fewer than three reviews are not used for workload fit; unavailable rating data
 keeps counts and workload fit unknown. Prerequisite prose and

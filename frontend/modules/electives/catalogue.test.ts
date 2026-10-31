@@ -49,12 +49,14 @@ it.each(["error", "throw"] as const)("keeps unavailable rating data unknown on %
   expect(result.courses).toHaveLength(2);
   expect(result.courses[0]).toMatchObject({ review_count: null, average_workload: null, average_overall: null });
 });
-it("keeps the 5,000-course cap and detects overflow", async () => {
-  rows = Array.from({ length: 5001 }, (_, index) => course(index));
+it("searches beyond 5,000 courses and includes departments late in the catalogue", async () => {
+  rows = Array.from({ length: 6001 }, (_, index) => course(index));
+  rows[6000] = { ...course(6000), code: "EECE 699", department: "Electrical and Computer Engineering" };
   const result = await loadCandidates();
-  expect(result.courses).toHaveLength(5000);
-  expect(result.truncated).toBe(true);
-  expect(batches.flat()).not.toContain("course-5000");
+  expect(result.courses).toHaveLength(6001);
+  expect(result.truncated).toBe(false);
+  expect(result.courses[6000].code).toBe("EECE 699");
+  expect(batches.flat()).toContain("course-6000");
 });
 it("requires authentication before reading catalogue data", async () => {
   mocks.user.mockRejectedValue(new Error("redirect"));

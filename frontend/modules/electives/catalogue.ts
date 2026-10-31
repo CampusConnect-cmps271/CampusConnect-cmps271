@@ -7,13 +7,11 @@ export async function loadCandidates(): Promise<{ courses: Candidate[]; truncate
   await requireUser();
   const client = await createClient();
   const courses: Candidate[] = [];
-  const PAGE = 1000, CAP = 5000;
-  let truncated = false;
-  for (let start = 0; start <= CAP; start += PAGE) {
+  const PAGE = 1000;
+  for (let start = 0; ; start += PAGE) {
     const { data, error } = await client.from("courses").select("id,code,name,description,department,prerequisites,credits")
       .order("code").range(start, start + PAGE - 1);
     if (error) throw new Error("The course catalogue is temporarily unavailable.");
-    if (start === CAP) { truncated = Boolean(data?.length); break; }
     courses.push(...(data ?? []).map(row => ({ ...row, review_count: null, average_workload: null, average_overall: null })) as Candidate[]);
     if ((data ?? []).length < PAGE) break;
   }
@@ -36,5 +34,5 @@ export async function loadCandidates(): Promise<{ courses: Candidate[]; truncate
       }
     }));
   }
-  return { courses, truncated };
+  return { courses, truncated: false };
 }

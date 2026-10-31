@@ -1,5 +1,8 @@
 import type { ElectivePreferences } from "./schema";
 import type { Candidate, PrerequisiteStatus, Recommendation } from "./types";
+import { registrationGuidance } from "./registration";
+
+export const RECOMMENDATION_LIMIT = 20;
 
 /** Only decide simple explicit course requirements. Prose and AND/OR combinations remain unknown. */
 export function prerequisiteStatus(prose: string, completed: string[]): PrerequisiteStatus {
@@ -11,7 +14,7 @@ export function prerequisiteStatus(prose: string, completed: string[]): Prerequi
   return codes.every(c => completed.includes(c.replace(/\s+/g, " "))) ? "satisfied" : "unmet";
 }
 const tokens = (text: string) => [...new Set(text.toLocaleLowerCase().match(/[\p{L}\p{N}]{2,}/gu) ?? [])];
-export function rankCandidates(courses: Candidate[], preferences: ElectivePreferences, limit = 8): Recommendation[] {
+export function rankCandidates(courses: Candidate[], preferences: ElectivePreferences, limit = RECOMMENDATION_LIMIT, major: string | null = null): Recommendation[] {
   const interests = tokens(preferences.interests.join(" ")).slice(0, 40);
   const goals = tokens(preferences.academic_goals).slice(0, 40);
   const workload = { light: 1.5, moderate: 3, heavy: 4.5 }[preferences.preferred_workload];
@@ -20,13 +23,14 @@ export function rankCandidates(courses: Candidate[], preferences: ElectivePrefer
     const matches = interests.filter(word => corpus.has(word));
     const goalMatches = goals.filter(word => corpus.has(word));
     const status = prerequisiteStatus(course.prerequisites, preferences.completed_course_codes);
+    const registration = registrationGuidance(course, major);
     const hasRatings = course.review_count !== null && course.review_count >= 3;
     const workloadFit = hasRatings && course.average_workload !== null ? 5 - Math.abs(course.average_workload - workload) : 0;
-    const score = (status === "unmet" ? -1000 : 0) + matches.length * 5 + goalMatches.length + workloadFit + (hasRatings ? (course.average_overall ?? 0) / 5 : 0);
+    const score = (status === "unmet" ? -1000 : 0) + (registration.status === "restricted" ? -1000 : 0) + matches.length * 5 + goalMatches.length + workloadFit + (hasRatings ? (course.average_overall ?? 0) / 5 : 0);
     const rationale = [matches.length ? `Catalogue matches: ${matches.join(", ")}.` : "A catalogue option to explore; no direct interest match was found.",
       hasRatings ? `Workload fit uses ${course.review_count} published reviews.` : course.review_count === null ? "Review ratings are unavailable; workload fit is unknown." : "Too few reviews to assess workload reliably.",
       status === "unknown" ? "Prerequisites need manual verification." : status === "unmet" ? "Your self-reported courses do not meet the listed requirements." : "Listed requirements match your self-reported courses."].join(" ");
-    return { score, result: { course_id: course.id, code: course.code, name: course.name, rationale, evidence_review_ids: [],
+    return { score, result: { course_id: course.id, code: course.code, name: course.name, department: course.department, rationale, evidence_review_ids: [], registration,
       prerequisite_status: status, prerequisites: course.prerequisites, review_count: course.review_count } satisfies Recommendation };
   }).sort((a, b) => b.score - a.score || a.result.code.localeCompare(b.result.code)).slice(0, limit).map(row => row.result);
 }

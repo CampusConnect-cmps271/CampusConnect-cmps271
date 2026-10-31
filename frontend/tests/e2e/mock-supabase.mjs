@@ -63,6 +63,10 @@ const profiles = new Map([[otherStudentId, {
   id: otherStudentId, full_name: "Other Student", major: "Biology", graduation_year: 2026,
   bio: "Pre-med and coffee enthusiast.", interests: ["Biology", "Running"], pinned_post_id: pinnedPost.id,
 }]]);
+profiles.set(electiveAccounts["electives-ranking@mail.aub.edu"], {
+  id: electiveAccounts["electives-ranking@mail.aub.edu"], full_name: "Elective Ranking Student",
+  major: "Computer Science", graduation_year: null, bio: null, interests: [], pinned_post_id: null,
+});
 for (const [id, fullName] of [
   ["00000000-0000-4000-8000-000000000006", "Maya Saleh"],
   ["00000000-0000-4000-8000-000000000007", "Omar Fares"],

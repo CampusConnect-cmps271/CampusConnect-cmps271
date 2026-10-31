@@ -23,4 +23,19 @@ describe("catalogue ranking", () => {
     const result = rankCandidates([{ ...base, name: "Exploration", description: Array.from({ length: 80 }, (_, i) => `topic${i}`).join(" ") + " robotics", review_count: null }], preferencesSchema.parse(preferences));
     expect(result[0].review_count).toBeNull(); expect(result[0].rationale).toContain("unavailable"); expect(result[0].rationale).toContain("robotics");
   });
+  it("returns twenty results across departments and retains matching EECE courses for CS students", () => {
+    const courses = Array.from({ length: 30 }, (_, index) => ({ ...base, id: `cmps-${index}`, code: `CMPS ${300 + index}`, name: "General computing", description: "Computing topics" }));
+    const eece = { ...base, id: "eece", code: "EECE 463", department: "Electrical and Computer Engineering" };
+    const result = rankCandidates([...courses, eece], preferencesSchema.parse(preferences), 20, "Computer Science");
+    expect(result).toHaveLength(20);
+    expect(result[0].code).toBe("EECE 463");
+    expect(result[0].registration.status).toBe("review_required");
+    expect(result[0].registration.message).toContain("petition may be required");
+  });
+  it("demotes explicit major exclusions without changing source restrictions", () => {
+    const excluded = { ...base, id: "excluded", code: "CMPS 260", description: "Robotics. This course is not open for computer science majors." };
+    const result = rankCandidates([excluded, base], preferencesSchema.parse(preferences), 20, "Computer Science");
+    expect(result[0].course_id).toBe(base.id);
+    expect(result[1].registration.status).toBe("restricted");
+  });
 });

@@ -30,10 +30,18 @@ export function RecommendationsView({ preferences }: { preferences: ElectivePref
     {result && <div aria-live="polite">
       <p role="status">{result.recommendations.length} recommendations found.</p>
       {result.mode === "baseline" && <p className={styles.muted}>{result.providerStatus === "failed" ? "AI assistance is temporarily unavailable." : "AI assistance is not configured."} Showing catalogue-based recommendations.</p>}
-      {result.truncated && <p>Only the first 5,000 catalogue records were considered. Browse the catalogue for more options.</p>}
+      <p className={styles.muted}>Searched {result.catalogueCount.toLocaleString()} courses across all departments.</p>
+      {result.studentMajor ? <p>Major from your profile: <strong>{result.studentMajor}</strong>. Department checks are advisory.</p>
+        : <p>{result.majorStatus === "unavailable" ? "Your major could not be loaded. Major-specific restrictions have not been checked." : "Add your major in Profile for major-specific department checks."} <Link href="/profile">Open Profile</Link></p>}
       {!result.recommendations.length && <p>No catalogue candidates remain to suggest. Try updating your preferences or browse the course catalogue.</p>}
       {result.recommendations.map(course => <article key={course.course_id} className={styles.card}>
         <h2><Link href={`/courses/${encodeURIComponent(course.code.replace(/ /g, "-"))}`}>{course.code} · {course.name}</Link></h2>
+        <p className={styles.muted}>Department: {course.department}</p>
+        {course.registration.status !== "unverified" && <aside aria-label={`Registration check for ${course.code}`} className={styles.registration}>
+          <strong>{course.registration.status === "restricted" ? "Catalogue restriction" : "Department approval check"}</strong>
+          <p>{course.registration.message}</p>
+          {course.registration.evidence && <blockquote>Catalogue: “{course.registration.evidence}”</blockquote>}
+        </aside>}
         <p>{course.rationale}</p><p><strong>Prerequisites: {course.prerequisite_status}</strong></p>
         <p>{course.prerequisites || "No prerequisite details supplied by the catalogue."}</p>
         <p>{course.review_count === null ? "Review count unavailable" : `${course.review_count} published reviews${course.review_count < 3 ? " · limited evidence" : ""}`}</p>
