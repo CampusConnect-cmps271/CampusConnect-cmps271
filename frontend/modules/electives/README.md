@@ -19,6 +19,28 @@ server-only HTTPS JSON adapter, configured with `ELECTIVES_PROVIDER_URL` and
 trusted provider gateway that implements the contract below; the app does not
 assume a vendor-specific API. No production gateway or credentials are bundled.
 
+### Connecting a provider
+
+1. Identify the provider, base URL and model, and confirm the request/response
+   contract. An OpenAI-compatible chat/completions endpoint does not implement
+   the gateway contract below by itself; it needs a provider-specific adapter.
+2. For an existing compatible gateway, set `ELECTIVES_PROVIDER_URL` to its HTTPS
+   endpoint and `ELECTIVES_PROVIDER_TOKEN` to its bearer token in the server's
+   local environment or hosting secret settings. Leave both blank to keep the
+   baseline enabled without external AI calls. Never commit the token.
+3. Restart the development server, or redeploy after changing hosting settings.
+4. With an authenticated student, request recommendations and check that the
+   response reports `mode: "provider"` and `providerStatus: "available"`.
+   Baseline results alone do not establish that the connection worked.
+5. For a course with at least three published reviews, request analysis and
+   confirm `analysis.status: "available"`, all three stages, and source links.
+   Record provider/model, environment and the outcome without copying keys or
+   private student data into reports.
+
+Use synthetic preferences and review excerpts for the initial provider contract
+check. A live student request sends the documented bounded input to the chosen
+provider; enable it only with the intended provider and deployment settings.
+
 Requests contain `{ operation, input, instructions }` with bearer authentication.
 Operations are `recommend`, `defender`, `prosecutor`, `judge`.
 
@@ -61,15 +83,13 @@ keeps counts and workload fit unknown. Prerequisite prose and
 ambiguous AND/OR rules remain visible and marked unknown. Self-reported
 completion is not verified eligibility.
 
-## Branch sequence
+## Development workflow
 
-Each subtask has its own dependent branch and commit: `scrum-212` through
-`scrum-220`, under `mohamad/`. Review/merge in that order, or use the three story
-branches `mohamad/scrum-48-elective-preferences`,
-`mohamad/scrum-49-ai-recommendations`, `mohamad/scrum-50-review-analysis`.
-The story branches collect their three subtasks; their scope is measured
-against the previous story branch. All start from the latest main pulled for
-this work. Do not merge a later branch while omitting its prerequisites.
+Start follow-up work from current `main` and use a separate branch for each
+Jira task. The questionnaire, recommendation and evidence implementations are
+already integrated; the historical stacked `scrum-212` through `scrum-220`
+branches are not additional changes that must be merged again. Provider
+configuration and live integration verification remain separate release work.
 
 ## Validation
 
