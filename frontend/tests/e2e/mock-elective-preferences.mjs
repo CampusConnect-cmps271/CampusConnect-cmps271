@@ -6,6 +6,7 @@ export const electivePreferenceAccounts = {
   "electives-other@mail.aub.edu": "00000000-0000-4000-8000-000000000302",
   "electives-native@mail.aub.edu": "00000000-0000-4000-8000-000000000303",
   "electives-failure@mail.aub.edu": "00000000-0000-4000-8000-000000000304",
+  "electives-validation@mail.aub.edu": "00000000-0000-4000-8000-000000000306",
 };
 const preferences = new Map();
 
