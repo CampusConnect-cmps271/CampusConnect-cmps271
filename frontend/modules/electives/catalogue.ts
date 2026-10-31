@@ -7,7 +7,7 @@ export async function loadCandidates(): Promise<{ courses: Candidate[]; truncate
   await requireUser();
   const client = await createClient();
   const courses: Candidate[] = [];
-  const PAGE = 200, CAP = 5000;
+  const PAGE = 1000, CAP = 5000;
   let truncated = false;
   for (let start = 0; start <= CAP; start += PAGE) {
     const { data, error } = await client.from("courses").select("id,code,name,description,department,prerequisites,credits")
@@ -17,15 +17,24 @@ export async function loadCandidates(): Promise<{ courses: Candidate[]; truncate
     courses.push(...(data ?? []).map(row => ({ ...row, review_count: null, average_workload: null, average_overall: null })) as Candidate[]);
     if ((data ?? []).length < PAGE) break;
   }
-  // Failed rating reads leave an honest no-ratings baseline; never fabricate averages.
-  for (let start = 0; start < courses.length; start += 100) {
-    const batch = courses.slice(start, start + 100);
-    const { data, error } = await client.from("course_rating_averages").select("course_id,review_count,average_workload,average_overall").in("course_id", batch.map(c => c.id));
-    if (error) continue;
-    for (const course of batch) {
-      const rating = data?.find(row => row.course_id === course.id);
-      if (rating) Object.assign(course, { review_count: Number(rating.review_count), average_workload: rating.average_workload === null ? null : Number(rating.average_workload), average_overall: rating.average_overall === null ? null : Number(rating.average_overall) });
-    }
+  // Keep ID filters small, but overlap up to four reads instead of serializing
+  // one remote round trip per 100 courses. Failed reads retain unknown ratings.
+  for (let start = 0; start < courses.length; start += 400) {
+    await Promise.all(Array.from({ length: 4 }, async (_, index) => {
+      const batch = courses.slice(start + index * 100, start + (index + 1) * 100);
+      if (!batch.length) return;
+      try {
+        const { data, error } = await client.from("course_rating_averages").select("course_id,review_count,average_workload,average_overall").in("course_id", batch.map(c => c.id));
+        if (error) return;
+        const ratings = new Map(data?.map(row => [row.course_id, row]));
+        for (const course of batch) {
+          const rating = ratings.get(course.id);
+          if (rating) Object.assign(course, { review_count: Number(rating.review_count), average_workload: rating.average_workload === null ? null : Number(rating.average_workload), average_overall: rating.average_overall === null ? null : Number(rating.average_overall) });
+        }
+      } catch {
+        // Optional ratings must not prevent catalogue-based recommendations.
+      }
+    }));
   }
   return { courses, truncated };
 }
