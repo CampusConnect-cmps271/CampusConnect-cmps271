@@ -13,21 +13,51 @@ catalogue imports or other owners' Sprint 3 features are required.
 
 ## Provider configuration
 
-The baseline works without any AI configuration. Optional AI calls use a
-server-only HTTPS JSON adapter, configured with `ELECTIVES_PROVIDER_URL` and
-`ELECTIVES_PROVIDER_TOKEN`. Never prefix these with `NEXT_PUBLIC_`. Configure a
-trusted provider gateway that implements the contract below; the app does not
-assume a vendor-specific API. No production gateway or credentials are bundled.
+The baseline works without any AI configuration. All credentials below stay
+server-side and must never use the `NEXT_PUBLIC_` prefix. The provider is
+selected with `ELECTIVES_PROVIDER`: `gemini` or `gateway`. An unset selector
+preserves the existing gateway configuration; unknown selections disable AI.
+Missing or invalid configuration leaves the catalogue baseline usable.
 
-### Connecting a provider
+### Google Gemini
 
-1. Identify the provider, base URL and model, and confirm the request/response
-   contract. An OpenAI-compatible chat/completions endpoint does not implement
-   the gateway contract below by itself; it needs a provider-specific adapter.
-2. For an existing compatible gateway, set `ELECTIVES_PROVIDER_URL` to its HTTPS
-   endpoint and `ELECTIVES_PROVIDER_TOKEN` to its bearer token in the server's
-   local environment or hosting secret settings. Leave both blank to keep the
-   baseline enabled without external AI calls. Never commit the token.
+Create a key in [Google AI Studio](https://aistudio.google.com/api-keys), then
+add these values to the frontend server's ignored `.env.local` file (or hosting
+secret settings):
+
+```dotenv
+ELECTIVES_PROVIDER=gemini
+GEMINI_API_KEY=your-key-here
+GEMINI_MODEL=gemini-3.5-flash-lite
+```
+
+Restart the development server or redeploy after changing the environment.
+The model can be changed to a supported text model available to your Google
+project. The default follows Google's current [model list](https://ai.google.dev/gemini-api/docs/models);
+model availability and quota must be verified with your own key.
+
+The app uses native server-side `fetch` against Google's fixed
+`generativelanguage.googleapis.com` HTTPS host. The key is sent only in the
+`x-goog-api-key` header. No SDK or third-party gateway is required. Requests use
+Google's [structured JSON output format](https://ai.google.dev/gemini-api/docs/generate-content/structured-output)
+with the same schemas used to validate the returned recommendations and
+analysis. Only a single complete `STOP` candidate is accepted; blocked,
+truncated, malformed, oversized or untraceable responses fall back safely.
+Each call has a four-second timeout and a 4,096-output-token cap, with no retries.
+
+### Existing JSON gateway
+
+Set `ELECTIVES_PROVIDER=gateway`, `ELECTIVES_PROVIDER_URL` and
+`ELECTIVES_PROVIDER_TOKEN` for a trusted HTTPS gateway implementing the contract
+below. No production gateway or credentials are bundled. Gemini keys are never
+used as gateway bearer tokens.
+
+### Verifying a live connection
+
+1. Set up Gemini or a compatible gateway as described above. Keep credentials
+   in server-only local environment or hosting secret settings.
+2. Confirm model access and quota in the selected provider's project. For a
+   gateway, confirm its request and response contract before using real data.
 3. Restart the development server, or redeploy after changing hosting settings.
 4. With an authenticated student, request recommendations and check that the
    response reports `mode: "provider"` and `providerStatus: "available"`.
@@ -41,7 +71,7 @@ Use synthetic preferences and review excerpts for the initial provider contract
 check. A live student request sends the documented bounded input to the chosen
 provider; enable it only with the intended provider and deployment settings.
 
-Requests contain `{ operation, input, instructions }` with bearer authentication.
+Gateway requests contain `{ operation, input, instructions }` with bearer authentication.
 Operations are `recommend`, `defender`, `prosecutor`, `judge`.
 
 - `recommend`: `input` contains bounded preferences and up to twenty catalogue
@@ -59,7 +89,7 @@ Operations are `recommend`, `defender`, `prosecutor`, `judge`.
 
 Calls time out after four seconds, prohibit redirects, and accept at most 32 KB
 of JSON output. There is at most one recommendation call or three sequential
-analysis calls per request. Configure gateway authentication, quotas and rate
+analysis calls per request. Configure provider quotas and deployment rate
 limits before enabling AI in production. Provider failures leave the catalogue
 baseline and source evidence usable. Tests inject deterministic providers;
 fixtures are never enabled as a production substitute.
