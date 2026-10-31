@@ -5,10 +5,14 @@ import { preferenceValues, type ElectivePreferences, type PreferenceValues } fro
 import styles from "./electives.module.css";
 
 export function PreferenceForm({ initial }: { initial: ElectivePreferences | null }) {
-  const [values, setValues] = useState(() => preferenceValues(initial));
-  const [state, action, pending] = useActionState(updatePreferences, { status: "idle" });
+  const [state, action, pending] = useActionState(updatePreferences, { status: "idle" }, "/electives/preferences");
+  // A native form submission can render the returned draft before hydration.
+  const [values, setValues] = useState(() => state.values ?? preferenceValues(initial));
   const field = (key: keyof PreferenceValues) => ({ id: key, name: key, value: values[key],
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setValues({ ...values, [key]: e.target.value }),
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      const value = e.target.value;
+      setValues(previous => ({ ...previous, [key]: value }));
+    },
     "aria-invalid": Boolean(state.errors?.[key]), "aria-describedby": `${key}-hint ${key}-error`, disabled: pending });
   const errors = (key: keyof PreferenceValues) => <p id={`${key}-error`} className={styles.error}>{state.errors?.[key]?.join(" ")}</p>;
   return <form action={action} className={styles.form}>

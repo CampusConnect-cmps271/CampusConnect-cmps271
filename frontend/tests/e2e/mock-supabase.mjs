@@ -9,6 +9,8 @@ import { handleRatings } from "./mock-ratings.mjs";
 import { handlePostSearch, postSearchFixtures } from "./mock-post-search.mjs";
 import { clubTestAccounts, handleClubs } from "./mock-clubs.mjs";
 import { electiveAccounts, handleElectives } from "./mock-electives.mjs";
+import { handlePlanner, plannerTestAccounts } from "./mock-planner.mjs";
+import { electivePreferenceAccounts, handleElectivePreferences } from "./mock-elective-preferences.mjs";
 
 const user = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -50,6 +52,8 @@ const profileAccounts = {
   "skillswap-dana@mail.aub.edu": "00000000-0000-4000-8000-00000000000d",
   "clubs-representative@mail.aub.edu": clubTestAccounts.REP_ID,
   "clubs-admin@mail.aub.edu": clubTestAccounts.ADMIN_ID,
+  ...plannerTestAccounts,
+  ...electivePreferenceAccounts,
 };
 // Another student whose public profile the tests visit.
 const otherStudentId = "00000000-0000-4000-8000-000000000004";
@@ -63,8 +67,8 @@ const profiles = new Map([[otherStudentId, {
   id: otherStudentId, full_name: "Other Student", major: "Biology", graduation_year: 2026,
   bio: "Pre-med and coffee enthusiast.", interests: ["Biology", "Running"], pinned_post_id: pinnedPost.id,
 }]]);
-profiles.set(electiveAccounts["electives-ranking@mail.aub.edu"], {
-  id: electiveAccounts["electives-ranking@mail.aub.edu"], full_name: "Elective Ranking Student",
+profiles.set(electiveAccounts["recommendations-ranking@mail.aub.edu"], {
+  id: electiveAccounts["recommendations-ranking@mail.aub.edu"], full_name: "Elective Ranking Student",
   major: "Computer Science", graduation_year: null, bio: null, interests: [], pinned_post_id: null,
 });
 for (const [id, fullName] of [
@@ -259,6 +263,7 @@ createServer(async (request, response) => {
   }
 
   // Sprint 2 tables: posts, comments, upvotes and saved posts.
+  if (await handleElectivePreferences(request, response, url, bearerClaims(request))) return;
   if (await handleElectives(request, response, url, bearerClaims(request))) return;
   if (handleCourses(request, response, url, bearerEmail(request))) return;
   if (handleRatings(request, response, url, bearerClaims(request))) return;
@@ -274,6 +279,7 @@ createServer(async (request, response) => {
   // SP2-53: SkillSwap posts and their details.
   if (await handleSkillSwap(request, response, url, { userId: caller })) return;
   if (await handleClubs(request, response, url, bearerClaims(request))) return;
+  if (await handlePlanner(request, response, url, bearerClaims(request))) return;
   if (path === "/rest/v1/user_roles") {
     roleLookups++;
     const email = bearerEmail(request);

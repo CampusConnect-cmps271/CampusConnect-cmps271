@@ -1,8 +1,9 @@
 /**
  * Creates (or resets) the demo accounts for the sprint review (SCRUM-182):
  * a student, a moderator and an administrator, with filled-in profiles,
- * their roles, a handful of sample posts across the categories, and two
- * SkillSwap posts that match each other.
+ * their roles, a handful of sample posts across the categories, two
+ * SkillSwap posts that match each other, and a Spring 2027 semester plan for
+ * the student with demo meeting times (SCRUM-67).
  *
  * Usage:
  *   npm run seed:demo                local Supabase, from .env.local
@@ -18,6 +19,8 @@
  * Both modes read DEMO_STUDENT_EMAIL / DEMO_STUDENT_PASSWORD,
  * DEMO_MODERATOR_EMAIL / DEMO_MODERATOR_PASSWORD and
  * DEMO_ADMIN_EMAIL / DEMO_ADMIN_PASSWORD. Passwords are never printed.
+ * The semester plan is written as the signed-in student, with
+ * NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (or HOSTED_SUPABASE_PUBLISHABLE_KEY).
  *
  * Safe to re-run: accounts are reset rather than duplicated, roles and
  * profiles are overwritten, and sample posts are matched by author and title.
@@ -443,6 +446,127 @@ if (await tableExists("post_skillswap")) {
   summary.push(`skillswap ${added} added, ${SKILLSWAP_POSTS.length - added} already there`);
 } else {
   summary.push("skipped   SCRUM-61 SkillSwap (post_skillswap table missing)");
+}
+
+// SCRUM-67: a Spring 2027 plan for the student, to show the planner and its
+// conflict check. These meeting times are demo entries typed for the
+// walkthrough, NOT AUB sections: CMPS 202 and MATH 201 overlap on Tuesday
+// 11:00-11:15, and ENGL 203 is left without times. Courses missing from the
+// catalogue are skipped. The plan is written as the signed-in student, since
+// the planner tables are private under RLS and grant the service role
+// nothing. Re-running adds nothing new.
+const PLANNER_DEMO = {
+  // The official Spring 2026-27 dates, as in modules/planner/terms.ts.
+  term: "Spring 2027",
+  starts_on: "2027-01-13",
+  ends_on: "2027-04-27",
+  courses: [
+    { code: "CMPS 202", meetings: [[2, "10:00", "11:15"], [4, "10:00", "11:15"]] },
+    { code: "MATH 201", meetings: [[2, "11:00", "12:15"], [4, "11:30", "12:45"]] },
+    { code: "CMPS 211", meetings: [[1, "14:00", "15:15"], [3, "14:00", "15:15"]] },
+    { code: "ENGL 203", meetings: [] },
+  ],
+};
+
+{
+  const minutesOf = (time) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
+  const student = ACCOUNTS.find((account) => account.key === "student");
+  const publishableKey = (
+    HOSTED ? process.env.HOSTED_SUPABASE_PUBLISHABLE_KEY : process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  )?.trim();
+  const asStudent = createClient(url, publishableKey || secretKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { error: signInError } = await asStudent.auth.signInWithPassword({
+    email: student.email,
+    password: student.password,
+  });
+  if (signInError) fail(`could not sign in as the demo student: ${signInError.message}`);
+
+  const { error: probeError } = await asStudent.from("semester_plans").select("id").limit(0);
+  if (probeError?.code === "PGRST205" || probeError?.code === "42P01") {
+    summary.push("skipped   SCRUM-67 planner (semester_plans table missing)");
+  } else {
+    if (probeError) {
+      fail(
+        `could not read semester_plans as the demo student: ${probeError.message}` +
+          (probeError.code === "42501" ? " (set the publishable key so the plan is written as the student)" : ""),
+      );
+    }
+
+    const { data: found, error: lookupError } = await supabase
+      .from("courses")
+      .select("id, code")
+      .in("code", PLANNER_DEMO.courses.map((course) => course.code));
+    if (lookupError) fail(`could not look up the demo plan's courses: ${lookupError.message}`);
+    const courseIds = new Map(found.map((row) => [row.code, row.id]));
+    const present = PLANNER_DEMO.courses.filter((course) => courseIds.has(course.code));
+
+    if (present.length < 2) {
+      summary.push(
+        `skipped   SCRUM-67 planner (${present.length} of ${PLANNER_DEMO.courses.length} demo courses in the catalogue; import it first)`,
+      );
+    } else {
+      let { data: plan, error: planError } = await asStudent
+        .from("semester_plans")
+        .select("id")
+        .eq("term", PLANNER_DEMO.term)
+        .maybeSingle();
+      if (planError) fail(`could not look up the demo plan: ${planError.message}`);
+      if (!plan) {
+        ({ data: plan, error: planError } = await asStudent
+          .from("semester_plans")
+          .insert({ term: PLANNER_DEMO.term, starts_on: PLANNER_DEMO.starts_on, ends_on: PLANNER_DEMO.ends_on })
+          .select("id")
+          .single());
+        if (planError) fail(`could not create the demo plan: ${planError.message}`);
+      }
+
+      const { data: existing, error: listError } = await asStudent
+        .from("plan_courses")
+        .select("id, course_id, plan_meetings(weekday, start_minute, end_minute)")
+        .eq("plan_id", plan.id);
+      if (listError) fail(`could not read the demo plan: ${listError.message}`);
+
+      let coursesAdded = 0;
+      let meetingsAdded = 0;
+      for (const course of present) {
+        let planned = existing.find((row) => row.course_id === courseIds.get(course.code));
+        if (!planned) {
+          const { data, error } = await asStudent
+            .from("plan_courses")
+            .insert({ plan_id: plan.id, course_id: courseIds.get(course.code) })
+            .select("id")
+            .single();
+          if (error) fail(`could not add ${course.code} to the demo plan: ${error.message}`);
+          planned = { id: data.id, plan_meetings: [] };
+          coursesAdded += 1;
+        }
+
+        for (const [weekday, start, end] of course.meetings) {
+          const [startMinute, endMinute] = [minutesOf(start), minutesOf(end)];
+          const known = planned.plan_meetings.some(
+            (meeting) => meeting.weekday === weekday && meeting.start_minute === startMinute && meeting.end_minute === endMinute,
+          );
+          if (known) continue;
+          const { error } = await asStudent.from("plan_meetings").insert({
+            plan_course_id: planned.id,
+            weekday,
+            start_minute: startMinute,
+            end_minute: endMinute,
+            timezone: "Asia/Beirut",
+          });
+          if (error) fail(`could not add a demo meeting for ${course.code}: ${error.message}`);
+          meetingsAdded += 1;
+        }
+      }
+      summary.push(
+        `planner   ${PLANNER_DEMO.term}: ${coursesAdded} courses and ${meetingsAdded} demo meetings added ` +
+          `(${present.length} of ${PLANNER_DEMO.courses.length} courses in the catalogue)`,
+      );
+    }
+  }
+  await asStudent.auth.signOut();
 }
 
 // Later stories add their demo data here, each skipped while its table is
