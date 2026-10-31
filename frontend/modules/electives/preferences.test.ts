@@ -58,3 +58,9 @@ it("hides read, catalogue and write failure details", async () => {
   mocks.upsert.mockResolvedValue({ error });
   await expect(saveMyPreferences(preferences)).rejects.toMatchObject({ message: expect.not.stringContaining("private") });
 });
+it("saves Unicode preferences without a catalogue lookup when no courses are completed", async () => {
+  const input = { ...preferences, completed_course_codes: [] };
+  await saveMyPreferences(input);
+  expect(mocks.codes).not.toHaveBeenCalled();
+  expect(mocks.upsert).toHaveBeenCalledWith({ ...input, student_id: "owner" }, { onConflict: "student_id" });
+});

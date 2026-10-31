@@ -8,6 +8,7 @@ import { handleReviews } from "./mock-reviews.mjs";
 import { handleRatings } from "./mock-ratings.mjs";
 import { handlePostSearch, postSearchFixtures } from "./mock-post-search.mjs";
 import { clubTestAccounts, handleClubs } from "./mock-clubs.mjs";
+import { electiveAccounts, handleElectives } from "./mock-electives.mjs";
 import { handlePlanner, plannerTestAccounts } from "./mock-planner.mjs";
 import { electivePreferenceAccounts, handleElectivePreferences } from "./mock-elective-preferences.mjs";
 
@@ -21,6 +22,7 @@ const user = {
 // SP2-60: accounts of their own for the profile tests, so profile edits never
 // leak into the login and verification fixtures that share student@'s id.
 const profileAccounts = {
+  ...electiveAccounts,
   "profile-editor@mail.aub.edu": "00000000-0000-4000-8000-000000000003",
   "profile-viewer@mail.aub.edu": "00000000-0000-4000-8000-000000000005",
   // SP2-36..39: three students for the messaging tests.
@@ -65,6 +67,10 @@ const profiles = new Map([[otherStudentId, {
   id: otherStudentId, full_name: "Other Student", major: "Biology", graduation_year: 2026,
   bio: "Pre-med and coffee enthusiast.", interests: ["Biology", "Running"], pinned_post_id: pinnedPost.id,
 }]]);
+profiles.set(electiveAccounts["recommendations-ranking@mail.aub.edu"], {
+  id: electiveAccounts["recommendations-ranking@mail.aub.edu"], full_name: "Elective Ranking Student",
+  major: "Computer Science", graduation_year: null, bio: null, interests: [], pinned_post_id: null,
+});
 for (const [id, fullName] of [
   ["00000000-0000-4000-8000-000000000006", "Maya Saleh"],
   ["00000000-0000-4000-8000-000000000007", "Omar Fares"],
@@ -258,6 +264,7 @@ createServer(async (request, response) => {
 
   // Sprint 2 tables: posts, comments, upvotes and saved posts.
   if (await handleElectivePreferences(request, response, url, bearerClaims(request))) return;
+  if (await handleElectives(request, response, url, bearerClaims(request))) return;
   if (handleCourses(request, response, url, bearerEmail(request))) return;
   if (handleRatings(request, response, url, bearerClaims(request))) return;
   if (await handleReviews(request, response, url, bearerClaims(request))) return;

@@ -13,3 +13,5 @@
 .card { padding: 1.5rem; margin: 1rem 0; border: 1px solid var(--border); border-radius: .75rem; background: white; overflow-wrap: anywhere; }
 .muted { color: var(--ink-soft); }
 .evidence { padding: .75rem; border-left: 3px solid var(--maroon); margin: .75rem 0; white-space: pre-wrap; }
+.registration { border-left: 4px solid var(--maroon); background: var(--paper, #fff7f9); padding: .75rem 1rem; margin: .75rem 0; }
+.registration blockquote { font-size: .9rem; overflow-wrap: anywhere; }
