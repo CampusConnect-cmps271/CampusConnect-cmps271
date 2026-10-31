@@ -102,6 +102,9 @@ export default async function HomePage({
         <Link href="/planner" className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-medium">
           Plan your semester
         </Link>
+        <Link href="/electives/preferences" className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-medium">
+          Elective preferences
+        </Link>
       </nav>
 
       <section className="space-y-4">
