@@ -7,7 +7,10 @@ export type PlannerOperation =
   | "removeCourse"
   | "moveCourse"
   | "saveMeeting"
-  | "removeMeeting";
+  | "removeMeeting"
+  | "saveItem"
+  | "removeItem"
+  | "going";
 
 export const PLAN_NOT_FOUND = "This plan no longer exists, or it isn't yours.";
 
@@ -19,6 +22,9 @@ const FALLBACK: Record<PlannerOperation, string> = {
   moveCourse: "We couldn't move the course. Please try again.",
   saveMeeting: "We couldn't save the meeting. Please try again.",
   removeMeeting: "We couldn't remove the meeting. Please try again.",
+  saveItem: "We couldn't save the item. Please try again.",
+  removeItem: "We couldn't remove the item. Please try again.",
+  going: "We couldn't update the event. Please try again.",
 };
 
 /**
@@ -50,9 +56,20 @@ export function plannerErrorMessage(operation: PlannerOperation, code: string | 
       if (code === "22023") return "That time zone isn't recognised. Use an IANA name such as Asia/Beirut.";
       if (code === "42501") return "That course isn't in one of your plans.";
       break;
+    case "saveItem":
+      if (code === "23514") return "Check the date and times: the date must be near the plan's term, and the item must end after it starts.";
+      if (code === "23503") return "That course is no longer in this plan.";
+      if (code === "54000") return `A plan can hold up to ${PLANNER_LIMITS.itemsPerPlan} items.`;
+      if (code === "42501") return PLAN_NOT_FOUND;
+      break;
+    case "going":
+      if (code === "23503") return "Save this event first, then mark it as going.";
+      if (code === "42501") return "That event isn't one of your saved events.";
+      break;
     case "deletePlan":
     case "removeCourse":
     case "removeMeeting":
+    case "removeItem":
       if (code === "42501") return PLAN_NOT_FOUND;
       break;
   }

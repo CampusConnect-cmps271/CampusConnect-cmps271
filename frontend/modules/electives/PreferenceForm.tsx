@@ -17,13 +17,13 @@ export function PreferenceForm({ initial }: { initial: ElectivePreferences | nul
   const errors = (key: keyof PreferenceValues) => <p id={`${key}-error`} className={styles.error}>{state.errors?.[key]?.join(" ")}</p>;
   return <form action={action} className={styles.form}>
     <div><label htmlFor="interests">Interests</label>
-      <p id="interests-hint">Up to 10 interests, separated by commas; 60 characters each.</p>
+      <p id="interests-hint">Up to 10 interests, separated by commas; 60 characters each. Words within one interest are matched together: software security, cryptography means software AND security, OR cryptography.</p>
       <input {...field("interests")} required maxLength={620} autoComplete="off" />{errors("interests")}</div>
     <div><label htmlFor="preferred_workload">Preferred workload</label>
       <p id="preferred_workload-hint">Choose the workload that fits your semester.</p>
       <select {...field("preferred_workload")}><option value="light">Light</option><option value="moderate">Moderate</option><option value="heavy">Heavy</option></select>{errors("preferred_workload")}</div>
     <div><label htmlFor="academic_goals">Academic goals</label>
-      <p id="academic_goals-hint">What would you like to learn? Up to 1,000 characters.</p>
+      <p id="academic_goals-hint">What would you like to learn? Separate goals with commas; words within each goal are matched together for an extra ranking bonus. Up to 1,000 characters.</p>
       <textarea {...field("academic_goals")} required maxLength={1000} rows={4} />{errors("academic_goals")}</div>
     <div><label htmlFor="completed_course_codes">Completed course codes (self-reported)</label>
       <p id="completed_course_codes-hint">Optional. Use catalogue codes separated by commas (up to 60). These are not verified academic records.</p>

@@ -1,7 +1,7 @@
-import type { ConflictReport, InvalidMeeting, ScheduleConflict } from "./conflicts";
+import type { ConflictReport, InvalidEntry, ScheduleConflict } from "./conflicts";
 import { formatTermDate } from "./terms";
 import { timeFromMinutes, weekdayLabel } from "./time";
-import type { Meeting } from "./types";
+import type { Meeting, PlanItem } from "./types";
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
@@ -19,8 +19,9 @@ export function conflictHeadline(report: ConflictReport): string {
       if (report.unknown.length) {
         missing.push(`${plural(report.unknown.length, "course", "courses")} ${report.unknown.length === 1 ? "has" : "have"} no times`);
       }
-      if (report.invalid.length) {
-        missing.push(`${plural(report.invalid.length, "meeting", "meetings")} ${report.invalid.length === 1 ? "needs" : "need"} fixing`);
+      for (const [kind, one, many] of [["meeting", "meeting", "meetings"], ["item", "item", "items"]] as const) {
+        const count = report.invalid.filter((invalid) => invalid.kind === kind).length;
+        if (count) missing.push(`${plural(count, one, many)} ${count === 1 ? "needs" : "need"} fixing`);
       }
       return `No overlaps among the times you entered, but ${missing.join(" and ")}`;
     }
@@ -47,7 +48,7 @@ export function overlapDates(conflict: ScheduleConflict): string {
 
 /** What is wrong with a meeting the check couldn't place, and what to change. */
 export function invalidMeetingHelp(
-  invalid: InvalidMeeting,
+  invalid: InvalidEntry,
   meeting: Pick<Meeting, "weekday" | "start_minute" | "timezone"> | undefined,
   term: { starts_on: string; ends_on: string },
 ): string {
@@ -61,4 +62,12 @@ export function invalidMeetingHelp(
     case "starts_in_dst_gap":
       return `${meeting ? timeFromMinutes(meeting.start_minute) : "Its start time"} doesn't exist on ${invalid.dates.map(formatTermDate).join(", ")} in ${meeting?.timezone ?? "its time zone"}: the clocks go forward an hour. Move its start time.`;
   }
+}
+
+/** What is wrong with an item the check couldn't place, and what to change. */
+export function invalidItemHelp(invalid: InvalidEntry, item: Pick<PlanItem, "start_minute"> | undefined): string {
+  if (invalid.reason === "starts_in_dst_gap") {
+    return `${item?.start_minute != null ? timeFromMinutes(item.start_minute) : "Its start time"} doesn't exist on ${invalid.dates.map(formatTermDate).join(", ")} in Beirut: the clocks go forward an hour. Move its start time.`;
+  }
+  return "Its times aren't valid: it must end after it starts, on the same day. Edit its times.";
 }

@@ -63,7 +63,7 @@ describe("Gemini provider integration", () => {
     try {
       expect(await configuredProvider()!("recommend", { candidates: [item] })).toEqual(output);
       const [url, init] = fetch.mock.calls[0];
-      expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent");
+      expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent");
       expect(init).toMatchObject({ method: "POST", redirect: "error", cache: "no-store", headers: { "x-goog-api-key": "synthetic-gemini-key" } });
       expect(timeout).toHaveBeenCalledWith(4000);
       const body = JSON.parse(init.body);

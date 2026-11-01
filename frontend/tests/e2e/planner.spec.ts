@@ -14,6 +14,7 @@ const students = {
   conflicts: "planner-conflicts@mail.aub.edu",
   incomplete: "planner-incomplete@mail.aub.edu",
   zones: "planner-zones@mail.aub.edu",
+  calendar: "planner-calendar@mail.aub.edu",
 };
 
 const PLAN_URL = /\/planner\/[0-9a-f-]{36}$/;
@@ -61,7 +62,7 @@ test("a fresh student plans a semester from /planner and it survives a reload", 
     await page.goto("/planner");
     await expect(page.getByRole("heading", { level: 1, name: "Semester planner" })).toBeVisible();
     await expect(page.getByText("You have no plans yet.")).toBeVisible();
-    await expect(page.getByText(/CampusConnect has no official AUB timetable/)).toBeVisible();
+    await expect(page.getByText("Times in your plans are what you typed, not the official AUB schedule.")).toBeVisible();
   });
 
   await test.step("a Spring 2027 plan uses the official calendar dates", async () => {
@@ -76,10 +77,11 @@ test("a fresh student plans a semester from /planner and it survives a reload", 
     await addCourse(page, "Computing elective 25", "CMPS 125");
     await expect(total(page)).toHaveText("Total: 6.25 credits · 2 courses");
 
+    // Credits and times only: no department, prerequisites or "not checked" notes.
     const os = planned(page, "CMPS 240");
-    await expect(os.getByText("Not checked by CampusConnect")).toBeVisible();
-    await expect(os.getByText(/Prerequisite: CMPS101 or CMPS 102/)).toBeVisible();
-    await expect(os.getByText("Schedule unknown.")).toBeVisible();
+    await expect(os.getByText(/Prerequisite/)).toHaveCount(0);
+    await expect(os.getByText(/Not checked/)).toHaveCount(0);
+    await expect(os.getByText("No times yet.")).toBeVisible();
   });
 
   await test.step("after a reload the courses, order and total are unchanged", async () => {
@@ -143,14 +145,14 @@ test("duplicates are refused, reordering sticks and removing updates the total",
   await context.close();
 });
 
-test("tentative meetings can be added and edited, and invalid ones are refused inline", async ({ page }) => {
+test("meetings can be added and edited, and invalid ones are refused inline", async ({ page }) => {
   await logIn(page, students.meetings);
   await createPlan(page, "Spring 2027");
   await addCourse(page, "MATH 202", "MATH 202");
   const course = planned(page, "MATH 202");
 
-  await test.step("a typed meeting is saved and labelled tentative", async () => {
-    await expect(course.getByText("Schedule unknown.")).toBeVisible();
+  await test.step("a typed meeting is saved", async () => {
+    await expect(course.getByText("No times yet.")).toBeVisible();
     await course.getByText("Add a meeting for MATH 202").click();
     await course.getByLabel("Day").selectOption("2");
     await course.getByLabel("Starts").fill("09:30");
@@ -159,8 +161,8 @@ test("tentative meetings can be added and edited, and invalid ones are refused i
     await course.getByRole("button", { name: "Save meeting" }).click();
 
     await expect(course.getByText("Tue 09:30–10:45 (Asia/Beirut)")).toBeVisible();
-    await expect(course.getByText("Tentative, entered by you")).toBeVisible();
-    await expect(course.getByText("Schedule unknown.")).toHaveCount(0);
+    await expect(course.getByText("Tentative, entered by you")).toHaveCount(0);
+    await expect(course.getByText("No times yet.")).toHaveCount(0);
   });
 
   await test.step("an end before the start shows an inline error and saves nothing", async () => {
@@ -177,7 +179,7 @@ test("tentative meetings can be added and edited, and invalid ones are refused i
 
   await test.step("editing a meeting changes it, and it survives a reload", async () => {
     // The meeting's own row: the closed "Add a meeting" form has fields too.
-    const meeting = course.getByRole("listitem").filter({ hasText: "Tentative, entered by you" });
+    const meeting = course.getByRole("listitem").filter({ hasText: "Tue 09:30–10:45 (Asia/Beirut)" });
     await meeting.getByRole("button", { name: "Edit meeting Tue 09:30–10:45 (Asia/Beirut)" }).click();
     await meeting.getByLabel("Ends").fill("11:00");
     await meeting.getByRole("button", { name: "Save changes" }).click();
@@ -185,12 +187,11 @@ test("tentative meetings can be added and edited, and invalid ones are refused i
 
     await page.reload();
     await expect(planned(page, "MATH 202").getByText("Tue 09:30–11:00 (Asia/Beirut)")).toBeVisible();
-    await expect(planned(page, "MATH 202").getByText("Tentative, entered by you")).toBeVisible();
   });
 
-  await test.step("removing the only meeting makes the schedule unknown again", async () => {
+  await test.step("removing the only meeting leaves the course without times again", async () => {
     await planned(page, "MATH 202").getByRole("button", { name: /^Remove meeting Tue/ }).click();
-    await expect(planned(page, "MATH 202").getByText("Schedule unknown.")).toBeVisible();
+    await expect(planned(page, "MATH 202").getByText("No times yet.")).toBeVisible();
   });
 });
 
@@ -265,6 +266,8 @@ test("the planner can be used with the keyboard alone", async ({ page }) => {
 
 const status = (page: Page) => page.getByRole("heading", { level: 2 }).filter({ hasText: /conflict|No overlaps|No courses to check/ });
 const conflictLine = (page: Page, text: string) => page.getByRole("listitem").filter({ hasText: text });
+/** The overlap badges on the course cards, not the calendar's. */
+const meetingBadges = (page: Page) => page.getByRole("region", { name: "Courses in this plan" }).getByText("Overlaps something else");
 
 /** Adds a meeting through the course's "Add a meeting" form. */
 async function addMeeting(page: Page, code: string, day: string, start: string, end: string, timezone?: string) {
@@ -276,7 +279,7 @@ async function addMeeting(page: Page, code: string, day: string, start: string, 
   await form.getByLabel("Starts").fill(start);
   await form.getByLabel("Ends").fill(end);
   if (timezone) await form.getByLabel("Time zone").fill(timezone);
-  const saved = planned(page, code).getByText("Tentative, entered by you");
+  const saved = planned(page, code).getByRole("button", { name: /^Edit meeting / });
   const count = await saved.count();
   await form.getByRole("button", { name: "Save meeting" }).click();
   await expect(saved).toHaveCount(count + 1);
@@ -309,7 +312,7 @@ test("an overlap is flagged until it is actually fixed, and stays fixed after a 
     await expect(status(page)).toHaveText("1 conflict found");
     const line = conflictLine(page, "MATH 201 and MATH 202 overlap on Tuesday 10:00–10:45 (Beirut time), every week.");
     await expect(line).toBeVisible();
-    await expect(page.getByText("Overlaps another meeting")).toHaveCount(2);
+    await expect(meetingBadges(page)).toHaveCount(2);
 
     await line.getByRole("link", { name: "MATH 202" }).click();
     await expect(page).toHaveURL(/#meeting-[0-9a-f-]{36}$/);
@@ -326,7 +329,7 @@ test("an overlap is flagged until it is actually fixed, and stays fixed after a 
   await test.step("starting exactly when the other ends clears it", async () => {
     await editMeeting(page, "MATH 202", "Tue 10:00–11:15 (Asia/Beirut)", "10:45", "12:00");
     await expect(status(page)).toHaveText("No conflicts among the times you entered");
-    await expect(page.getByText("Overlaps another meeting")).toHaveCount(0);
+    await expect(meetingBadges(page)).toHaveCount(0);
 
     await page.reload();
     await expect(status(page)).toHaveText("No conflicts among the times you entered");
@@ -367,7 +370,6 @@ test("a plan with a course that has no times never says there are no conflicts",
 
   await addMeeting(page, "CMPS 241", "3", "09:00", "10:00");
   await expect(status(page)).toHaveText("No conflicts among the times you entered");
-  await expect(page.getByText(/check the official AUB schedule/i)).toBeVisible();
 
   await page.reload();
   await expect(status(page)).toHaveText("No conflicts among the times you entered");
@@ -396,5 +398,99 @@ test("a Beirut and a New York meeting are flagged only on the dates the clocks m
     await form.getByRole("button", { name: "Save meeting" }).click();
     await expect(form.getByText("Enter an IANA time zone, such as Asia/Beirut or America/New_York.")).toBeVisible();
     await expect(planned(page, "MATH 201").getByText(/^Wed /)).toHaveCount(0);
+  });
+});
+
+// The calendar: classes, own items and events the student is going to.
+
+const calendar = (page: Page) => page.getByRole("region", { name: "Calendar" });
+const week = (page: Page) => page.getByRole("list", { name: /^Your week, / });
+const eventRow = (page: Page, title: string) => page.getByRole("region", { name: "Events" }).getByRole("listitem").filter({ hasText: title });
+const itemRow = (page: Page, title: string) =>
+  page.getByRole("region", { name: "Exams and other items" }).getByRole("listitem").filter({ hasText: title });
+
+/** Adds an item through "Add an exam or other item". */
+async function addItem(page: Page, fields: { title: string; date: string; start?: string; end?: string; course?: string }) {
+  const form = page.getByRole("region", { name: "Exams and other items" }).locator("details");
+  if (!(await form.evaluate((details) => (details as HTMLDetailsElement).open))) {
+    await form.getByText("Add an exam or other item").click();
+  }
+  await form.getByLabel("Title").fill(fields.title);
+  await form.getByLabel("Date").fill(fields.date);
+  await form.getByLabel("Starts").fill(fields.start ?? "");
+  await form.getByLabel("Ends").fill(fields.end ?? "");
+  await form.getByLabel("Course").selectOption({ label: fields.course ?? "None" });
+  await form.getByRole("button", { name: "Save item" }).click();
+}
+
+test("the calendar shows classes, own items and events you're going to, and flags any overlap", async ({ page }) => {
+  await logIn(page, students.calendar);
+  await createPlan(page, "Spring 2027");
+  await addCourse(page, "MATH 201", "MATH 201");
+  await addMeeting(page, "MATH 201", "2", "10:00", "11:15");
+
+  await test.step("a week is shown with its dates, and saved events wait until marked as going", async () => {
+    await page.goto(`${page.url().split("?")[0]}?week=2027-02-17`);
+    await expect(calendar(page).getByText("15–21 Feb 2027")).toBeVisible();
+    await expect(calendar(page).getByText("Week 6 of classes")).toBeVisible();
+    await expect(week(page).getByRole("link", { name: "MATH 201" })).toHaveAttribute("href", /^#meeting-/);
+    await expect(eventRow(page, "Robotics club talk")).toContainText("Tue, 16 Feb 2027 · 10:00–11:00 · Bechtel 101");
+    await expect(week(page).getByText("Robotics club talk")).toHaveCount(0);
+    await expect(status(page)).toHaveText("No conflicts among the times you entered");
+  });
+
+  await test.step("going to an event puts it on the calendar and flags its overlap with a class", async () => {
+    await eventRow(page, "Robotics club talk").getByRole("button", { name: "Going to Robotics club talk" }).click();
+    await expect(status(page)).toHaveText("1 conflict found");
+    await expect(
+      conflictLine(page, "MATH 201 and Robotics club talk overlap on Tuesday 10:00–11:00 (Beirut time), only on Tue, 16 Feb 2027."),
+    ).toBeVisible();
+    await expect(week(page).getByRole("link", { name: "Robotics club talk" })).toBeVisible();
+  });
+
+  await test.step("an own item is listed, linked to its course and checked against events", async () => {
+    await eventRow(page, "Career fair").getByRole("button", { name: "Going to Career fair" }).click();
+    await expect(status(page)).toHaveText("1 conflict found");
+    await addItem(page, { title: "MATH 201 midterm", date: "2027-02-17", start: "14:00", end: "16:00", course: "MATH 201" });
+    await expect(itemRow(page, "MATH 201 midterm")).toContainText("Wed, 17 Feb 2027 · 14:00–16:00");
+    await expect(status(page)).toHaveText("2 conflicts found");
+    await expect(conflictLine(page, "MATH 201 midterm and Career fair overlap on Wednesday 14:00–15:00")).toBeVisible();
+  });
+
+  await test.step("moving the item clears its overlap, and an all-day item is never checked", async () => {
+    const row = itemRow(page, "MATH 201 midterm");
+    await row.getByRole("button", { name: /^Edit MATH 201 midterm/ }).click();
+    await row.getByLabel("Starts").fill("15:00");
+    await row.getByLabel("Ends").fill("16:30");
+    await row.getByRole("button", { name: "Save changes" }).click();
+    await expect(status(page)).toHaveText("1 conflict found");
+
+    await addItem(page, { title: "Essay due", date: "2027-02-19" });
+    await expect(itemRow(page, "Essay due")).toContainText("Fri, 19 Feb 2027 · all day");
+    await expect(week(page).getByText("All day Essay due · Your item", { exact: true })).toBeVisible();
+    await expect(status(page)).toHaveText("1 conflict found");
+  });
+
+  await test.step("a date too far from the term is refused inline", async () => {
+    await addItem(page, { title: "Summer trip", date: "2027-07-01" });
+    await expect(page.getByText("Pick a date between Mon, 14 Dec 2026 and Thu, 27 May 2027.")).toBeVisible();
+    await expect(itemRow(page, "Summer trip")).toHaveCount(0);
+  });
+
+  await test.step("not going removes the event's overlap, and everything survives a reload", async () => {
+    await eventRow(page, "Robotics club talk").getByRole("button", { name: "Not going to Robotics club talk" }).click();
+    await expect(status(page)).toHaveText("No conflicts among the times you entered");
+    await page.reload();
+    await expect(status(page)).toHaveText("No conflicts among the times you entered");
+    await expect(week(page).getByRole("link", { name: "Career fair" })).toBeVisible();
+    await expect(week(page).getByRole("link", { name: "Robotics club talk" })).toHaveCount(0);
+    await expect(itemRow(page, "MATH 201 midterm")).toContainText("Wed, 17 Feb 2027 · 15:00–16:30");
+  });
+
+  await test.step("the week links move through the term", async () => {
+    await calendar(page).getByRole("link", { name: /^Next week/ }).click();
+    await expect(page).toHaveURL(/\?week=2027-02-22#calendar$/);
+    await expect(calendar(page).getByText("22–28 Feb 2027")).toBeVisible();
+    await expect(calendar(page).getByText("Week 7 of classes")).toBeVisible();
   });
 });

@@ -1,7 +1,7 @@
 import { CalendarPlus, CircleCheck, CircleHelp, TriangleAlert } from "lucide-react";
 import type { ConflictReport, ConflictSide } from "../conflicts";
-import { conflictHeadline, invalidMeetingHelp, overlapDates, overlapWindow } from "../conflict-text";
-import type { PlanDetails } from "../types";
+import { conflictHeadline, invalidItemHelp, invalidMeetingHelp, overlapDates, overlapWindow } from "../conflict-text";
+import type { PlanDetails, PlannerEvent } from "../types";
 
 const STYLES = {
   conflicts: { Icon: TriangleAlert, box: "border-[var(--danger)] bg-[#fdecea]", icon: "text-[var(--danger)]" },
@@ -13,15 +13,28 @@ const STYLES = {
 const LINK = "font-semibold text-[var(--maroon)] underline";
 
 /**
- * The plan's conflict status, from the engine's report on the saved data.
+ * The plan's conflict status, from the engine's report on the saved data:
+ * classes, the student's own items and the events they are going to.
  * An aria-live region, so a new or fixed conflict is announced when the
  * page re-renders after an action.
  */
-export function ConflictPanel({ plan, report }: { plan: PlanDetails; report: ConflictReport }) {
+export function ConflictPanel({ plan, events, report }: { plan: PlanDetails; events: readonly PlannerEvent[]; report: ConflictReport }) {
   const { Icon, box, icon } = STYLES[report.status];
   const courses = new Map(plan.courses.map((planned) => [planned.plan_course_id, planned]));
   const meetings = new Map(plan.courses.flatMap((planned) => planned.meetings.map((meeting) => [meeting.id, meeting] as const)));
-  const code = (side: ConflictSide) => courses.get(side.plan_course_id)?.code ?? "A course";
+  const items = new Map(plan.items.map((item) => [item.id, item]));
+  const eventTitles = new Map(events.map((event) => [event.id, event.title]));
+
+  const label = (side: ConflictSide) => {
+    if (side.kind === "meeting") return { href: `#meeting-${side.meeting_id}`, text: courses.get(side.plan_course_id)?.code ?? "A course" };
+    if (side.kind === "item") return { href: `#item-${side.item_id}`, text: items.get(side.item_id)?.title ?? "An item" };
+    return { href: `#event-${side.event_id}`, text: eventTitles.get(side.event_id) ?? "An event" };
+  };
+  const link = (side: ConflictSide, text = label(side).text) => (
+    <a href={label(side).href} className={LINK}>
+      {text}
+    </a>
+  );
 
   return (
     <section aria-labelledby="conflict-status-heading" className="flex flex-col gap-3">
@@ -35,32 +48,19 @@ export function ConflictPanel({ plan, report }: { plan: PlanDetails; report: Con
           {report.status === "conflicts" ? (
             <ul className="flex list-disc flex-col gap-1 pl-5">
               {report.conflicts.map((conflict, index) => {
-                const [first, second] = conflict.meetings;
+                const [first, second] = conflict.sides;
                 const when = `${overlapWindow(conflict)} (Beirut time), ${overlapDates(conflict)}`;
+                const sameCourse =
+                  first.kind === "meeting" && second.kind === "meeting" && first.plan_course_id === second.plan_course_id;
                 return (
-                  <li key={`${first.meeting_id}-${second.meeting_id}-${index}`}>
-                    {first.plan_course_id === second.plan_course_id ? (
+                  <li key={`${label(first).href}-${label(second).href}-${index}`}>
+                    {sameCourse ? (
                       <>
-                        Two of{" "}
-                        <a href={`#meeting-${first.meeting_id}`} className={LINK}>
-                          {code(first)}
-                        </a>
-                        &apos;s{" "}
-                        <a href={`#meeting-${second.meeting_id}`} className={LINK}>
-                          meetings
-                        </a>{" "}
-                        overlap on {when}.
+                        Two of {link(first)}&apos;s {link(second, "meetings")} overlap on {when}.
                       </>
                     ) : (
                       <>
-                        <a href={`#meeting-${first.meeting_id}`} className={LINK}>
-                          {code(first)}
-                        </a>{" "}
-                        and{" "}
-                        <a href={`#meeting-${second.meeting_id}`} className={LINK}>
-                          {code(second)}
-                        </a>{" "}
-                        overlap on {when}.
+                        {link(first)} and {link(second)} overlap on {when}.
                       </>
                     )}
                   </li>
@@ -84,24 +84,20 @@ export function ConflictPanel({ plan, report }: { plan: PlanDetails; report: Con
             </p>
           ) : null}
 
-          {report.status === "clear" ? (
-            <p>These are tentative times you typed. Check the official AUB schedule when you register.</p>
-          ) : null}
-
           {report.status === "empty" ? <p>Add courses and their meeting times to check them for overlaps.</p> : null}
         </div>
       </div>
 
       {report.invalid.length ? (
         <div className="rounded-lg border border-[var(--danger)] bg-white px-4 py-3 text-sm text-[var(--ink)]">
-          <h3 className="font-semibold">Meetings to fix</h3>
+          <h3 className="font-semibold">Times to fix</h3>
           <ul className="mt-1 flex list-disc flex-col gap-1 pl-5">
             {report.invalid.map((invalid) => (
-              <li key={`${invalid.meeting_id}-${invalid.reason}`}>
-                <a href={`#meeting-${invalid.meeting_id}`} className={LINK}>
-                  {courses.get(invalid.plan_course_id)?.code ?? "A course"}
-                </a>
-                : {invalidMeetingHelp(invalid, meetings.get(invalid.meeting_id), plan)}
+              <li key={`${label(invalid).href}-${invalid.reason}`}>
+                {link(invalid)}:{" "}
+                {invalid.kind === "meeting"
+                  ? invalidMeetingHelp(invalid, meetings.get(invalid.meeting_id), plan)
+                  : invalidItemHelp(invalid, items.get(invalid.item_id))}
               </li>
             ))}
           </ul>

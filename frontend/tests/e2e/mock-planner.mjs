@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { courses } from "./mock-courses.mjs";
 
-// Test-only, in-memory stand-in for SCRUM-66's planner tables: semester_plans,
-// plan_courses, plan_meetings and reorder_plan_courses. It mimics just enough
-// of PostgREST, RLS and the migration's checks for planner.spec.ts. Each test
-// uses its own student, so nothing here needs resetting between tests.
+// Test-only, in-memory stand-in for the planner tables: semester_plans,
+// plan_courses, plan_meetings, plan_items, going_events and
+// reorder_plan_courses, plus the saved events the planner reads. It mimics
+// just enough of PostgREST, RLS and the migrations' checks for
+// planner.spec.ts. Each test uses its own student, so nothing here needs
+// resetting between tests.
 export const plannerTestAccounts = {
   "planner-rana@mail.aub.edu": "00000000-0000-4000-8000-000000000301",
   "planner-omar@mail.aub.edu": "00000000-0000-4000-8000-000000000302",
@@ -17,11 +19,35 @@ export const plannerTestAccounts = {
   "planner-conflicts@mail.aub.edu": "00000000-0000-4000-8000-000000000308",
   "planner-incomplete@mail.aub.edu": "00000000-0000-4000-8000-000000000309",
   "planner-zones@mail.aub.edu": "00000000-0000-4000-8000-00000000030a",
+  // The calendar: own items and events the student is going to.
+  "planner-calendar@mail.aub.edu": "00000000-0000-4000-8000-00000000030b",
 };
+
+// Synthetic published events that planner-calendar has saved. Not real AUB
+// events. Tue 16 Feb 2027 10:00-11:00 and Wed 17 Feb 2027 13:00-15:00 Beirut.
+const events = [
+  {
+    id: "00000000-0000-4000-8000-000000000e01",
+    title: "Robotics club talk",
+    starts_at: "2027-02-16T08:00:00+00:00",
+    ends_at: "2027-02-16T09:00:00+00:00",
+    location: "Bechtel 101",
+  },
+  {
+    id: "00000000-0000-4000-8000-000000000e02",
+    title: "Career fair",
+    starts_at: "2027-02-17T11:00:00+00:00",
+    ends_at: "2027-02-17T13:00:00+00:00",
+    location: "West Hall",
+  },
+];
+const savedEvents = events.map((event) => ({ student_id: plannerTestAccounts["planner-calendar@mail.aub.edu"], event_id: event.id }));
 
 const plans = [];
 const planCourses = [];
 const meetings = [];
+const items = [];
+const going = [];
 
 const TERM_PATTERN = /^(Fall|Spring|Summer) 20(2[5-9]|3[0-5])$/;
 
@@ -70,7 +96,28 @@ function removeWhere(rows, predicate) {
 function deletePlanCourses(predicate) {
   const removed = removeWhere(planCourses, predicate);
   removeWhere(meetings, (meeting) => removed.some((planned) => planned.id === meeting.plan_course_id));
+  // plan_items.plan_course_id is "on delete set null".
+  for (const item of items) if (removed.some((planned) => planned.id === item.plan_course_id)) item.plan_course_id = null;
   return removed;
+}
+
+const addDays = (date, days) => new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+
+/** The item checks from the calendar migration; returns an error code or null. */
+function itemProblem(item) {
+  const plan = plans.find((row) => row.id === item.plan_id);
+  if (!plan) return "42501";
+  const title = typeof item.title === "string" ? item.title.trim() : "";
+  const start = item.start_minute ?? null;
+  const end = item.end_minute ?? null;
+  const allDay = start === null && end === null;
+  const timed = start !== null && end !== null && start >= 0 && start <= 1439 && end >= 1 && end <= 1440 && end > start;
+  if (title.length < 1 || title.length > 120 || !(allDay || timed)) return "23514";
+  if (item.on_date < addDays(plan.starts_on, -30) || item.on_date > addDays(plan.ends_on, 30)) return "23514";
+  if (item.plan_course_id && !planCourses.some((row) => row.id === item.plan_course_id && row.plan_id === item.plan_id)) {
+    return "23503";
+  }
+  return null;
 }
 
 /** A plan with its courses, catalogue values and meetings embedded. */
@@ -85,16 +132,11 @@ function planWithCourses(plan) {
           id: planned.id,
           course_id: planned.course_id,
           position: planned.position,
-          courses: course && {
-            code: course.code,
-            name: course.name,
-            credits: course.credits,
-            department: course.department,
-            prerequisites: course.prerequisites,
-          },
+          courses: course && { code: course.code, name: course.name, credits: course.credits },
           plan_meetings: meetings.filter((meeting) => meeting.plan_course_id === planned.id),
         };
       }),
+    plan_items: items.filter((item) => item.plan_id === plan.id),
   };
 }
 
@@ -131,7 +173,15 @@ export async function handlePlanner(request, response, url, claims) {
   const path = url.pathname;
   const params = url.searchParams;
   const method = request.method;
-  const tables = ["/rest/v1/semester_plans", "/rest/v1/plan_courses", "/rest/v1/plan_meetings", "/rest/v1/rpc/reorder_plan_courses"];
+  const tables = [
+    "/rest/v1/semester_plans",
+    "/rest/v1/plan_courses",
+    "/rest/v1/plan_meetings",
+    "/rest/v1/plan_items",
+    "/rest/v1/saved_events",
+    "/rest/v1/going_events",
+    "/rest/v1/rpc/reorder_plan_courses",
+  ];
   if (!tables.includes(path)) return false;
 
   const userId = claims.sub;
@@ -162,7 +212,10 @@ export async function handlePlanner(request, response, url, claims) {
     }
     if (method === "DELETE") {
       const removed = removeWhere(plans, (plan) => plan.id === eq(params, "id") && plan.student_id === userId);
-      for (const plan of removed) deletePlanCourses((planned) => planned.plan_id === plan.id);
+      for (const plan of removed) {
+        deletePlanCourses((planned) => planned.plan_id === plan.id);
+        removeWhere(items, (item) => item.plan_id === plan.id);
+      }
       return respond(request, response, 200, removed), true;
     }
   }
@@ -232,6 +285,76 @@ export async function handlePlanner(request, response, url, claims) {
     if (method === "DELETE") {
       const removed = removeWhere(meetings, (meeting) => meeting.id === eq(params, "id") && ownedMeeting(meeting.id, userId));
       return respond(request, response, 200, removed), true;
+    }
+  }
+
+  if (path === "/rest/v1/plan_items") {
+    if (method === "POST") {
+      const input = await readBody(request);
+      if (!ownedPlan(input.plan_id, userId)) {
+        return fail(response, 403, "42501", "new row violates row-level security policy"), true;
+      }
+      const item = { id: randomUUID(), plan_course_id: null, start_minute: null, end_minute: null, ...input };
+      const problem = itemProblem(item);
+      if (problem) return fail(response, problem === "23503" ? 409 : 400, problem, "rejected item"), true;
+      if (items.filter((row) => row.plan_id === item.plan_id).length >= 100) {
+        return fail(response, 400, "54000", "A semester plan can hold at most 100 items"), true;
+      }
+      items.push(item);
+      return respond(request, response, 201, [item]), true;
+    }
+    if (method === "PATCH") {
+      const item = items.find(
+        (row) => row.id === eq(params, "id") && row.plan_id === eq(params, "plan_id") && ownedPlan(row.plan_id, userId),
+      );
+      if (!item) return respond(request, response, 200, []), true;
+      const changed = { ...item, ...(await readBody(request)) };
+      const problem = itemProblem(changed);
+      if (problem) return fail(response, problem === "23503" ? 409 : 400, problem, "rejected item"), true;
+      Object.assign(item, changed);
+      return respond(request, response, 200, [item]), true;
+    }
+    if (method === "DELETE") {
+      const removed = removeWhere(
+        items,
+        (item) => item.id === eq(params, "id") && item.plan_id === eq(params, "plan_id") && ownedPlan(item.plan_id, userId),
+      );
+      return respond(request, response, 200, removed), true;
+    }
+  }
+
+  // The planner's reads of saved events: every one is published and upcoming.
+  if (path === "/rest/v1/saved_events" && method === "GET") {
+    const eventId = eq(params, "event_id");
+    const rows = savedEvents
+      .filter((saved) => saved.student_id === userId && (eventId === undefined || saved.event_id === eventId))
+      .map((saved) => ({
+        event_id: saved.event_id,
+        events: events.find((event) => event.id === saved.event_id),
+        // One-to-one with saved_events, so PostgREST embeds an object or null.
+        going_events: going.some((mark) => mark.student_id === userId && mark.event_id === saved.event_id)
+          ? { event_id: saved.event_id }
+          : null,
+      }));
+    if ((request.headers.accept ?? "").includes("vnd.pgrst.object") && rows.length === 0) return send(response, 200, null), true;
+    return respond(request, response, 200, rows), true;
+  }
+
+  if (path === "/rest/v1/going_events") {
+    if (method === "POST") {
+      const { event_id: eventId } = await readBody(request);
+      if (!savedEvents.some((saved) => saved.student_id === userId && saved.event_id === eventId)) {
+        return fail(response, 409, "23503", "insert or update violates foreign key constraint"), true;
+      }
+      if (going.some((mark) => mark.student_id === userId && mark.event_id === eventId)) {
+        return fail(response, 409, "23505", "duplicate key value violates unique constraint"), true;
+      }
+      going.push({ student_id: userId, event_id: eventId });
+      return send(response, 201), true;
+    }
+    if (method === "DELETE") {
+      const removed = removeWhere(going, (mark) => mark.student_id === userId && mark.event_id === eq(params, "event_id"));
+      return send(response, 200, removed), true;
     }
   }
 

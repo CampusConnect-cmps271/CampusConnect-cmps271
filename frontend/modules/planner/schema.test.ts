@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_MEETING_FORM, planSchema, readMeetingForm, validateMeetingForm } from "./schema";
+import { EMPTY_MEETING_FORM, planSchema, readMeetingForm, validateItemForm, validateMeetingForm } from "./schema";
 import { TERM_PATTERN } from "./terms";
 import { minutesFromTime, timeFromMinutes } from "./time";
 
@@ -113,5 +113,43 @@ describe("validateMeetingForm", () => {
     const formData = new FormData();
     formData.set("start", "08:00");
     expect(readMeetingForm(formData)).toEqual({ weekday: "", start: "08:00", end: "", timezone: "" });
+  });
+});
+
+describe("validateItemForm", () => {
+  const window = { first: "2026-12-14", last: "2027-05-27" };
+  const valid = { title: "CMPS 202 midterm", date: "2027-03-02", start: "10:00", end: "11:00", planCourseId: "" };
+
+  it("accepts a timed item and an all-day item, trimming the title", () => {
+    expect(validateItemForm({ ...valid, title: "  CMPS 202 midterm " }, window)).toEqual({
+      success: true,
+      data: { title: "CMPS 202 midterm", date: "2027-03-02", start: 600, end: 660, planCourseId: null },
+    });
+    const allDay = validateItemForm({ ...valid, start: "", end: "" }, window);
+    expect(allDay.success && allDay.data).toMatchObject({ start: null, end: null });
+  });
+
+  it("keeps a linked course's id", () => {
+    const id = "72000000-0000-4000-8000-000000000101";
+    const result = validateItemForm({ ...valid, planCourseId: id }, window);
+    expect(result.success && result.data.planCourseId).toBe(id);
+    expect(validateItemForm({ ...valid, planCourseId: "not-an-id" }, window)).toMatchObject({
+      success: false,
+      errors: { planCourseId: "Choose a course from the list." },
+    });
+  });
+
+  it("explains each problem on its own field", () => {
+    expect(validateItemForm({ ...valid, title: "   " }, window)).toMatchObject({ errors: { title: "Enter a title, such as CMPS 202 midterm." } });
+    expect(validateItemForm({ ...valid, title: "x".repeat(121) }, window)).toMatchObject({ errors: { title: "Keep the title to 120 characters." } });
+    expect(validateItemForm({ ...valid, date: "" }, window)).toMatchObject({ errors: { date: "Choose a date." } });
+    expect(validateItemForm({ ...valid, date: "2027-02-30" }, window)).toMatchObject({ errors: { date: "Enter the date as YYYY-MM-DD." } });
+    expect(validateItemForm({ ...valid, date: "2027-05-28" }, window)).toMatchObject({
+      errors: { date: "Pick a date between Mon, 14 Dec 2026 and Thu, 27 May 2027." },
+    });
+    expect(validateItemForm({ ...valid, end: "" }, window)).toMatchObject({ errors: { end: "Enter both times, or neither for an all-day item." } });
+    expect(validateItemForm({ ...valid, start: "" }, window)).toMatchObject({ errors: { start: "Enter both times, or neither for an all-day item." } });
+    expect(validateItemForm({ ...valid, end: "09:00" }, window)).toMatchObject({ errors: { end: "The end time must be after the start time." } });
+    expect(validateItemForm({ ...valid, start: "25:00" }, window)).toMatchObject({ errors: { start: "Enter the start time as HH:MM." } });
   });
 });

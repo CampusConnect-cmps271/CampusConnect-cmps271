@@ -50,7 +50,7 @@ export function configuredProvider(): Provider | undefined {
 
 function configuredGemini(): Provider | undefined {
   const key = process.env.GEMINI_API_KEY?.trim();
-  const model = process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash-lite";
+  const model = process.env.GEMINI_MODEL?.trim() || "gemini-3.1-flash-lite";
   if (!key || model.length > 100 || !/^gemini-[a-zA-Z0-9._-]+$/.test(model)) return undefined;
   // Fixed Google host: the key never enters URLs, request bodies or a custom gateway.
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;

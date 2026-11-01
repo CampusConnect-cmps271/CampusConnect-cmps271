@@ -39,8 +39,6 @@ function course(
     code,
     name: `Fixture course ${index}`,
     credits,
-    department: "Fixtures",
-    prerequisites: "",
     meetings: slots.map(([weekday, start, end]) => meeting(planCourseId, weekday, start, end)),
   };
 }
@@ -68,6 +66,7 @@ export const FIXTURE_PLAN: PlanDetails = {
   ends_on: "2027-04-27",
   course_ids: FIXTURE_COURSES.map((planned) => planned.course_id),
   courses: [...FIXTURE_COURSES],
+  items: [],
 };
 
 /** Total of FIXTURE_COURSES: 3 + 3 + 1 + 3 + 3.25. */
