@@ -40,7 +40,7 @@ export async function recommendationsPOST(request: Request) {
         return { major: null, majorStatus: "unavailable" };
       }
     };
-    const [catalogue, student] = await Promise.all([loadCandidates(), context()]);
+    const [catalogue, student] = await Promise.all([loadCandidates(parsed.data), context()]);
     return json(await recommend(parsed.data, catalogue, configuredProvider(), student));
   } catch {
     log.error("electives.recommendations.failure", {}, { userId: user.id });

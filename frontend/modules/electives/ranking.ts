@@ -1,6 +1,7 @@
 import type { ElectivePreferences } from "./schema";
 import type { Candidate, PrerequisiteStatus, Recommendation } from "./types";
 import { registrationGuidance } from "./registration";
+import { preferenceGroups, tokens } from "./preference-matching";
 
 export const RECOMMENDATION_LIMIT = 20;
 
@@ -13,16 +14,9 @@ export function prerequisiteStatus(prose: string, completed: string[]): Prerequi
   const codes = text.toUpperCase().split(/\s+AND\s+/);
   return codes.every(c => completed.includes(c.replace(/\s+/g, " "))) ? "satisfied" : "unmet";
 }
-const tokens = (text: string) => [...new Set(text.normalize("NFKC").toLowerCase().match(/[\p{L}\p{N}][\p{L}\p{N}\p{M}]*/gu) ?? [])];
-// Commas separate alternatives; every word inside one group must match.
-function groups(entries: string[]) {
-  const parsed = entries.flatMap(entry => entry.split(","))
-    .map(label => ({ label: label.trim(), words: tokens(label) })).filter(group => group.words.length);
-  return [...new Map(parsed.map(group => [[...group.words].sort().join("\0"), group])).values()];
-}
 export function rankCandidates(courses: Candidate[], preferences: ElectivePreferences, limit = RECOMMENDATION_LIMIT, major: string | null = null): Recommendation[] {
-  const interests = groups(preferences.interests);
-  const goals = groups([preferences.academic_goals]);
+  const interests = preferenceGroups(preferences.interests);
+  const goals = preferenceGroups([preferences.academic_goals]);
   const workload = { light: 1.5, moderate: 3, heavy: 4.5 }[preferences.preferred_workload];
   return courses.filter(c => !preferences.completed_course_codes.includes(c.code)).flatMap(course => {
     const corpus = new Set(tokens(`${course.name} ${course.department} ${course.description}`.slice(0, 20000)));

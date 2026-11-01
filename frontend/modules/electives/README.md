@@ -96,8 +96,11 @@ fixtures are never enabled as a production substitute.
 
 Catalogue reads are ordered and paginated through every accessible course,
 across all departments, without a 5,000-record cutoff. Up to twenty courses matching a complete interest group
-are shown; partial or unrelated matches are not used to fill the list. Rating reads overlap up to
-four requests at a time; each ID filter contains at most 100 courses.
+are shown; partial or unrelated matches are not used to fill the list. Ratings are fetched only for complete interest matches that have not already
+been completed. The full catalogue count and cross-department search are
+preserved. Rating reads overlap up to four requests at a time; each ID filter
+contains at most 100 courses. The browser allows thirty seconds for the full
+database-and-provider request; each provider call still has a four-second limit.
 The authenticated profile supplies the student's major. Computer Science
 students see an approval/petition check on EECE courses, and an elective-credit
 check on other departments. These notices are advisory, not a blanket claim

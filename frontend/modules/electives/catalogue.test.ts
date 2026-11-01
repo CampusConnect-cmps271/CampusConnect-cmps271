@@ -63,3 +63,23 @@ it("requires authentication before reading catalogue data", async () => {
   await expect(loadCandidates()).rejects.toThrow("redirect");
   expect(mocks.from).not.toHaveBeenCalled();
 });
+it("only loads ratings for complete interest matches while searching every catalogue page", async () => {
+  rows[5] = { ...rows[5], name: "Software engineering", description: "Security testing" };
+  rows[8] = { ...rows[8], name: "Software engineering" };
+  rows[9] = { ...rows[9], code: "CMPS 243", name: "Software security" };
+  rows[2380] = { ...rows[2380], code: "EECE 699", name: "Cryptography" };
+  const result = await loadCandidates({ interests: ["software security", "cryptography"], completed_course_codes: ["CMPS 243"], preferred_workload: "moderate", academic_goals: "security" });
+  expect(ranges).toEqual([[0, 999], [1000, 1999], [2000, 2999]]);
+  expect(result.courses).toHaveLength(2381);
+  expect(batches).toEqual([["course-5", "course-2380"]]);
+  expect(result.courses[5].review_count).toBe(3);
+  expect(result.courses[2380].review_count).toBe(3);
+  expect(result.courses[8].review_count).toBeNull();
+  expect(result.courses[9].review_count).toBeNull();
+});
+it("skips rating requests entirely when no complete interest group matches", async () => {
+  const result = await loadCandidates({ interests: ["software security"], completed_course_codes: [], preferred_workload: "moderate", academic_goals: "security" });
+  expect(result.courses).toHaveLength(2381);
+  expect(batches).toEqual([]);
+  expect(mocks.from).toHaveBeenCalledTimes(3);
+});

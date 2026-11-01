@@ -13,7 +13,7 @@ export function RecommendationsView({ preferences }: { preferences: ElectivePref
   async function generate() {
     setPending(true); setError(""); setResult(null);
     try {
-      const response = await fetch("/api/electives/recommendations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(preferences), signal: AbortSignal.timeout(20000) });
+      const response = await fetch("/api/electives/recommendations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(preferences), signal: AbortSignal.timeout(30000) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Recommendations are unavailable.");
       setResult(data);
