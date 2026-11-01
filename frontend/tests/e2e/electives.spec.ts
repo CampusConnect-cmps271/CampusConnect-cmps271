@@ -89,4 +89,11 @@ test("comma-separated interests stay grouped when saved and only complete groups
   await page.getByRole("button", { name: "Get recommendations" }).click();
   await expect(page.getByRole("status")).toHaveText("0 recommendations found.");
   await expect(page.getByText("No available courses match a complete interest group.", { exact: false })).toBeVisible();
+  await page.route("**/api/electives/recommendations", route => route.fulfill({ json: {
+    recommendations: [], mode: "baseline", providerStatus: "not_needed", truncated: false,
+    catalogueCount: 5, studentMajor: null, majorStatus: "missing",
+  } }));
+  await page.getByRole("button", { name: "Get recommendations" }).click();
+  await expect(page.getByRole("status")).toHaveText("0 recommendations found.");
+  await expect(page.getByText("AI assistance is not configured.", { exact: false })).toHaveCount(0);
 });

@@ -30,7 +30,7 @@ export function RecommendationsView({ preferences }: { preferences: ElectivePref
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {result && <div aria-live="polite">
       <p role="status">{result.recommendations.length} recommendations found.</p>
-      {result.mode === "baseline" && <p className={styles.muted}>{result.providerStatus === "failed" ? "AI assistance is temporarily unavailable." : "AI assistance is not configured."} Showing catalogue-based recommendations.</p>}
+      {result.mode === "baseline" && result.providerStatus !== "not_needed" && <p className={styles.muted}>{result.providerStatus === "failed" ? "AI assistance is temporarily unavailable." : "AI assistance is not configured."} Showing catalogue-based recommendations.</p>}
       <p className={styles.muted}>Searched {result.catalogueCount.toLocaleString()} courses across all departments.</p>
       {result.studentMajor ? <p>Major from your profile: <strong>{result.studentMajor}</strong>. Department checks are advisory.</p>
         : <p>{result.majorStatus === "unavailable" ? "Your major could not be loaded. Major-specific restrictions have not been checked." : "Add your major in Profile for major-specific department checks."} <Link href="/profile">Open Profile</Link></p>}

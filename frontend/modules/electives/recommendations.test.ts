@@ -23,7 +23,11 @@ describe("bounded recommendation service", () => {
   });
   it("bounds preferences and handles no available courses", async () => {
     await expect(recommend({ ...preferences, student_id: "forged" }, catalogue)).rejects.toThrow();
-    const provider = vi.fn(); expect((await recommend(preferences, { courses: [], truncated: false }, provider)).recommendations).toEqual([]); expect(provider).not.toHaveBeenCalled();
+    const provider = vi.fn();
+    const empty = await recommend(preferences, { courses: [], truncated: false }, provider);
+    expect(empty.recommendations).toEqual([]);
+    expect(empty.providerStatus).toBe("not_needed");
+    expect(provider).not.toHaveBeenCalled();
   });
   it("keeps twenty results and authoritative registration guidance with partial AI output", async () => {
     const courses = Array.from({ length: 25 }, (_, index) => ({ ...course, id: `eece-${index}`, code: `EECE ${400 + index}`, department: "Electrical and Computer Engineering" }));
