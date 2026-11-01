@@ -39,4 +39,16 @@ describe("bounded recommendation service", () => {
     expect(result.mode).toBe("provider");
     expect(result.recommendations).toHaveLength(20);
   });
+  it("only supplies complete interest matches to a provider and skips it when none match", async () => {
+    const partial = { ...course, id: "partial", name: "Software design", description: "General computing" };
+    const full = { ...course, id: "full", name: "Software security", description: "Cryptography" };
+    const input = { ...preferences, interests: ["software security"] };
+    const provider = vi.fn().mockResolvedValue({ items: [{ course_id: full.id, rationale: "Software security matches your interest.", evidence_review_ids: [] }] });
+    const result = await recommend(input, { courses: [partial, full], truncated: false }, provider);
+    expect(result.recommendations.map(row => row.course_id)).toEqual([full.id]);
+    expect(provider.mock.calls[0][1].candidates.map((row: { course_id: string }) => row.course_id)).toEqual([full.id]);
+    provider.mockClear();
+    expect((await recommend(input, { courses: [partial], truncated: false }, provider)).recommendations).toEqual([]);
+    expect(provider).not.toHaveBeenCalled();
+  });
 });

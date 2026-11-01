@@ -43,8 +43,8 @@ baseline and source evidence usable. Tests inject deterministic providers;
 fixtures are never enabled as a production substitute.
 
 Catalogue reads are ordered and paginated through every accessible course,
-across all departments, without a 5,000-record cutoff. The top twenty results
-are shown (or fewer when fewer candidates exist). Rating reads overlap up to
+across all departments, without a 5,000-record cutoff. Up to twenty courses matching a complete interest group
+are shown; partial or unrelated matches are not used to fill the list. Rating reads overlap up to
 four requests at a time; each ID filter contains at most 100 courses.
 The authenticated profile supplies the student's major. Computer Science
 students see an approval/petition check on EECE courses, and an elective-credit
@@ -60,6 +60,28 @@ fewer than three reviews are not used for workload fit; unavailable rating data
 keeps counts and workload fit unknown. Prerequisite prose and
 ambiguous AND/OR rules remain visible and marked unknown. Self-reported
 completion is not verified eligibility.
+
+## Matching comma-separated preferences
+
+Each comma-separated interest is one group. All words within a group must
+appear as whole words in the course name, department or description. At least
+one whole interest group must match for a course to be recommended: `software
+security, cryptography` means `(software AND security) OR cryptography`.
+The words need not be adjacent. Matching normalizes case and Unicode and
+handles punctuation; it does not infer synonyms or semantic similarity.
+
+Academic goals are also grouped by commas. A complete matching goal adds a
+ranking bonus; a partial goal match does not. Goals adjust the order of
+interest-matching courses rather than acting as another required filter.
+Each distinct complete interest contributes five points and each complete
+goal contributes one point. Workload, ratings, prerequisite penalties and
+major-specific registration guidance continue to apply. Duplicate groups do
+not earn extra points. Provider enrichment only receives the matching shortlist.
+
+Saved multiword interests already retain their comma boundaries, so existing
+preferences use this behavior without a storage migration or being resaved.
+Fewer than twenty courses, or an empty result, is expected when fewer complete
+matches exist. Do not add unrelated courses to reach twenty.
 
 ## Branch sequence
 

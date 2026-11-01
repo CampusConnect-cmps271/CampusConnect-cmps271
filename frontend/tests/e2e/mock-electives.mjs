@@ -9,13 +9,21 @@ export const electiveAccounts = {
   "recommendations-ranking@mail.aub.edu": "00000000-0000-4000-8000-000000000501",
   "recommendations-empty@mail.aub.edu": "00000000-0000-4000-8000-000000000502",
   "recommendations-no-major@mail.aub.edu": "00000000-0000-4000-8000-000000000503",
+  "recommendations-groups@mail.aub.edu": "00000000-0000-4000-8000-000000000504",
 };
+const groupedCourses = [
+  { code: "CMPS 201", name: "Software Design", description: "Software architecture and development." },
+  { code: "CMPS 202", name: "Security Policy", description: "Security governance and policy." },
+  { code: "CMPS 203", name: "Software Protection", description: "Security testing and auditing." },
+  { code: "EECE 463", name: "Cryptography", description: "Encryption and mathematical protocols." },
+  { code: "ECON 215", name: "Econometrics II", description: "Statistical estimation and economic modelling." },
+].map((course, index) => ({ ...course, id: `20000000-0000-4000-8000-${String(index).padStart(12, "0")}`, department: course.code.split(" ")[0], credits: 3, prerequisites: "None" }));
 export async function handleElectives(request, response, url, claims) {
   if (!Object.hasOwn(electiveAccounts, claims.email ?? "")) return false;
   const json = (value, status = 200) => { response.statusCode = status; response.end(JSON.stringify(value)); return true; };
   if (url.pathname === "/rest/v1/courses" && request.method === "GET") {
     if (claims.email === "recommendations-empty@mail.aub.edu") return json([]);
-    let rows = electiveCourses;
+    let rows = claims.email === "recommendations-groups@mail.aub.edu" ? groupedCourses : electiveCourses;
     const code = url.searchParams.get("code");
     if (code?.startsWith("in.")) rows = rows.filter(row => code.slice(4, -1).split(",").map(value => value.replaceAll('"', "")).includes(row.code));
     const start = Number(url.searchParams.get("offset") ?? 0);

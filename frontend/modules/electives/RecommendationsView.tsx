@@ -24,6 +24,7 @@ export function RecommendationsView({ preferences }: { preferences: ElectivePref
   return <section aria-label="Personalized elective recommendations">
     <p><Link href="/electives/preferences">Edit your preferences</Link></p>
     <p>Recommendations are guidance. Verify prerequisites and registration eligibility with your adviser; completed courses are self-reported.</p>
+    <p>Each result matches all words from at least one comma-separated interest. Up to 20 matching courses are shown.</p>
     <button disabled={pending} onClick={generate}>{pending ? "Finding electives…" : "Get recommendations"}</button>
     {pending && <p role="status">Finding electives that match your preferences…</p>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
@@ -33,7 +34,7 @@ export function RecommendationsView({ preferences }: { preferences: ElectivePref
       <p className={styles.muted}>Searched {result.catalogueCount.toLocaleString()} courses across all departments.</p>
       {result.studentMajor ? <p>Major from your profile: <strong>{result.studentMajor}</strong>. Department checks are advisory.</p>
         : <p>{result.majorStatus === "unavailable" ? "Your major could not be loaded. Major-specific restrictions have not been checked." : "Add your major in Profile for major-specific department checks."} <Link href="/profile">Open Profile</Link></p>}
-      {!result.recommendations.length && <p>No catalogue candidates remain to suggest. Try updating your preferences or browse the course catalogue.</p>}
+      {!result.recommendations.length && <p>No available courses match a complete interest group. Try different interests or browse the course catalogue.</p>}
       {result.recommendations.map(course => <article key={course.course_id} className={styles.card}>
         <h2><Link href={`/courses/${encodeURIComponent(course.code.replace(/ /g, "-"))}`}>{course.code} · {course.name}</Link></h2>
         <p className={styles.muted}>Department: {course.department}</p>
