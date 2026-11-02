@@ -255,7 +255,7 @@ export function ConversationView({
   return (
     <div className="flex flex-col">
       {hasEarlier ? (
-        <div className="flex flex-col items-center gap-1 border-b border-gray-200 px-4 py-2">
+        <div className="flex flex-col items-center gap-1 border-b border-[var(--border)] px-4 py-2">
           <button
             type="button"
             onClick={loadEarlier}
@@ -265,7 +265,7 @@ export function ConversationView({
             {loadingEarlier ? "Loading…" : "Load earlier"}
           </button>
           {earlierError ? (
-            <p role="alert" className="text-xs text-red-600">
+            <p role="alert" className="text-xs text-[var(--danger)]">
               {earlierError}
             </p>
           ) : null}
@@ -282,7 +282,7 @@ export function ConversationView({
         className="flex h-[60vh] min-h-64 flex-col gap-3 overflow-y-auto px-4 py-4 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--maroon)]"
       >
         {messages.length === 0 && pending.length === 0 ? (
-          <li className="m-auto text-sm text-gray-500">
+          <li className="m-auto text-sm text-[var(--ink-soft)]">
             No messages yet. Say hello to {otherStudentName}!
           </li>
         ) : null}
@@ -314,7 +314,7 @@ export function ConversationView({
       <form
         onSubmit={handleSubmit}
         aria-label="Send a message"
-        className="flex flex-col gap-2 border-t border-gray-200 p-3 sm:p-4"
+        className="flex flex-col gap-2 border-t border-[var(--border)] p-3 sm:p-4"
       >
         <label htmlFor="message-body" className="sr-only">
           Message {otherStudentName}
@@ -331,18 +331,18 @@ export function ConversationView({
           placeholder="Write a message…"
           aria-describedby="message-hint message-count"
           aria-invalid={tooLong || undefined}
-          className="w-full resize-y rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:border-[var(--maroon)] focus:outline-none focus:ring-2 focus:ring-[var(--maroon-200)]"
+          className="w-full resize-y rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--ink)] placeholder:text-[var(--ink-soft)] focus:border-[var(--maroon)] focus:outline-none focus:ring-2 focus:ring-[var(--maroon-200)]"
         />
 
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p id="message-hint" className="text-xs text-gray-500">
+          <p id="message-hint" className="text-xs text-[var(--ink-soft)]">
             Enter to send, Shift+Enter for a new line.
           </p>
 
           <div className="flex items-center gap-3">
             <p
               id="message-count"
-              className={`text-xs tabular-nums ${tooLong ? "font-semibold text-red-600" : "text-gray-500"}`}
+              className={`text-xs tabular-nums ${tooLong ? "font-semibold text-[var(--danger)]" : "text-[var(--ink-soft)]"}`}
             >
               {trimmedLength}/{MESSAGE_MAX_LENGTH}
               {tooLong ? <span className="sr-only"> characters, too long</span> : null}
@@ -359,7 +359,7 @@ export function ConversationView({
         </div>
 
         {error ? (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-[var(--danger)]">
             {error}
           </p>
         ) : null}
@@ -379,17 +379,17 @@ type MessageItemProps = {
 function MessageItem({ mine, pending = false, senderName, body, footer }: MessageItemProps) {
   return (
     <li
-      className={`flex max-w-[85%] flex-col gap-1 ${mine ? "items-end self-end" : "items-start self-start"} ${pending ? "opacity-70" : ""}`}
+      className={`flex max-w-[min(85%,42rem)] flex-col gap-1 ${mine ? "items-end self-end" : "items-start self-start"} ${pending ? "opacity-70" : ""}`}
     >
       <p
         className={`whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm [overflow-wrap:anywhere] ${
-          mine ? "bg-[var(--maroon)] text-white" : "bg-gray-100 text-gray-900"
+          mine ? "bg-[var(--maroon)] text-white" : "bg-[var(--maroon-100)] text-[var(--ink)]"
         }`}
       >
         <span className="sr-only">{mine ? "You" : senderName}: </span>
         {body}
       </p>
-      <span className="text-[11px] text-gray-500">{footer}</span>
+      <span className="text-[11px] text-[var(--ink-soft)]">{footer}</span>
     </li>
   );
 }

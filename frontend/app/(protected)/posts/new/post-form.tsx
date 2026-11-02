@@ -95,7 +95,7 @@ export default function PostForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-6"
+      className="plain-form space-y-6"
     >
       <fieldset disabled={!hydrated} className="min-w-0 space-y-6">
         <legend className="sr-only">Post details</legend>

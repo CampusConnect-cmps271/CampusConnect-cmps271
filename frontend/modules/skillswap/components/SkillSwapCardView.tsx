@@ -9,7 +9,7 @@ const BOX_TEXT_CLASS = "mt-1 line-clamp-4 whitespace-pre-wrap text-sm text-[var(
 /** One SkillSwap post on the board: who, both boxes, how and when. */
 export function SkillSwapCardView({ card }: { card: SkillSwapCard }) {
   return (
-    <article className="flex flex-col gap-3 rounded-lg bg-white p-4 text-[var(--ink)] border border-[var(--border)]">
+    <article className="flex h-full flex-col gap-3 rounded-lg bg-white p-4 text-[var(--ink)] border border-[var(--border)]">
       <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
         <Link href={`/profile/${card.authorId}`} className="font-semibold text-[var(--maroon)] hover:underline">
           {card.authorName}

@@ -13,7 +13,7 @@ export default async function NewSkillSwapPage() {
 
   return (
     <AppShell>
-<main className="flex-1 bg-white px-4 py-6 sm:py-10">
+<main className="flex-1 px-4 py-6 sm:py-10">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
         <Link href="/skillswap" className="text-sm font-medium text-[var(--maroon)] hover:underline">
           ← SkillSwap board

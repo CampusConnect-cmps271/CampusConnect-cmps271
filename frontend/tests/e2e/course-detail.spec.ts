@@ -62,7 +62,7 @@ test("empty prerequisites and unavailable course codes have clear states", async
     await page.goto(`/courses/${code}`);
     await expect(page.getByRole("heading", { name: "Course not found", exact: true })).toBeVisible();
   }
-  await page.getByRole("link", { name: "Browse courses", exact: true }).click();
+  await page.getByRole("main").getByRole("link", { name: "Browse courses", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Course catalogue", exact: true })).toBeVisible();
 });
 

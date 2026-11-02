@@ -26,8 +26,8 @@ export default async function SkillSwapBoardPage({ searchParams }: SkillSwapBoar
 
   return (
     <AppShell>
-<main className="flex-1 bg-white px-4 py-6 sm:py-10">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
+<main className="flex-1 px-5 py-6 sm:px-8 sm:py-8 lg:px-12">
+      <div className="flex w-full flex-col gap-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-[var(--ink)]">SkillSwap</h1>
@@ -127,7 +127,7 @@ export default async function SkillSwapBoardPage({ searchParams }: SkillSwapBoar
             )}
           </div>
         ) : (
-          <ul aria-label="Skill swaps" className="flex flex-col gap-4">
+          <ul aria-label="Skill swaps" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {cards.map((card) => (
               <li key={card.postId}>
                 <SkillSwapCardView card={card} />
