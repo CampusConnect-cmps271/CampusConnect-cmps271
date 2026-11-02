@@ -7,6 +7,15 @@ const provider = (fetchImpl: typeof fetch) => createGeminiProvider({ apiKey: KEY
 const input = { question: "Who issues transcripts?", evidence: [REGISTRAR_CHUNK], history: [] };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
+describe("system prompt", () => {
+  it("tells the model to suggest only courses from the excerpts, with their codes, and keeps the no-guessing rule", () => {
+    expect(SYSTEM_PROMPT).toContain("suggest");
+    expect(SYSTEM_PROMPT).toContain("only courses");
+    expect(SYSTEM_PROMPT).toContain("Never name a course that is not in an excerpt");
+    expect(SYSTEM_PROMPT).toContain("Use only facts stated in the excerpts");
+  });
+});
+
 describe("Gemini provider adapter", () => {
   it("sends the key as a header and the evidence in the body, and returns the joined text", async () => {
     const fetchImpl = vi.fn(async () => json({ candidates: [{ content: { parts: [{ text: '{"ok":' }, { text: 'true}' }] } }] }));

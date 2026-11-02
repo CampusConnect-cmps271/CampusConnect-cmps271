@@ -4,7 +4,7 @@ export const QUESTION_MIN_LENGTH = 3;
 export const QUESTION_MAX_LENGTH = 500;
 /** Most evidence sent to the provider: page chunks, then catalogue courses. */
 export const MAX_PAGE_EVIDENCE = 5;
-export const MAX_COURSE_EVIDENCE = 3;
+export const MAX_COURSE_EVIDENCE = 6;
 
 /** A page of this app's own course catalogue, e.g. /courses/CMPS-271. */
 const COURSE_PATH = /^\/courses\/[A-Za-z0-9%_-]+$/;

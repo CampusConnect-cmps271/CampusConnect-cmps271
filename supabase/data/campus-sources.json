@@ -47,6 +47,13 @@
     "start_after": "Want to Borrow or Return Books?"
   },
   {
+    "id": "library-hours",
+    "url": "https://www.aub.edu.lb/libraries/Pages/hours.aspx",
+    "title": "University Libraries opening hours",
+    "publisher": "American University of Beirut, University Libraries",
+    "text": "University Libraries opening hours, as supplied by the CampusConnect team on 2026-10-30. Check the AUB Libraries website for changes.\nJafet Library, Archives & Special Collections: Monday - Friday 07:30 AM - 05:00 PM; Saturday closed; Sunday closed.\nJafet Library, Computer Labs: Monday - Friday 07:30 AM - 08:00 PM; Saturday 08:00 AM - 05:00 PM; Sunday 10:00 AM - 10:00 PM.\nJafet Library, Reading Areas / Information Desks: Monday - Thursday 07:30 AM - Midnight; Friday 07:30 AM - 09:00 PM; Saturday 08:00 AM - 08:00 PM; Sunday 10:00 AM - 10:00 PM.\nEngineering & Architecture Library: Monday - Friday 08:00 AM - 05:00 PM; Saturday closed; Sunday closed.\nSaab Medical Library: Monday - Friday 07:30 AM - 10:00 PM; Saturday 08:00 AM - 08:00 PM; Sunday 10:00 AM - 10:00 PM.\nScience & Agriculture Library: Monday - Friday 08:00 AM - 05:00 PM; Saturday closed; Sunday closed."
+  },
+  {
     "id": "admissions",
     "url": "https://www.aub.edu.lb/admissions/Pages/default.aspx",
     "title": "Office of Admissions",

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { describe, it } from "node:test";
 import {
-  buildRows, chunkText, contentHash, fetchPage, htmlToText, parseManifest, saveRows, selectContent,
+  buildRows, chunkText, contentHash, fetchPage, htmlToText, pageFor, parseManifest, saveRows, selectContent,
 } from "../scripts/ingest-campus-sources.mjs";
 
 const FOOTER = "For various questions, please try contacting us via social media first!";
@@ -52,6 +52,30 @@ describe("SCRUM-51 campus source ingestion", () => {
     assert.equal(built.source.content_hash, contentHash("Fact"));
     assert.equal(built.source.retrieved_at, "2026-10-24T08:00:00.000Z");
     assert.throws(() => buildRows(source, { url: source.url, html: `<p>${FOOTER}</p>` }, "now"), /no text/);
+  });
+
+  it("accepts a source with hand-written text but not text combined with page markers", () => {
+    const withText = { ...source, text: "Jafet Library: Monday - Friday 07:30 AM - 05:00 PM" };
+    assert.equal(parseManifest(JSON.stringify([withText]))[0].text, withText.text);
+    assert.throws(() => parseManifest(JSON.stringify([{ ...withText, start_after: "Home" }])), /markers/);
+    assert.throws(() => parseManifest(JSON.stringify([{ ...withText, text: "   " }])));
+  });
+
+  it("builds rows from hand-written text without a page and keeps the source's own url", () => {
+    const text = "Jafet Library, Reading Areas: Monday - Thursday 07:30 AM - Midnight\nSaab Medical Library: Sunday 10:00 AM - 10:00 PM";
+    const built = buildRows({ ...source, id: "library-hours", text }, undefined, "2026-10-30T10:00:00.000Z");
+    assert.equal(built.source.url, source.url);
+    assert.equal(built.source.content_hash, contentHash(text));
+    assert.deepEqual(built.chunks, [{ id: "library-hours:0", source_id: "library-hours", position: 0, text }]);
+  });
+
+  it("does not fetch a page for a hand-written source but does for any other", async () => {
+    let fetched = 0;
+    const fetchImpl = async () => { fetched += 1; return new Response("<p>x</p>", { status: 200 }); };
+    assert.deepEqual(await pageFor({ ...source, text: "Hours" }, fetchImpl), { url: source.url });
+    assert.equal(fetched, 0);
+    await pageFor(source, fetchImpl);
+    assert.equal(fetched, 1);
   });
 
   it("rejects a redirect off aub.edu.lb and non-OK responses", async () => {
