@@ -24,6 +24,8 @@ const LINK_CLASS =
 export function NavLinks({ messagesBadge, notifications, logout }: NavLinksProps) {
   const pathname = usePathname();
   const inCourses = pathname === "/courses" || pathname.startsWith("/courses/");
+  const inPlanner = pathname === "/planner" || pathname.startsWith("/planner/");
+  const inElectives = pathname === "/electives" || pathname.startsWith("/electives/");
   const inSkillSwap = pathname === "/skillswap" || pathname.startsWith("/skillswap/");
   const inAssistant = pathname === "/assistant";
   const inMessages = pathname === "/messages" || pathname.startsWith("/messages/");
@@ -38,6 +40,24 @@ export function NavLinks({ messagesBadge, notifications, logout }: NavLinksProps
           className={`${LINK_CLASS} ${inCourses ? "text-[var(--maroon)]" : "text-[var(--ink-soft)]"}`}
         >
           Browse courses
+        </Link>
+      </li>
+      <li>
+        <Link
+          href="/planner"
+          aria-current={inPlanner ? "page" : undefined}
+          className={`${LINK_CLASS} ${inPlanner ? "text-[var(--maroon)]" : "text-[var(--ink-soft)]"}`}
+        >
+          Plan your semester
+        </Link>
+      </li>
+      <li>
+        <Link
+          href="/electives/preferences"
+          aria-current={inElectives ? "page" : undefined}
+          className={`${LINK_CLASS} ${inElectives ? "text-[var(--maroon)]" : "text-[var(--ink-soft)]"}`}
+        >
+          Elective preferences
         </Link>
       </li>
       <li>
