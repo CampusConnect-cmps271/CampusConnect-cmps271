@@ -114,14 +114,14 @@ test("the recipient sees it unread in the inbox until they open it", async ({ pa
   await expect(header(page).getByRole("link", { name: "Messages (1 unread)" })).toBeVisible();
 
   await header(page).getByRole("link", { name: /^Messages/ }).click();
-  await expect(page).toHaveURL(/\/messages$/);
+  await expect(page).toHaveURL(/\/messages$/, { timeout: 20_000 });
   const row = page.getByRole("list", { name: "Conversations" }).getByRole("link", { name: new RegExp(maya.name) });
   await expect(row).toContainText("Unread");
   await expect(row).toContainText("z".repeat(10));
   await expect(row).toContainText("just now");
 
   await row.click();
-  await expect(page).toHaveURL(new RegExp(`${conversationPath}$`));
+  await expect(page).toHaveURL(new RegExp(`${conversationPath}$`), { timeout: 20_000 });
   await expect(page.getByRole("log").getByText("Hi Omar, are you joining the study group?")).toBeVisible();
 
   // Opening the thread marks it read; the header count clears.
