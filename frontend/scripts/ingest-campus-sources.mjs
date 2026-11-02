@@ -37,7 +37,6 @@ const sourceSchema = z.object({
   (source) => source.text === undefined || (source.start_after === undefined && source.end_before === undefined),
   "A source with its own text cannot also use page markers",
 );
-});
 const manifestSchema = z.array(sourceSchema).min(1).max(50)
   .refine((sources) => new Set(sources.map((source) => source.id)).size === sources.length, "Source ids must be unique");
 
