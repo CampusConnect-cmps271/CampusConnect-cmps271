@@ -1,0 +1,87 @@
+[
+  {
+    "id": "registrar",
+    "url": "https://www.aub.edu.lb/registrar/Pages/default.aspx",
+    "title": "Office of the Registrar",
+    "publisher": "American University of Beirut, Office of the Registrar",
+    "start_after": "Home > Registrar",
+    "end_before": "Home"
+  },
+  {
+    "id": "official-document-requests",
+    "url": "https://www.aub.edu.lb/Registrar/Pages/transcripts-other-requests.aspx",
+    "title": "Official document requests (transcripts and certificates)",
+    "publisher": "American University of Beirut, Office of the Registrar",
+    "start_after": "Home > Registrar > Official document requests",
+    "end_before": "Home"
+  },
+  {
+    "id": "electronic-transcripts",
+    "url": "https://www.aub.edu.lb/Registrar/Pages/etranscript.aspx",
+    "title": "Electronic Transcript Questions",
+    "publisher": "American University of Beirut, Office of the Registrar",
+    "start_after": "Home > Registrar > Electronic Transcript Questions",
+    "end_before": "Home"
+  },
+  {
+    "id": "registrar-what-we-do",
+    "url": "https://www.aub.edu.lb/Registrar/Pages/whatwedo.aspx",
+    "title": "Registrar: What We Do",
+    "publisher": "American University of Beirut, Office of the Registrar",
+    "start_after": "Home > Registrar > What We Do",
+    "end_before": "Home"
+  },
+  {
+    "id": "academic-information",
+    "url": "https://www.aub.edu.lb/Registrar/Pages/academic-information.aspx",
+    "title": "Registrar: Academic Information (grading and GPA)",
+    "publisher": "American University of Beirut, Office of the Registrar",
+    "start_after": "Home > Registrar > Academic Information",
+    "end_before": "Home"
+  },
+  {
+    "id": "libraries",
+    "url": "https://www.aub.edu.lb/libraries/Pages/default.aspx",
+    "title": "University Libraries",
+    "publisher": "American University of Beirut, University Libraries",
+    "start_after": "Want to Borrow or Return Books?"
+  },
+  {
+    "id": "admissions",
+    "url": "https://www.aub.edu.lb/admissions/Pages/default.aspx",
+    "title": "Office of Admissions",
+    "publisher": "American University of Beirut, Office of Admissions",
+    "start_after": "WELCOME TO AUB"
+  },
+  {
+    "id": "english-requirements",
+    "url": "https://www.aub.edu.lb/admissions/Pages/EnglishRequirements.aspx",
+    "title": "Check your English Language Requirements",
+    "publisher": "American University of Beirut, Office of Admissions",
+    "start_after": "Home > Admissions > Check your English Language Requirements",
+    "end_before": "Home"
+  },
+  {
+    "id": "tuition-and-payment",
+    "url": "https://www.aub.edu.lb/comptroller/Pages/Student.aspx",
+    "title": "Office of the Comptroller: Student",
+    "publisher": "American University of Beirut, Office of the Comptroller",
+    "start_after": "Home > Office of the Comptroller > Student"
+  },
+  {
+    "id": "financial-aid",
+    "url": "https://www.aub.edu.lb/faid/Pages/default.aspx",
+    "title": "Office of Financial Aid",
+    "publisher": "American University of Beirut, Office of Financial Aid",
+    "start_after": "Home > Office of Financial Aid",
+    "end_before": "Home"
+  },
+  {
+    "id": "emergency-preparedness",
+    "url": "https://www.aub.edu.lb/emergency/Pages/default.aspx",
+    "title": "Emergency Preparedness",
+    "publisher": "American University of Beirut",
+    "start_after": "Home > Emergency Preparedness",
+    "end_before": "Home"
+  }
+]

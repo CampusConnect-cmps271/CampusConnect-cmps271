@@ -24,6 +24,7 @@ const LINK_CLASS =
 export function NavLinks({ messagesBadge, notifications, logout }: NavLinksProps) {
   const pathname = usePathname();
   const inSkillSwap = pathname === "/skillswap" || pathname.startsWith("/skillswap/");
+  const inAssistant = pathname === "/assistant";
   const inMessages = pathname === "/messages" || pathname.startsWith("/messages/");
   const inProfile = pathname === "/profile";
 
@@ -36,6 +37,15 @@ export function NavLinks({ messagesBadge, notifications, logout }: NavLinksProps
           className={`${LINK_CLASS} ${inSkillSwap ? "text-[var(--maroon)]" : "text-[var(--ink-soft)]"}`}
         >
           SkillSwap
+        </Link>
+      </li>
+      <li>
+        <Link
+          href="/assistant"
+          aria-current={inAssistant ? "page" : undefined}
+          className={`${LINK_CLASS} ${inAssistant ? "text-[var(--maroon)]" : "text-[var(--ink-soft)]"}`}
+        >
+          Assistant
         </Link>
       </li>
       <li>
