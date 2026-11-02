@@ -97,3 +97,24 @@ test("comma-separated interests stay grouped when saved and only complete groups
   await expect(page.getByRole("status")).toHaveText("0 recommendations found.");
   await expect(page.getByText("AI assistance is not configured.", { exact: false })).toHaveCount(0);
 });
+test("AI-assisted explanations are identified while course facts remain visible", async ({ page }) => {
+  await login(page, "recommendations-ai@mail.aub.edu");
+  await page.goto("/electives/preferences");
+  await page.getByLabel("Interests", { exact: true }).fill("computing");
+  await page.getByLabel("Academic goals", { exact: true }).fill("programming");
+  await page.getByRole("button", { name: "Save preferences" }).click();
+  await expect(page.getByRole("status")).toHaveText("Preferences saved.");
+  // The test server supplies synthetic catalogue data; no external AI is called.
+  await page.route("**/api/electives/recommendations", async route => {
+    const response = await route.fetch();
+    const baseline = await response.json();
+    await route.fulfill({ response, json: { ...baseline, mode: "provider", providerStatus: "available" } });
+  });
+  await page.getByRole("link", { name: "View elective recommendations →" }).click();
+  await page.getByRole("button", { name: "Get recommendations" }).click();
+  await expect(page.getByRole("status")).toHaveText("20 recommendations found.");
+  await expect(page.getByText("AI-assisted explanations for catalogue-matched courses.", { exact: true })).toBeVisible();
+  await expect(page.getByText("AI assistance is not configured.", { exact: false })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "EECE 463 · Computing and Robotics", exact: true })).toBeVisible();
+  await expect(page.locator("article").first()).toContainText("Prerequisites: unknown");
+});
