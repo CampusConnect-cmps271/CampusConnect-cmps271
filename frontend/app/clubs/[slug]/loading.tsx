@@ -1,0 +1,1 @@
+export default function ClubLoading() { return <main className="mx-auto max-w-4xl animate-pulse px-4 py-10" aria-label="Loading club profile"><div className="h-96 rounded-2xl bg-gray-100" /></main>; }
