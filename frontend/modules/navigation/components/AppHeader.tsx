@@ -41,7 +41,7 @@ export async function AppHeader() {
             <NotificationBell userId={user.id} initialCount={unreadNotifications} />
           }
           logout={
-            <LogoutButton className="rounded-md px-2 py-1.5 text-sm font-medium text-[var(--ink-soft)] hover:bg-[var(--maroon-50)] hover:text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)] disabled:opacity-60" />
+            <LogoutButton className="w-full rounded-md px-3 py-2.5 text-left text-sm font-medium text-[var(--ink-soft)] hover:bg-[var(--maroon-50)] hover:text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)] disabled:opacity-60" />
           }
         />
       </nav>
