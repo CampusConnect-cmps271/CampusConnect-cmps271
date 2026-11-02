@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function ClubNotFound() { return <main className="mx-auto max-w-xl px-4 py-20 text-center"><h1 className="text-3xl font-bold">Club not found</h1><p className="mt-3 text-gray-600">This club may have moved or is no longer available.</p><Link href="/clubs" className="mt-6 inline-block font-semibold text-[var(--maroon)] hover:underline">Browse all clubs</Link></main>; }

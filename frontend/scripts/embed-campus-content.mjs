@@ -117,8 +117,7 @@ async function main() {
   const counts = await runEmbedding(client, {
     dryRun: values["dry-run"],
     all: values.all,
-    // The same model the app embeds questions with, or the stored vectors and the questions would not be comparable.
-    embed: (texts) => embedTexts(texts, { apiKey, taskType: "RETRIEVAL_DOCUMENT", model: process.env.CAMPUS_ASSISTANT_EMBEDDING_MODEL?.trim() || undefined }),
+    embed: (texts) => embedTexts(texts, { apiKey, taskType: "RETRIEVAL_DOCUMENT" }),
   });
   console.log(`${values["dry-run"] ? "Dry run: would embed" : "Complete:"} ${counts.chunks} chunks and ${counts.courses} courses.`);
 }
