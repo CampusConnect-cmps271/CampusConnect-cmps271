@@ -32,7 +32,7 @@ describe("multi-perspective review analysis", () => {
   });
   it("supports all-positive and all-negative samples without requiring invented opposition", async () => {
     for (const rating of [1, 5]) {
-      const uniform = { ...sample, reviews: sample.reviews.map(row => ({ ...row, overall_rating: rating })) };
+      const uniform = { ...sample, positive: rating === 5 ? 3 : 0, negative: rating === 1 ? 3 : 0, mixed: 0, reviews: sample.reviews.map(row => ({ ...row, overall_rating: rating })) };
       const provider = vi.fn().mockResolvedValue({ ...stage, claims: [] });
       expect((await analyzeReviews(uniform, provider)).status).toBe("available");
       expect(provider.mock.calls[1][1].instructions).toContain("Do not invent opposing evidence");

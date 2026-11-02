@@ -11,6 +11,21 @@ Apply the additive `elective_preferences` migration before deploying these route
 The existing catalogue and published review tables are prerequisites. No held
 catalogue imports or other owners' Sprint 3 features are required.
 
+## Where AI appears
+
+The preference form saves inputs without calling a model. The catalogue
+matcher selects complete comma-separated interest groups before any optional
+provider call. Successful enrichment is labelled **AI-assisted explanations
+for catalogue-matched courses** on the recommendations page.
+
+**Explore review evidence** always makes published source excerpts and sample
+counts available. When three-stage analysis succeeds, a separate **AI review
+analysis** section identifies the defender's benefits, prosecutor's drawbacks,
+and judge's balanced assessment. Every claim links to its cited source review;
+interpretations should be checked against those quotations and limitations.
+Sparse reviews, missing configuration and unverified provider output keep the
+source evidence available without displaying a partial AI analysis.
+
 ## Provider configuration
 
 The baseline works without any AI configuration. All credentials below stay
