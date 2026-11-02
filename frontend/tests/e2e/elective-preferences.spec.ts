@@ -15,6 +15,7 @@ async function fillDraft(page: Page) {
 test("mobile questionnaire preserves invalid drafts, saves, reloads and edits privately", async ({ page, browser }) => {
   await login(page);
   await page.setViewportSize({ width: 375, height: 812 });
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
   await page.getByRole("link", { name: "Elective preferences", exact: true }).click();
   await fillDraft(page);
   await page.getByRole("button", { name: "Save preferences" }).click();
