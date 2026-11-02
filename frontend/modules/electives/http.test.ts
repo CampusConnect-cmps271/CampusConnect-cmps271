@@ -26,6 +26,7 @@ it("rejects malformed, large and unknown-code input", async () => {
 });
 it("returns private noncached results and generic data errors", async () => {
   const result = await recommendationsPOST(request()); expect(result.status).toBe(200); expect(result.headers.get("cache-control")).toContain("no-store");
+  expect(m.courses).toHaveBeenCalledWith(preferences);
   m.courses.mockRejectedValue(new Error("private SQL details"));
   const failed = await recommendationsPOST(request()); expect(failed.status).toBe(503); expect(await failed.text()).not.toContain("SQL");
 });

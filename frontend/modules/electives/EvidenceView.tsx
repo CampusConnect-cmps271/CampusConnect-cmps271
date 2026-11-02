@@ -33,7 +33,11 @@ export function EvidenceView({ courseId, code }: { courseId: string; code: strin
       <p>By overall rating: {data.sample.positive} positive (4–5), {data.sample.mixed} mixed (3), {data.sample.negative} negative (1–2).</p>
       {!data.sample.sampled && <p>No published reviews are available for this course.</p>}
       {data.analysis.status === "unavailable" && <p>{data.analysis.reason === "insufficient_reviews" ? "Too few reviews for a balanced analysis." : data.analysis.reason === "unconfigured" ? "AI analysis is not configured. You can inspect the source evidence below." : "AI analysis could not be verified. You can inspect the source evidence below."}</p>}
-      {data.analysis.status === "available" && <div>{stage("Defender · benefits", data.analysis.defender)}{stage("Prosecutor · drawbacks", data.analysis.prosecutor)}{stage("Judge · balanced assessment", data.analysis.judge)}</div>}
+      {data.analysis.status === "available" && <section aria-label="AI review analysis">
+        <h3 className="font-bold mt-4">AI review analysis</h3>
+        <p>This is an AI interpretation of the published reviews. Check the quoted sources and sample limitations.</p>
+        {stage("Defender · benefits", data.analysis.defender)}{stage("Prosecutor · drawbacks", data.analysis.prosecutor)}{stage("Judge · balanced assessment", data.analysis.judge)}
+      </section>}
       <details><summary>Source review excerpts (up to 1,500 characters each)</summary>
         {data.sample.reviews.map(review => <blockquote key={review.id} className={styles.evidence}><p>{review.body}</p><p>Overall {review.overall_rating}/5 · Workload {review.workload_rating}/5</p><Link href={sourceLink(review.id)}>Read source review</Link></blockquote>)}
       </details>

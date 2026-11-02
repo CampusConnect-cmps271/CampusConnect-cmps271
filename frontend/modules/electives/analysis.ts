@@ -2,12 +2,8 @@ import "server-only";
 import { z } from "zod";
 import type { Provider } from "./provider";
 import type { EvidenceSample } from "./evidence";
+import { analysisStageSchema as stageSchema } from "./provider-contracts";
 
-const stageSchema = z.object({
-  summary: z.string().trim().min(1).max(1200),
-  uncertainty: z.string().trim().min(1).max(500),
-  claims: z.array(z.object({ review_id: z.string().max(64), quote: z.string().trim().min(1).max(500), observation: z.string().trim().min(1).max(500) }).strict()).max(8),
-}).strict();
 export type AnalysisStage = z.infer<typeof stageSchema>;
 export type ReviewAnalysis = { status: "available"; defender: AnalysisStage; prosecutor: AnalysisStage; judge: AnalysisStage }
   | { status: "unavailable"; reason: "unconfigured" | "insufficient_reviews" | "provider_failure" };

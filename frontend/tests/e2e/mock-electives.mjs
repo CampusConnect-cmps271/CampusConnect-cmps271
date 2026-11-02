@@ -10,6 +10,7 @@ export const electiveAccounts = {
   "recommendations-empty@mail.aub.edu": "00000000-0000-4000-8000-000000000502",
   "recommendations-no-major@mail.aub.edu": "00000000-0000-4000-8000-000000000503",
   "recommendations-groups@mail.aub.edu": "00000000-0000-4000-8000-000000000504",
+  "recommendations-ai@mail.aub.edu": "00000000-0000-4000-8000-000000000505",
 };
 const groupedCourses = [
   { code: "CMPS 201", name: "Software Design", description: "Software architecture and development." },

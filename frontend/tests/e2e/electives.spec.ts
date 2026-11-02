@@ -89,4 +89,64 @@ test("comma-separated interests stay grouped when saved and only complete groups
   await page.getByRole("button", { name: "Get recommendations" }).click();
   await expect(page.getByRole("status")).toHaveText("0 recommendations found.");
   await expect(page.getByText("No available courses match a complete interest group.", { exact: false })).toBeVisible();
+  await page.route("**/api/electives/recommendations", route => route.fulfill({ json: {
+    recommendations: [], mode: "baseline", providerStatus: "not_needed", truncated: false,
+    catalogueCount: 5, studentMajor: null, majorStatus: "missing",
+  } }));
+  await page.getByRole("button", { name: "Get recommendations" }).click();
+  await expect(page.getByRole("status")).toHaveText("0 recommendations found.");
+  await expect(page.getByText("AI assistance is not configured.", { exact: false })).toHaveCount(0);
+});
+test("AI-assisted explanations are identified while course facts remain visible", async ({ page }) => {
+  await login(page, "recommendations-ai@mail.aub.edu");
+  await page.goto("/electives/preferences");
+  await page.getByLabel("Interests", { exact: true }).fill("computing");
+  await page.getByLabel("Academic goals", { exact: true }).fill("programming");
+  await page.getByRole("button", { name: "Save preferences" }).click();
+  await expect(page.getByRole("status")).toHaveText("Preferences saved.");
+  let expectedCourse: { code: string; name: string; prerequisite_status: string } | undefined;
+  // The test server supplies synthetic catalogue data; no external AI is called.
+  await page.route("**/api/electives/recommendations", async route => {
+    const response = await route.fetch();
+    const baseline = await response.json();
+    expectedCourse = baseline.recommendations[0];
+    await route.fulfill({ response, json: { ...baseline, mode: "provider", providerStatus: "available" } });
+  });
+  await page.getByRole("link", { name: "View elective recommendations →" }).click();
+  await page.getByRole("button", { name: "Get recommendations" }).click();
+  await expect(page.getByRole("status")).toHaveText("20 recommendations found.");
+  await expect(page.getByText("AI-assisted explanations for catalogue-matched courses.", { exact: true })).toBeVisible();
+  await expect(page.getByText("AI assistance is not configured.", { exact: false })).toHaveCount(0);
+  expect(expectedCourse).toBeDefined();
+  await expect(page.getByRole("link", { name: `${expectedCourse!.code} · ${expectedCourse!.name}`, exact: true })).toBeVisible();
+  await expect(page.locator("article").first()).toContainText(`Prerequisites: ${expectedCourse!.prerequisite_status}`);
+  await page.route("**/api/electives/analysis", async route => {
+    const response = await route.fetch();
+    const data = await response.json();
+    const claim = (index: number, summary: string) => ({ summary, uncertainty: "Only three published reviews were sampled.", claims: [{
+      review_id: data.sample.reviews[index].id, quote: data.sample.reviews[index].body, observation: summary,
+    }] });
+    await route.fulfill({ response, json: { sample: data.sample, analysis: {
+      status: "available", defender: claim(0, "A reviewer valued the useful projects."),
+      prosecutor: claim(1, "A reviewer reported a heavy workload."),
+      judge: claim(2, "Benefits and workload concerns should be considered together."),
+    } } });
+  });
+  const first = page.locator("article").first();
+  await first.getByRole("button", { name: "Explore review evidence" }).click();
+  const analysis = first.getByRole("region", { name: "AI review analysis", exact: true });
+  await expect(analysis).toBeVisible();
+  for (const name of ["Defender · benefits", "Prosecutor · drawbacks", "Judge · balanced assessment"]) {
+    await expect(analysis.getByRole("heading", { name, exact: true })).toBeVisible();
+  }
+  await expect(analysis).toContainText("This is an AI interpretation of the published reviews.");
+  await expect(analysis).toContainText("Clear explanations and useful projects.");
+  await expect(analysis.getByRole("link", { name: "Read cited review" })).toHaveCount(3);
+  await expect(analysis.getByRole("link", { name: "Read cited review" }).first()).toHaveAttribute("href", /#review-40000000-0000-4000-8000-000000000001$/);
+  await page.setViewportSize({ width: 375, height: 812 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole("button", { name: "Get recommendations" }).focus();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("link", { name: "Open Profile" })).toBeFocused();
+  await first.screenshot({ path: test.info().outputPath("ai-assisted-analysis.png") });
 });
