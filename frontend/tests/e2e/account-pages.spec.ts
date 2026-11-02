@@ -64,7 +64,8 @@ test("verified students log out and lose access to protected home", async ({ pag
   await page.getByLabel("Password", { exact: true }).fill("test-verified-password");
   await page.getByRole("button", { name: "Log in", exact: true }).click();
   await expect(page).toHaveURL(/\/home$/);
-  // The header's Log out; /home still has its own, scoped inside main.
+  // The header's Log out, inside the side bar; /home still has its own, scoped inside main.
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
   await page.getByRole("banner").getByRole("button", { name: "Log out", exact: true }).click();
   await expect(page).toHaveURL("http://127.0.0.1:3100/");
   // Logging out is a Server Action; wait until it has cleared the session.
