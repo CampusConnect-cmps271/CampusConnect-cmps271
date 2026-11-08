@@ -54,10 +54,10 @@ export function handleCourses(request, response, url, email) {
     synced_at: "2026-11-08T00:00:00Z", source_updated_at: "2026-11-07T23:00:00Z",
     instructors: [semester_id === "202720" ? "Spring Instructor" : "Fall Instructor"],
     attributes: ["Writing in the Discipline"], prerequisite_variants: ["CMPS 101 or CMPS 102"],
-    sections: [{ crn: semester_id === "202720" ? "20904" : "10904", section: "1", title: course.name, credits: 3,
+    sections: Array.from({ length: 4 }, (_, index) => ({ crn: String((semester_id === "202720" ? 20904 : 10904) + index), section: String(index + 1), title: course.name, credits: 3,
       instructors: [semester_id === "202720" ? "Spring Instructor" : "Fall Instructor"], attributes: ["Writing in the Discipline"],
-      prerequisites: "CMPS 101 or CMPS 102", sessions: [{ days: "MW", start: "09:00", end: "10:15", type: "Lecture", location: "Test Hall", instructor: "Test Instructor" }],
-      source_updated_at: "2026-11-07T23:00:00Z", details_url: "https://www-banner.aub.edu.lb/pls/weba/bwckschd.p_disp_detail_sched?term_in=202720&crn_in=20904", restrictions: null }],
+      prerequisites: "CMPS 101 or CMPS 102", sessions: [{ days: "MW", start: ["09:00", "10:30", "12:00", "14:00"][index], end: ["10:15", "11:45", "13:15", "15:15"][index], type: "Lecture", location: "Test Hall", instructor: "Test Instructor" }],
+      source_updated_at: "2026-11-07T23:00:00Z", details_url: "https://www-banner.aub.edu.lb/pls/weba/bwckschd.p_disp_detail_sched?term_in=202720&crn_in=20904", restrictions: null })),
   })));
   const semester = url.searchParams.get("semester_id");
   if (semester) rows = rows.filter((row) => row.semester_id === semester.slice(3));

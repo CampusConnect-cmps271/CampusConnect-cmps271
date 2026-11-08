@@ -19,16 +19,24 @@ test("semester browsing shows the right instructor, attributes and section rules
   const offerings = page.getByRole("region", { name: "Semester offerings" });
   await expect(offerings).toContainText("Spring 2026-2027");
   await expect(offerings).not.toContainText("Fall 2026-2027");
-  const section = offerings.locator("details");
+  await expect(offerings.locator("details")).toHaveCount(4);
+  const section = offerings.locator("details").first();
+  await expect(section.locator("summary")).toContainText("Mon · Wed");
+  await expect(section.locator("summary")).toContainText("09:00–10:15");
+  await expect(section.locator("summary")).toContainText("Test Hall");
+  await expect(section).not.toHaveAttribute("open");
+  const columns = await offerings.locator("details").evaluateAll((cards) => cards.map((card) => card.getBoundingClientRect().top));
+  expect(new Set(columns).size).toBe(1);
+  await offerings.screenshot({ path: "/tmp/campusconnect-section-cards-desktop.png" });
   await section.locator("summary").click();
   await expect(section).toContainText("Registration prerequisites: CMPS 101 or CMPS 102");
-  await expect(section).toContainText("MW · 09:00–10:15");
+  await expect(section.locator("summary")).toContainText("09:00–10:15");
   // Catalogue consent rules remain readable alongside the semester expression.
   await expect(page.getByRole("region", { name: "Prerequisites", exact: true })).toContainText("Instructor consent may also be required");
   await expect(offerings.getByRole("link", { name: "Resis", exact: true })).toHaveAttribute("href", "https://resis.org/");
   await page.setViewportSize({ width: 375, height: 812 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: "/tmp/campusconnect-resis-mobile.png", fullPage: true });
+  await offerings.screenshot({ path: "/tmp/campusconnect-section-cards-mobile.png" });
   await page.getByRole("link", { name: "← Back to courses", exact: true }).click();
   await page.getByLabel("Semester", { exact: true }).selectOption("202710");
   await page.getByRole("button", { name: "Search courses" }).click();
