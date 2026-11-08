@@ -70,3 +70,12 @@
   .courseFacts { grid-template-columns: minmax(0, 1fr); padding: 20px; }
   .detailPanel { padding: 20px; }
 }
+
+.offeringMetadata { font-size: .875rem; color: var(--muted, #64748b); overflow-wrap: anywhere; }
+.offeringMetadata p { margin: .4rem 0; }
+.semesterOffering { border-top: 1px solid #dbe2ea; margin-top: 1.2rem; padding-top: 1rem; }
+.semesterOffering h3 { margin-bottom: .75rem; }
+.sectionList { display: grid; gap: .65rem; margin: 1rem 0; }
+.sectionDetails { border: 1px solid #dbe2ea; border-radius: .65rem; padding: .8rem; overflow-wrap: anywhere; }
+.sectionDetails summary { cursor: pointer; font-weight: 600; line-height: 1.5; }
+.sectionDetails p { white-space: pre-wrap; margin-top: .65rem; line-height: 1.6; }

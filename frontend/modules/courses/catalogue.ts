@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/modules/auth";
 import { log } from "@/modules/logging";
 import { COURSES_PER_PAGE, COURSE_RANGE_FILTERS, courseFilterError, courseSearchExpression, hasRatingFilters, type CourseFilters } from "./search";
+import { getImportedSemesters } from "./semesters";
 
 export type Course = {
   id: string;
@@ -11,6 +12,8 @@ export type Course = {
   credits: number;
   description: string;
   department: string;
+  instructors?: string[];
+  attributes?: string[];
 };
 
 type Client = Awaited<ReturnType<typeof createClient>>;
@@ -49,9 +52,10 @@ async function loadCourses(client: Client, filters: CourseFilters): Promise<Cour
   function filtered(head = false) {
     // Rating predicates must apply before counting and pagination, not to only
     // the visible page. The view uses the caller's RLS and displayed averages.
-    let query = client.from(hasRatingFilters(filters) ? "course_filter_catalogue" : "courses").select(
-      "id,code,name,credits,description,department", { count: "exact", head },
+    let query = client.from(filters.semester ? "course_semester_catalogue" : hasRatingFilters(filters) ? "course_filter_catalogue" : "courses").select(
+      filters.semester ? "id,code,name,credits,description,department,instructors,attributes" : "id,code,name,credits,description,department", { count: "exact", head },
     );
+    if (filters.semester) query = query.eq("semester_id", filters.semester);
     if (filters.department) query = query.eq("department", filters.department);
     if (filters.query) query = query.or(courseSearchExpression(filters.query));
     for (const range of COURSE_RANGE_FILTERS) {
@@ -73,7 +77,7 @@ async function loadCourses(client: Client, filters: CourseFilters): Promise<Cour
   if (count === 0) return { courses: [] as Course[], total: 0, page, pages };
   const start = (page - 1) * COURSES_PER_PAGE;
   const result = await filtered().order("department").order("code").order("id")
-    .range(start, start + COURSES_PER_PAGE - 1);
+    .range(start, start + COURSES_PER_PAGE - 1).overrideTypes<Course[], { merge: false }>();
   if (result.error || !result.data) failed(result.error);
   return { courses: result.data as Course[], total: count, page, pages };
 }
@@ -84,10 +88,10 @@ export async function getCourseCatalogue(filters: CourseFilters) {
   await requireUser();
   try {
     const client = await createClient();
-    const [departments, result] = await Promise.all([
-      loadDepartments(client), loadCourses(client, filters),
+    const [departments, result, semesters] = await Promise.all([
+      loadDepartments(client), loadCourses(client, filters), getImportedSemesters(),
     ]);
-    return { ...result, departments };
+    return { ...result, departments, semesters };
   } catch (error) {
     if (error instanceof CatalogueUnavailable) throw error;
     // Transport/configuration failures get the same safe retry UI. Auth

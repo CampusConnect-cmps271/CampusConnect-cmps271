@@ -27,8 +27,10 @@ function like(pattern, text) {
 }
 
 export function handleCourses(request, response, url, email) {
-  const ratingFilter = url.pathname === "/rest/v1/course_filter_catalogue";
-  if (url.pathname !== "/rest/v1/courses" && !ratingFilter) return false;
+  const semesterFilter = url.pathname === "/rest/v1/course_semester_catalogue";
+  const semesterList = url.pathname === "/rest/v1/resis_semesters";
+  const ratingFilter = url.pathname === "/rest/v1/course_filter_catalogue" || semesterFilter;
+  if (url.pathname !== "/rest/v1/courses" && !ratingFilter && !semesterList) return false;
   if (ratingFilter && email === "filters-unavailable@mail.aub.edu") {
     response.statusCode = 404;
     response.end(JSON.stringify({ code: "PGRST205", message: "Synthetic private filter-view failure" }));
@@ -39,7 +41,26 @@ export function handleCourses(request, response, url, email) {
     response.end(JSON.stringify({ code: "42501", message: "Synthetic database failure details must never reach the page" }));
     return true;
   }
+  if (semesterList) {
+    response.end(JSON.stringify([
+      { id: "202720", name: "Spring 2026-2027", synced_at: "2026-11-08T00:00:00Z" },
+      { id: "202710", name: "Fall 2026-2027", synced_at: "2026-11-08T00:00:00Z" },
+    ]));
+    return true;
+  }
   let rows = [...courses];
+  if (semesterFilter) rows = rows.filter((c) => c.code === "CMPS 240").flatMap((course) => ["202720", "202710"].map((semester_id) => ({
+    ...course, semester_id, semester_name: semester_id === "202720" ? "Spring 2026-2027" : "Fall 2026-2027",
+    synced_at: "2026-11-08T00:00:00Z", source_updated_at: "2026-11-07T23:00:00Z",
+    instructors: [semester_id === "202720" ? "Spring Instructor" : "Fall Instructor"],
+    attributes: ["Writing in the Discipline"], prerequisite_variants: ["CMPS 101 or CMPS 102"],
+    sections: [{ crn: semester_id === "202720" ? "20904" : "10904", section: "1", title: course.name, credits: 3,
+      instructors: [semester_id === "202720" ? "Spring Instructor" : "Fall Instructor"], attributes: ["Writing in the Discipline"],
+      prerequisites: "CMPS 101 or CMPS 102", sessions: [{ days: "MW", start: "09:00", end: "10:15", type: "Lecture", location: "Test Hall", instructor: "Test Instructor" }],
+      source_updated_at: "2026-11-07T23:00:00Z", details_url: "https://www-banner.aub.edu.lb/pls/weba/bwckschd.p_disp_detail_sched?term_in=202720&crn_in=20904", restrictions: null }],
+  })));
+  const semester = url.searchParams.get("semester_id");
+  if (semester) rows = rows.filter((row) => row.semester_id === semester.slice(3));
   if (ratingFilter) rows = rows.map((course) => {
     const ratings = ratingFixture(course);
     const round = (value) => Number(new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(value));

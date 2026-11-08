@@ -27,7 +27,7 @@ export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
       <a href={coursesUrl(filters)}>Try again</a>
     </section>
   );
-  const { courses, departments, total, page, pages, filterError } = result.data;
+  const { courses, departments, semesters, total, page, pages, filterError } = result.data;
   const ratings = await getCourseRatings(courses.map((course) => course.id));
   const groups = new Map<string, Course[]>();
   for (const course of courses) {
@@ -40,6 +40,15 @@ export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
     <ComparisonSelection filters={{ ...filters, page }} />
     <CourseFilterForm key={coursesUrl(filters)}>
       {filters.compare?.map((code) => <input key={code} type="hidden" name="compare" value={code} />)}
+      <div className={styles.departmentField}>
+        <label htmlFor="course-semester">Semester</label>
+        <select id="course-semester" name="semester" defaultValue={filters.semester ?? ""}>
+          <option value="">All catalogue courses</option>
+          {filters.semester && !semesters.some((s) => s.id === filters.semester) &&
+            <option value={filters.semester}>Semester {filters.semester} (not imported)</option>}
+          {semesters.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+      </div>
       <div className={styles.searchField}>
         <label htmlFor="course-search">Course name or code</label>
         <input id="course-search" name="q" type="search" maxLength={120}
@@ -77,6 +86,8 @@ export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
       {filters.query && <> for “{filters.query}”</>}
       {total > 0 && <> · Showing {(page - 1) * COURSES_PER_PAGE + 1}–{Math.min(page * COURSES_PER_PAGE, total)}</>}
     </p>}
+    <p className={styles.filterHint}>Semester offerings, instructors and attributes are provided by <a href="https://resis.org/" target="_blank" rel="noreferrer">Resis</a>.
+      {filters.semester ? " Choose View course for section details and semester-specific registration rules. Saved offerings may change; verify registration details in AUB SIS." : " Select a semester to see courses offered that term."}</p>
 
     {filterError ? <section className={`${styles.notice} ${styles.filterError}`} role="alert" aria-labelledby="filter-error-title">
       <h2 id="filter-error-title">Check your filter ranges</h2>
@@ -107,6 +118,10 @@ export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
               <p className={styles.fullDescription}>{course.description}</p>
             </details>
             <RatingSummary courseCode={course.code} summary={ratings.get(course.id)} compact />
+            {filters.semester && <div className={styles.offeringMetadata}>
+              <p><strong>Instructors:</strong> {course.instructors?.join(", ") || "Not listed"}</p>
+              <p><strong>Attributes:</strong> {course.attributes?.join(", ") || "Not listed"}</p>
+            </div>}
             <Link href={courseUrl(course.code, { ...filters, page })} className={styles.coursePageLink}
               aria-label={`View course ${course.code}`}>
               View course →
