@@ -9,6 +9,9 @@ const readMigration = (name) =>
 const rolesMigration = await readMigration("20261005010000_roles_and_permissions.sql");
 const appLogsSource = await readMigration("20261005103145_create_app_logs.sql");
 const monitoringSource = await readMigration("20261109182458_sprint4_monitoring_alerts.sql");
+const vercelConfig = JSON.parse(
+  await readFile(new URL("../vercel.json", import.meta.url), "utf8"),
+);
 
 // pg_cron is a hosted Supabase extension, not part of PGlite. Apply the real
 // table/policy portion and the real pruning function, then assert the hosted
@@ -122,5 +125,12 @@ describe("Sprint 4 monitoring database security", () => {
     assert.match(monitoringSource, /cron\.schedule\([\s\S]*'prune-monitoring-logs'/);
     assert.match(monitoringSource, /cron\.unschedule\(jobid\)/);
     assert.doesNotMatch(monitoringSource, /(?:insert|update|delete)\s+(?:into\s+|from\s+)?cron\.job\b/i);
+  });
+
+  it("uses a Vercel Hobby-compatible daily health schedule", () => {
+    assert.deepEqual(vercelConfig.crons, [{
+      path: "/api/cron/health",
+      schedule: "0 9 * * *",
+    }]);
   });
 });

@@ -57,7 +57,7 @@ export default async function AdminHealthPage() {
 
         <footer className="rounded-xl bg-white p-5 text-sm text-gray-600 shadow">
           Checked at {new Date(snapshot.checkedAt).toLocaleString("en", { timeZone: "UTC" })} UTC.
-          Scheduled probes run every ten minutes and alert only on degraded or unavailable services.
+          Scheduled probes run daily and alert only on degraded or unavailable services.
         </footer>
       </div>
     </main>
