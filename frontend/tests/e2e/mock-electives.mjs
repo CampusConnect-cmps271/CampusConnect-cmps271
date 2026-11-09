@@ -6,6 +6,7 @@ const electiveCourses = [...courses, {
   credits: 3, prerequisites: "Prerequisite: CMPS 101 or instructor consent.",
 }];
 export const electiveAccounts = {
+  "recommendations-offerings@mail.aub.edu": "00000000-0000-4000-8000-000000000506",
   "recommendations-ranking@mail.aub.edu": "00000000-0000-4000-8000-000000000501",
   "recommendations-empty@mail.aub.edu": "00000000-0000-4000-8000-000000000502",
   "recommendations-no-major@mail.aub.edu": "00000000-0000-4000-8000-000000000503",

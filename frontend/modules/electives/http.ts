@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/modules/auth";
 import { getMyProfile } from "@/modules/profiles";
 import { log } from "@/modules/logging";
 import { preferencesSchema } from "./schema";
-import { validateCompletedCourses } from "./preferences";
+import { validateCompletedCourses, validateOfferingSemester } from "./preferences";
 import { loadCandidates } from "./catalogue";
 import { configuredProvider, boundedJson } from "./provider";
 import { recommend } from "./recommendations";
@@ -30,6 +30,7 @@ export async function recommendationsPOST(request: Request) {
   if (!parsed.success) return json({ error: "Check your elective preferences." }, 400);
   try {
     if ((await validateCompletedCourses(parsed.data)).length) return json({ error: "Use completed course codes from the catalogue." }, 400);
+    if (parsed.data.offering_preferences?.semester_id && !(await validateOfferingSemester(parsed.data))) return json({ error: "Choose a semester with imported course data." }, 400);
     const context = async (): Promise<StudentContext> => {
       try {
         const profile = await getMyProfile();

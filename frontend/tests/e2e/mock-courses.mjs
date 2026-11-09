@@ -42,10 +42,12 @@ export function handleCourses(request, response, url, email) {
     return true;
   }
   if (semesterList) {
-    response.end(JSON.stringify([
+    const semesters = [
       { id: "202720", name: "Spring 2026-2027", synced_at: "2026-11-08T00:00:00Z" },
       { id: "202710", name: "Fall 2026-2027", synced_at: "2026-11-08T00:00:00Z" },
-    ]));
+    ];
+    const id = url.searchParams.get("id");
+    response.end(JSON.stringify(id ? semesters.filter(s => s.id === id.slice(3)) : semesters));
     return true;
   }
   let rows = [...courses];

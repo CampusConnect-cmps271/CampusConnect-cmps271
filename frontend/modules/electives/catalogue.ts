@@ -4,6 +4,7 @@ import { requireUser } from "@/modules/auth";
 import type { Candidate } from "./types";
 import type { ElectivePreferences } from "./schema";
 import { preferenceGroups, tokens } from "./preference-matching";
+import { matchingOffering } from "./offering-matches";
 
 export async function loadCandidates(preferences?: ElectivePreferences): Promise<{ courses: Candidate[]; truncated: boolean }> {
   await requireUser();
@@ -11,10 +12,20 @@ export async function loadCandidates(preferences?: ElectivePreferences): Promise
   const courses: Candidate[] = [];
   const PAGE = 1000;
   for (let start = 0; ; start += PAGE) {
-    const { data, error } = await client.from("courses").select("id,code,name,description,department,prerequisites,credits")
-      .order("code").range(start, start + PAGE - 1);
+    const semester = preferences?.offering_preferences?.semester_id;
+    let query = client.from(semester ? "course_semester_catalogue" : "courses")
+      .select(semester ? "id,code,name,description,department,prerequisites,credits,semester_id,semester_name,synced_at,sections" : "id,code,name,description,department,prerequisites,credits");
+    if (semester) query = query.eq("semester_id", semester);
+    const { data, error } = await query.order("code").range(start, start + PAGE - 1);
     if (error) throw new Error("The course catalogue is temporarily unavailable.");
-    courses.push(...(data ?? []).map(row => ({ ...row, review_count: null, average_workload: null, average_overall: null })) as Candidate[]);
+    for (const row of (data ?? []) as unknown as (Candidate & { semester_id: string; semester_name: string; synced_at: string; sections: import("@/modules/courses/semesters").CourseSection[] })[]) {
+      const offering = semester ? matchingOffering({ semester_id: row.semester_id, semester_name: row.semester_name, synced_at: row.synced_at, sections: row.sections }, preferences?.offering_preferences) : null;
+      if (semester && !offering) continue;
+      courses.push({ id: row.id, code: row.code, name: row.name, description: row.description, department: row.department,
+        prerequisites: row.prerequisites, credits: row.credits, review_count: null, average_workload: null, average_overall: null,
+        ...(offering ? { offering } : {}),
+      });
+    }
     if ((data ?? []).length < PAGE) break;
   }
   // Search the whole catalogue, but only fetch ratings that can affect ranking.

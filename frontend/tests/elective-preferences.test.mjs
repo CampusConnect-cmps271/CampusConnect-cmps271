@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { after, before, describe, it } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 
@@ -18,6 +18,13 @@ describe("elective preferences migration and RLS", () => {
     for (const name of ["20261017091812_create_courses.sql", "20261028094821_elective_preferences.sql"]) {
       await db.exec(await readFile(new URL(`../../supabase/migrations/${name}`, import.meta.url), "utf8"));
     }
+    await db.exec(`create table public.resis_semesters(id text primary key, active_import_id uuid);
+      insert into public.resis_semesters values ('202720','10000000-0000-4000-a000-000000000001'),('202710',null);
+      alter table public.resis_semesters enable row level security;
+      grant select on public.resis_semesters to authenticated;
+      create policy "Students see active semesters" on public.resis_semesters for select to authenticated using(active_import_id is not null);`);
+    const extra = (await readdir(new URL("../../supabase/migrations/", import.meta.url))).find(name => name.endsWith("_elective_offering_preferences.sql"));
+    await db.exec(await readFile(new URL(`../../supabase/migrations/${extra}`, import.meta.url), "utf8"));
     await db.exec("insert into public.courses(code,name,description,credits,department) values ('CMPS 101','Computing','Introduction',3,'CMPS')");
   });
   after(async () => db?.close());
@@ -83,4 +90,31 @@ describe("elective preferences migration and RLS", () => {
       await assert.rejects(db.query("insert into public.elective_preferences(student_id,interests,preferred_workload,academic_goals) values ($1,'{art}','light','Tampered')", [OTHER]), e => e.code === "42501");
     } finally { await db.exec("reset role"); }
   });
+  it("stores private offering filters and clears them without changing other preferences", async () => {
+    await asUser(OWNER, async () => {
+      const value = { semester_id: "202720", instructors: ["Alice"], attributes: ["Science"], meeting_days: ["M", "W"], earliest_start: "09:00", latest_end: "16:00" };
+      await db.query("update public.elective_preferences set offering_preferences=$1::jsonb", [JSON.stringify(value)]);
+      assert.deepEqual((await db.query("select offering_preferences from public.elective_preferences")).rows[0].offering_preferences, value);
+    });
+    await asUser(OTHER, async () => {
+      assert.equal((await db.query("select offering_preferences from public.elective_preferences")).rows.length, 0);
+      assert.equal((await db.query("update public.elective_preferences set offering_preferences='{}' returning *")).rows.length, 0);
+    });
+    await asUser(OWNER, async () => {
+      await db.query("update public.elective_preferences set offering_preferences='{}'");
+      assert.deepEqual((await db.query("select offering_preferences from public.elective_preferences")).rows[0].offering_preferences, {});
+    });
+  });
+  it("validates offering JSON, active semesters and time bounds on direct database writes", async () => {
+    await asUser(OWNER, async () => {
+      for (const value of [[], "bad", { instructors: ["Alice"] }, { semester_id: "202710" }, { semester_id: "999999" },
+        { semester_id: "202720", student_id: OTHER }, { semester_id: "202720", instructors: "Alice" },
+        { semester_id: "202720", attributes: [null] }, { semester_id: "202720", instructors: Array(11).fill("Alice") },
+        { semester_id: "202720", meeting_days: ["X"] }, { semester_id: "202720", earliest_start: "24:00" },
+        { semester_id: "202720", earliest_start: "15:00", latest_end: "09:00" }]) {
+        await assert.rejects(db.query("update public.elective_preferences set offering_preferences=$1::jsonb", [JSON.stringify(value)]), e => e.code === "23514");
+      }
+    });
+  });
+
 });
