@@ -15,3 +15,23 @@
 .evidence { padding: .75rem; border-left: 3px solid var(--maroon); margin: .75rem 0; white-space: pre-wrap; }
 .registration { border-left: 4px solid var(--maroon); background: var(--paper, #fff7f9); padding: .75rem 1rem; margin: .75rem 0; }
 .registration blockquote { font-size: .9rem; overflow-wrap: anywhere; }
+.offeringPreferences { min-width: 0; padding: 1.25rem; border: 1px solid var(--border); border-radius: .85rem; background: var(--paper, #fff7f9); }
+.offeringPreferences > legend { font-size: 1.1rem; font-weight: 700; padding: 0 .4rem; }
+.offeringPreferences > div, .offeringFields > div, .offeringFields > fieldset { margin-top: 1rem; min-width: 0; }
+.offeringFields { min-width: 0; margin-top: 1.25rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+.offeringFields > legend { font-weight: 700; padding-right: .5rem; }
+.offeringFields p { font-size: .85rem; line-height: 1.6; color: var(--ink-soft); }
+.offeringFields:disabled { opacity: .65; }
+.dayChoices { min-width: 0; }
+.dayChoices legend { font-weight: 700; }
+.dayChoices > div { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .6rem; }
+.dayChoices label { display: flex; align-items: center; gap: .5rem; border: 1px solid var(--border); border-radius: .5rem; padding: .6rem .7rem; background: white; font-size: .85rem; }
+.dayChoices input { width: 1rem; height: 1rem; padding: 0; accent-color: var(--maroon); }
+.timeChoices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.offeringNotice { border-left: 3px solid var(--maroon); padding: .6rem 1rem; background: var(--paper, #fff7f9); line-height: 1.7; }
+.matchingOffering { margin: 1rem 0; border-top: 1px solid var(--border); padding-top: 1rem; }
+.matchingOffering h3 { font-weight: 700; }
+.matchingSections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; margin-top: 1rem; }
+.matchingSection { min-width: 0; padding: 1rem; border: 1px solid var(--border); border-radius: .6rem; background: var(--paper, #fff7f9); font-size: .85rem; }
+.matchingSection > span { display: block; font-size: .75rem; margin-top: .25rem; }
+@media (max-width: 560px) { .timeChoices, .matchingSections { grid-template-columns: minmax(0, 1fr); } .offeringPreferences { padding: 1rem; } }

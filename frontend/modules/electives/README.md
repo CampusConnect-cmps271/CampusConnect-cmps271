@@ -8,8 +8,9 @@ Direct feature URLs (shared navigation remains owned by the navigation ticket):
 - `POST /api/electives/analysis`: `{ "course_id": "catalogue UUID" }`, same-origin, no-store.
 
 Apply the additive `elective_preferences` migration before deploying these routes.
-The existing catalogue and published review tables are prerequisites. No held
-catalogue imports or other owners' Sprint 3 features are required.
+The optional semester preferences additionally require `resis_semester_catalogue`
+and `elective_offering_preferences`. Existing preferences continue to work with
+empty offering filters. The catalogue and published review tables are prerequisites.
 
 ## Where AI appears
 
@@ -173,3 +174,33 @@ Before release, review migration order against the then-current main/hosted
 schema, run the real configured provider integration, and follow the repository
 rule to apply reviewed migrations before merging. No hosted changes are made
 by these tests.
+
+## Semester and section preferences
+
+The private `offering_preferences` JSON stores an optional imported semester,
+up to ten instructors (match any), up to ten attributes (match all), allowed
+meeting days, and an earliest start/latest end window. These fields are optional;
+leaving the semester unset preserves the all-catalogue recommendation flow.
+Clearing the semester clears its section filters on save. Suggestions are derived
+from the active imported semester data in Supabase, with pagination past 1,000 rows.
+
+A match requires one section to satisfy every selected requirement together.
+Every listed lecture/lab meeting must satisfy the day and time filters; unknown
+meeting data cannot pass a filter that needs it. Time comparisons use the original
+AUB SIS HH:mm strings without applying the browser's timezone. Matching sections,
+instructors, attributes, meeting times and registration rules appear in results,
+and course links preserve the selected semester. Catalogue grade prerequisites
+remain intact; section rules do not establish registration eligibility or resolve
+conflicts between different recommended courses.
+
+These paths never import the Resis client and never call its API. They read active
+saved `course_semester_catalogue` snapshots. The optional AI provider receives a
+bounded candidate summary rather than complete section datasets, and cannot
+introduce a course excluded by the deterministic section filters.
+
+Storage remains protected by the existing owner RLS policies. The additive
+migration validates JSON keys, semester availability, array bounds, days and
+HH:mm windows on direct database writes as well as through form/API validation.
+The applied migration version is `20261109093451`. No existing student preferences
+were changed. The Supabase security advisor reported no findings for the new
+validation function or preference field.

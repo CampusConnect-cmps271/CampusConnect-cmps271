@@ -1,15 +1,15 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ user: vi.fn(), courses: vi.fn(), validate: vi.fn(), profile: vi.fn() }));
+const m = vi.hoisted(() => ({ user: vi.fn(), courses: vi.fn(), validate: vi.fn(), profile: vi.fn(), semester: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/modules/auth", () => ({ getCurrentUser: m.user }));
 vi.mock("@/modules/logging", () => ({ log: { error: vi.fn(), warn: vi.fn() } }));
 vi.mock("@/modules/profiles", () => ({ getMyProfile: m.profile }));
-vi.mock("./preferences", () => ({ validateCompletedCourses: m.validate }));
+vi.mock("./preferences", () => ({ validateCompletedCourses: m.validate, validateOfferingSemester: m.semester }));
 vi.mock("./catalogue", () => ({ loadCandidates: m.courses }));
 import { recommendationsPOST, sameOrigin } from "./http";
 const preferences = { interests: ["robotics"], preferred_workload: "light", academic_goals: "Learn design", completed_course_codes: [] };
 const request = (body: unknown = preferences, origin = "https://campus.example") => new Request("https://campus.example/api/electives/recommendations", { method: "POST", headers: { origin, "content-type": "application/json" }, body: JSON.stringify(body) });
-beforeEach(() => { vi.clearAllMocks(); m.user.mockResolvedValue({ id: "owner" }); m.validate.mockResolvedValue([]); m.courses.mockResolvedValue({ courses: [], truncated: false }); m.profile.mockResolvedValue({ major: "Computer Science" }); });
+beforeEach(() => { vi.clearAllMocks(); m.user.mockResolvedValue({ id: "owner" }); m.validate.mockResolvedValue([]); m.semester.mockResolvedValue(true); m.courses.mockResolvedValue({ courses: [], truncated: false }); m.profile.mockResolvedValue({ major: "Computer Science" }); });
 it("requires authentication and same-origin JSON", async () => {
   m.user.mockResolvedValue(null); expect((await recommendationsPOST(request())).status).toBe(401);
   m.user.mockResolvedValue({ id: "owner" }); expect((await recommendationsPOST(request(preferences, "https://evil.example"))).status).toBe(403);
@@ -42,4 +42,11 @@ it("keeps recommendations available with honest missing/unavailable major notice
   const response = await recommendationsPOST(request());
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({ studentMajor: null, majorStatus: "unavailable" });
+});
+
+it("rejects an unavailable offering semester before querying candidates", async () => {
+  m.semester.mockResolvedValue(false);
+  const response = await recommendationsPOST(request({ ...preferences, offering_preferences: { semester_id: "202720" } }));
+  expect(response.status).toBe(400);
+  expect(m.courses).not.toHaveBeenCalled();
 });

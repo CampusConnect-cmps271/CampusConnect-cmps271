@@ -30,7 +30,7 @@ it("represents a new student with no saved preferences", async () => {
 it("normalizes known course codes and upserts under the authenticated owner", async () => {
   await saveMyPreferences({ ...preferences, completed_course_codes: [" cmps   101 ", "CMPS 101"] });
   expect(mocks.codes).toHaveBeenCalledWith("code", ["CMPS 101"]);
-  expect(mocks.upsert).toHaveBeenCalledWith({ ...preferences, student_id: "owner" }, { onConflict: "student_id" });
+  expect(mocks.upsert).toHaveBeenCalledWith({ ...preferences, offering_preferences: {}, student_id: "owner" }, { onConflict: "student_id" });
 });
 it("rejects unknown codes without writing", async () => {
   mocks.codes.mockResolvedValue({ data: [], error: null });
@@ -62,5 +62,16 @@ it("saves Unicode preferences without a catalogue lookup when no courses are com
   const input = { ...preferences, completed_course_codes: [] };
   await saveMyPreferences(input);
   expect(mocks.codes).not.toHaveBeenCalled();
+  expect(mocks.upsert).toHaveBeenCalledWith({ ...input, offering_preferences: {}, student_id: "owner" }, { onConflict: "student_id" });
+});
+
+it("persists offering preferences under the owner and rejects unavailable semesters", async () => {
+  const input = { ...preferences, offering_preferences: { semester_id: "202720", instructors: ["Alice"] } };
+  mocks.read.mockResolvedValue({ data: { id: "202720" }, error: null });
+  await saveMyPreferences(input);
   expect(mocks.upsert).toHaveBeenCalledWith({ ...input, student_id: "owner" }, { onConflict: "student_id" });
+  mocks.upsert.mockClear();
+  mocks.read.mockResolvedValue({ data: null, error: null });
+  await expect(saveMyPreferences(input)).rejects.toThrow("imported semester");
+  expect(mocks.upsert).not.toHaveBeenCalled();
 });

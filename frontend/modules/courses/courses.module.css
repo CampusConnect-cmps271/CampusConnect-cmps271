@@ -70,3 +70,37 @@
   .courseFacts { grid-template-columns: minmax(0, 1fr); padding: 20px; }
   .detailPanel { padding: 20px; }
 }
+
+.offeringMetadata { font-size: .875rem; color: var(--muted, #64748b); overflow-wrap: anywhere; }
+.offeringMetadata p { margin: .4rem 0; }
+/* Four offering cards across on desktop; meeting times stay visible when closed. */
+.semesterOffering { border-top: 1px solid var(--border); margin-top: 24px; padding-top: 24px; }
+.offeringHeader { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+.offeringHeader h3 { font-size: 18px; font-weight: 700; }
+.sectionCount { color: var(--maroon); background: var(--maroon-100); padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.offeringAttributes { font-size: 13px; line-height: 1.7; color: var(--ink-soft); margin-bottom: 6px; }
+.sectionList { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; gap: 14px; margin: 20px 0 0; }
+.sectionDetails { min-width: 0; border: 1px solid var(--border); border-radius: 14px; background: var(--white); overflow-wrap: anywhere; overflow: hidden; transition: border-color .15s, box-shadow .15s; }
+.sectionDetails:hover { border-color: var(--maroon); box-shadow: var(--shadow-sm); }
+.sectionDetails[open] { border-color: var(--maroon); }
+.sectionSummary { display: block; padding: 18px 16px 14px; cursor: pointer; list-style: none; }
+.sectionSummary::-webkit-details-marker { display: none; }
+.sectionCardHeader { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sectionNumber { color: var(--maroon); font-size: 15px; font-weight: 700; }
+.sectionCrn { color: var(--ink-soft); font-size: 11px; font-weight: 500; }
+.sectionInstructor { display: block; font-size: 13px; line-height: 1.6; font-weight: 600; margin-top: 10px; }
+.sectionAttributes { display: block; margin-top: 8px; font-size: 12px; line-height: 1.6; color: var(--ink-soft); }
+.sectionMeetings { display: grid; gap: 10px; margin-top: 14px; }
+.meetingSlot { display: grid; gap: 5px; padding: 12px; border-radius: 10px; background: var(--maroon-50); }
+.meetingType { color: var(--ink-soft); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
+.meetingDays { color: var(--ink); font-size: 12px; font-weight: 600; }
+.meetingTime { color: var(--ink); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
+.meetingLocation { color: var(--ink-soft); font-size: 11px; line-height: 1.6; }
+.sectionExpand { display: block; padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--border); color: var(--maroon); font-size: 11px; font-weight: 700; }
+.sectionDetails[open] .collapsedLabel { display: none; }
+.sectionDetails[open] .expandedLabel { display: inline; }
+.sectionBody { border-top: 1px solid var(--border); padding: 0 16px 16px; font-size: 12px; line-height: 1.7; }
+.sectionBody p { white-space: pre-wrap; margin-top: 12px; }
+.sectionBody a { display: inline-block; margin-top: 12px; }
+@media (max-width: 1023px) { .sectionList { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .sectionList { grid-template-columns: minmax(0, 1fr); } .meetingTime { font-size: 20px; } }

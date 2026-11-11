@@ -29,10 +29,10 @@ beforeEach(() => {
 
 describe("course references", () => {
   it("normalizes route codes without losing suffixes or leading zeros", () => {
-    for (const [input, code] of [["cmps240", "CMPS 240"], ["BIOC-303b", "BIOC 303B"], [" GRDS 033 ", "GRDS 033"], ["TEST-399ABC", "TEST 399ABC"]]) {
+    for (const [input, code] of [["cmps240", "CMPS 240"], ["BIOC-303b", "BIOC 303B"], [" GRDS 033 ", "GRDS 033"], ["TEST-399ABC", "TEST 399ABC"], ["expr0000", "EXPR 0000"]]) {
       expect(normalizeCourseCode(input)).toBe(code);
     }
-    for (const input of ["", "CMPS", "CMPS 240<script>", "CMPS 240 or 241", "CMPS 2400", "CMPS 24", "https://example.test"]) {
+    for (const input of ["", "CMPS", "CMPS 240<script>", "CMPS 240 or 241", "CMPS 24000", "CMPS 24", "https://example.test"]) {
       expect(normalizeCourseCode(input)).toBeNull();
     }
   });
@@ -83,7 +83,7 @@ describe("course detail queries", () => {
   it("reads one exact code and resolves only known prerequisite courses", async () => {
     const detail = await getCourseDetail("cmps-240");
     expect(mocks.eq).toHaveBeenCalledWith("code", "CMPS 240");
-    expect(mocks.select).toHaveBeenCalledWith("id,code,name,credits,description,department,prerequisites");
+    expect(mocks.select).toHaveBeenCalledWith("id,code,name,credits,description,department,prerequisites,data_source");
     expect(mocks.in).toHaveBeenCalledWith("code", ["CMPS 101", "CMPS 102"]);
     expect(detail?.course).toEqual(course);
     expect([...detail!.references.keys()]).toEqual(["CMPS 101"]);

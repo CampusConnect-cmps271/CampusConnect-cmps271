@@ -19,6 +19,6 @@ function containsPattern(text: string): string {
  */
 export function courseSearchFilter(query: string): string {
   // Students commonly type compact codes such as CMPS240.
-  const code = query.replace(/^([a-z]{2,8})\s*(\d{3}[a-z]?)$/i, "$1 $2");
+  const code = query.replace(/^([a-z]{2,8})\s*(\d{3,4}[a-z]{0,3})$/i, "$1 $2");
   return `code.ilike.${containsPattern(code)},name.ilike.${containsPattern(query)}`;
 }

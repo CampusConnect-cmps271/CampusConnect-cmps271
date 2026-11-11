@@ -15,7 +15,9 @@ export async function recommend(input: unknown, catalogue: { courses: Candidate[
   if (!provider) return fallback("unconfigured");
   if (!baseline.length) return fallback("not_needed");
   try {
-    const result = recommendationResponseSchema.parse(await provider("recommend", { preferences, candidates: baseline,
+    const result = recommendationResponseSchema.parse(await provider("recommend", { preferences, candidates: baseline.map(({ offering, ...candidate }) => ({ ...candidate,
+      ...(offering ? { semester: offering.semester_name, matching_sections: offering.sections.length } : {}),
+    })),
       response_schema: { items: [{ course_id: "supplied candidate id", rationale: "bounded catalogue-grounded explanation", evidence_review_ids: [] }] } }));
     const ids = result.items.map(item => item.course_id);
     if (new Set(ids).size !== ids.length) throw new Error("Duplicate candidate");

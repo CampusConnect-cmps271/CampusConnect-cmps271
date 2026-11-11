@@ -2,6 +2,7 @@ import type { ElectivePreferences } from "./schema";
 import type { Candidate, PrerequisiteStatus, Recommendation } from "./types";
 import { registrationGuidance } from "./registration";
 import { preferenceGroups, tokens } from "./preference-matching";
+import { matchingOffering } from "./offering-matches";
 
 export const RECOMMENDATION_LIMIT = 20;
 
@@ -19,6 +20,8 @@ export function rankCandidates(courses: Candidate[], preferences: ElectivePrefer
   const goals = preferenceGroups([preferences.academic_goals]);
   const workload = { light: 1.5, moderate: 3, heavy: 4.5 }[preferences.preferred_workload];
   return courses.filter(c => !preferences.completed_course_codes.includes(c.code)).flatMap(course => {
+    const offering = matchingOffering(course.offering, preferences.offering_preferences);
+    if (preferences.offering_preferences?.semester_id && !offering) return [];
     const corpus = new Set(tokens(`${course.name} ${course.department} ${course.description}`.slice(0, 20000)));
     const matches = interests.filter(group => group.words.every(word => corpus.has(word)));
     // Do not fill twenty slots with unrelated courses or partial group matches.
@@ -34,6 +37,7 @@ export function rankCandidates(courses: Candidate[], preferences: ElectivePrefer
       hasRatings ? `Workload fit uses ${course.review_count} published reviews.` : course.review_count === null ? "Review ratings are unavailable; workload fit is unknown." : "Too few reviews to assess workload reliably.",
       status === "unknown" ? "Prerequisites need manual verification." : status === "unmet" ? "Your self-reported courses do not meet the listed requirements." : "Listed requirements match your self-reported courses."].join(" ");
     return [{ score, result: { course_id: course.id, code: course.code, name: course.name, department: course.department, rationale, evidence_review_ids: [], registration,
-      prerequisite_status: status, prerequisites: course.prerequisites, review_count: course.review_count } satisfies Recommendation }];
+      prerequisite_status: status, prerequisites: course.prerequisites, review_count: course.review_count,
+      ...(offering ? { offering } : {}), } satisfies Recommendation }];
   }).sort((a, b) => b.score - a.score || a.result.code.localeCompare(b.result.code)).slice(0, limit).map(row => row.result);
 }

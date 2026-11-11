@@ -3,10 +3,11 @@ const mocks = vi.hoisted(() => ({ user: vi.fn(), from: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/modules/auth", () => ({ requireUser: mocks.user }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ from: mocks.from }) }));
+import type { SemesterOffering } from "@/modules/courses/semesters";
 import { loadCandidates } from "./catalogue";
 
 const course = (index: number) => ({ id: `course-${index}`, code: `COURSE ${String(index).padStart(4, "0")}`, name: "Synthetic course", description: "", department: "Testing", prerequisites: "", credits: 3 });
-let rows: ReturnType<typeof course>[];
+let rows: (ReturnType<typeof course> & Partial<SemesterOffering>)[];
 let ranges: number[][];
 let batches: string[][];
 let failRatings: "error" | "throw" | null;
@@ -17,7 +18,12 @@ beforeEach(() => {
   mocks.user.mockResolvedValue({ id: "owner" });
   rows = Array.from({ length: 2381 }, (_, index) => course(index));
   ranges = []; batches = []; failRatings = null; active = 0; maximumActive = 0;
-  mocks.from.mockImplementation((table: string) => ({ select: () => table === "courses" ? {
+  mocks.from.mockImplementation((table: string) => ({ select: () => table === "courses" || table === "course_semester_catalogue" ? {
+    eq: (column: string, value: string) => {
+      expect(column).toBe("semester_id");
+      expect(value).toBe("202720");
+      return { order: () => ({ range: async (start: number, end: number) => ({ data: rows.filter(row => row.semester_id === value).slice(start, end + 1), error: null }) }) };
+    },
     order: () => ({ range: async (start: number, end: number) => {
       ranges.push([start, end]);
       return { data: rows.slice(start, end + 1), error: null };
@@ -82,4 +88,19 @@ it("skips rating requests entirely when no complete interest group matches", asy
   expect(result.courses).toHaveLength(2381);
   expect(batches).toEqual([]);
   expect(mocks.from).toHaveBeenCalledTimes(3);
+});
+
+it("loads only the selected semester and carries the matching section facts into candidates", async () => {
+  const section = { crn: "20904", section: "1", title: "Robotics", credits: 3, instructors: ["Alice"], attributes: ["Science"],
+    prerequisites: "CMPS 101", campus: "Main", details_url: null, source_updated_at: null, restrictions: null,
+    sessions: [{ days: "MW", start: "09:00", end: "10:15", location: "Test Hall", instructor: "Alice", type: "Lecture" }] };
+  rows = [{ ...course(0), name: "Robotics", semester_id: "202720", semester_name: "Spring 2026-2027", synced_at: "2026-11-08T00:00:00Z", sections: [section] },
+    { ...course(1), name: "Robotics", semester_id: "202710", sections: [section] },
+    { ...course(2), name: "Robotics", semester_id: "202720", sections: [{ ...section, instructors: ["Bob"] }] }];
+  const result = await loadCandidates({ interests: ["robotics"], preferred_workload: "light", academic_goals: "Learn", completed_course_codes: [],
+    offering_preferences: { semester_id: "202720", instructors: ["Alice"], earliest_start: "09:00", latest_end: "10:15" } });
+  expect(result.courses.map(row => row.id)).toEqual(["course-0"]);
+  expect(result.courses[0].offering?.sections[0].crn).toBe("20904");
+  expect(batches).toEqual([["course-0"]]);
+  expect(mocks.from).toHaveBeenCalledWith("course_semester_catalogue");
 });
