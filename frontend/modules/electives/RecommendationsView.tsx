@@ -52,9 +52,9 @@ export function RecommendationsView({ preferences }: { preferences: ElectivePref
           <p className={styles.muted}>Saved offering data; verify current registration details in AUB SIS. Catalogue grade requirements above still apply.</p>
           <div className={styles.matchingSections}>{course.offering.sections.map(section => <div key={section.crn} className={styles.matchingSection}>
             <strong>Section {section.section}</strong><span className={styles.muted}>CRN {section.crn}</span>
-            <p>{section.instructors.join(", ") || "Instructor TBA"}</p>
+            <p><strong>Instructor:</strong> {section.instructors.join(", ") || "TBA"}</p>
             <p><strong>Attributes:</strong> {section.attributes.join(", ") || "Not listed"}</p>
-            {section.sessions.length ? section.sessions.map((meeting, index) => <p key={index}><strong>{meeting.days || "Days TBA"} · {meeting.start || "TBA"}–{meeting.end || "TBA"}</strong><br />{meeting.location || "Location TBA"}</p>) : <p>Meeting time TBA</p>}
+            {section.sessions.length ? section.sessions.map((meeting, index) => <p key={index}><strong>{meeting.days || "Days TBA"} · {meeting.start || "TBA"}–{meeting.end || "TBA"}</strong><br />{meeting.location || "Location TBA"}{meeting.instructor && <><br /><strong>Meeting instructor:</strong> {meeting.instructor}</>}</p>) : <p>Meeting time TBA</p>}
             <p><strong>Section prerequisites:</strong> {section.prerequisites || "Not supplied; verify in AUB SIS."}</p>
           </div>)}</div>
         </section>}

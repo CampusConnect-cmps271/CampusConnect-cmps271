@@ -89,6 +89,7 @@
 .sectionNumber { color: var(--maroon); font-size: 15px; font-weight: 700; }
 .sectionCrn { color: var(--ink-soft); font-size: 11px; font-weight: 500; }
 .sectionInstructor { display: block; font-size: 13px; line-height: 1.6; font-weight: 600; margin-top: 10px; }
+.sectionAttributes { display: block; margin-top: 8px; font-size: 12px; line-height: 1.6; color: var(--ink-soft); }
 .sectionMeetings { display: grid; gap: 10px; margin-top: 14px; }
 .meetingSlot { display: grid; gap: 5px; padding: 12px; border-radius: 10px; background: var(--maroon-50); }
 .meetingType { color: var(--ink-soft); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }

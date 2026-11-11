@@ -41,7 +41,7 @@ export function PreferenceForm({ initial, offeringOptions = { semesters: [], ins
           <datalist id="elective-instructors">{(offeringOptions.instructors[values.semester_id ?? ""] ?? []).map(name => <option key={name} value={name} />)}</datalist>
         </div>
         <div><label htmlFor="attributes">Required course attributes</label>
-          <p id="attributes-hint">Match all listed attributes in the same section. Enter up to 10, separated by commas.</p>
+          <p id="attributes-hint">Attributes are AUB course classifications. Choose from the semester suggestions or enter up to 10, separated by commas. Each recommended section must have every attribute you enter.</p>
           <input {...field("attributes")} list="elective-attributes" maxLength={3020} autoComplete="off" />
           <datalist id="elective-attributes">{(offeringOptions.attributes[values.semester_id ?? ""] ?? []).map(name => <option key={name} value={name} />)}</datalist>
         </div>

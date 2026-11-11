@@ -30,13 +30,15 @@ export async function SemesterOfferings({ courseId, semester }: { courseId: stri
                 <span className={styles.sectionNumber}>Section {section.section}</span>
                 <span className={styles.sectionCrn}>CRN {section.crn}</span>
               </span>
-              <span className={styles.sectionInstructor}>{section.instructors.join(", ") || "Instructor not listed"}</span>
+              <span className={styles.sectionInstructor}><strong>Instructor:</strong> {section.instructors.join(", ") || "TBA"}</span>
+              <span className={styles.sectionAttributes}><strong>Attributes:</strong> {section.attributes.join(", ") || "Not listed"}</span>
               <span className={styles.sectionMeetings}>
                 {section.sessions.length ? section.sessions.map((session, index) => <span key={index} className={styles.meetingSlot}>
                   <span className={styles.meetingType}>{session.type || "Meeting"}</span>
                   <span className={styles.meetingDays}>{meetingDays(session.days)}</span>
                   <span className={styles.meetingTime}>{session.start || "TBA"}–{session.end || "TBA"}</span>
                   <span className={styles.meetingLocation}>{session.location || "Location TBA"}</span>
+                  {session.instructor && <span className={styles.meetingLocation}><strong>Meeting instructor:</strong> {session.instructor}</span>}
                 </span>) : <span className={styles.meetingSlot}><span className={styles.meetingTime}>Time TBA</span><span className={styles.meetingLocation}>Meeting details have not been listed.</span></span>}
               </span>
               <span className={styles.sectionExpand}><span className={styles.collapsedLabel}>View section details +</span><span className={styles.expandedLabel}>Hide section details −</span></span>
@@ -44,7 +46,6 @@ export async function SemesterOfferings({ courseId, semester }: { courseId: stri
             <div className={styles.sectionBody}>
               <p><strong>Section title:</strong> {section.title}</p>
               <p><strong>Credits:</strong> {section.credits}</p>
-              <p><strong>Attributes:</strong> {section.attributes.join(", ") || "Not listed"}</p>
               <p><strong>Registration prerequisites:</strong> {section.prerequisites || "No textual prerequisite rule was supplied by Resis. Verify requirements in AUB SIS."}</p>
               {section.restrictions && Object.keys(section.restrictions).length > 0 && <div>
                 <strong>Registration restrictions</strong>

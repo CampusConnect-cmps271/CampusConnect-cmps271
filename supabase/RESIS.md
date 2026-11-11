@@ -133,3 +133,27 @@ The security advisor reports an informational `rls_enabled_no_policy` finding
 for `resis_imports`. This is intentional: it is maintenance-only, ordinary roles
 have no grants, and the service role bypasses RLS. No new warning-level finding
 was reported for these objects. See the [Supabase linter explanation](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy).
+
+## Coverage audit (11 November 2026)
+
+Compared the active hosted data with the saved 8 November responses without
+contacting Resis. Every cached course and CRN was present in the correct term:
+1,456 courses / 3,534 sections in Fall and 1,371 / 3,244 in Spring. Sorted
+content digests also matched for every section's code, CRN, section number,
+title, credits, instructors, attributes, prerequisite text and meeting fields
+(days, start/end, type, location and meeting instructor). The shared catalogue
+still contains 3,380 courses, including the 876 added by the initial import.
+This verifies completeness against those snapshots, not changes since 8 November
+or semesters that have not been imported.
+
+Section cards now show their own attributes without expanding; meeting slots
+also identify their instructor when supplied. Unlisted attributes and TBA
+instructors are retained as reported. Elective preferences allow required
+attributes after selecting a semester, and only sections satisfying every
+requested attribute plus the other chosen filters are recommended.
+
+Rechecked the two course/elective browser journeys, 13 section-matching unit
+tests, targeted lint and the webpack production build. Desktop and mobile card
+screenshots were reviewed. Zero additional Resis requests were made; the local
+ledger still contains three historical attempts. Resis availability was not
+probed during this audit.

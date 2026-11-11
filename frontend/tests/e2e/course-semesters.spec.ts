@@ -24,6 +24,9 @@ test("semester browsing shows the right instructor, attributes and section rules
   await expect(section.locator("summary")).toContainText("Mon · Wed");
   await expect(section.locator("summary")).toContainText("09:00–10:15");
   await expect(section.locator("summary")).toContainText("Test Hall");
+  await expect(section.locator("summary")).toContainText("Attributes: Writing in the Discipline");
+  await expect(section.locator("summary")).toContainText("Instructor: Spring Instructor");
+  await expect(section.locator("summary")).toContainText("Meeting instructor: Test Instructor");
   await expect(section).not.toHaveAttribute("open");
   const columns = await offerings.locator("details").evaluateAll((cards) => cards.map((card) => card.getBoundingClientRect().top));
   expect(new Set(columns).size).toBe(1);
