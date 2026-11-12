@@ -5,16 +5,22 @@ export const QUESTION_MAX_LENGTH = 500;
 /** Most evidence sent to the provider: page chunks, then catalogue courses. */
 export const MAX_PAGE_EVIDENCE = 5;
 export const MAX_COURSE_EVIDENCE = 6;
+export const MAX_CLUB_EVIDENCE = 3;
+export const MAX_EVENT_EVIDENCE = 3;
 
 /** A page of this app's own course catalogue, e.g. /courses/CMPS-271. */
 const COURSE_PATH = /^\/courses\/[A-Za-z0-9%_-]+$/;
+/** A club page of this app, e.g. /clubs/robotics-club (slugs are lower-case words joined by hyphens). */
+const CLUB_PATH = /^\/clubs\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
+/** An event page of this app, e.g. /events/6f1c...; ids are UUIDs. */
+const EVENT_PATH = /^\/events\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /**
- * True only for the two places a citation may point: an https page on
- * aub.edu.lb, or a course page of this app.
+ * True only for the places a citation may point: an https page on aub.edu.lb,
+ * or a course, club or event page of this app.
  */
 export function isCitableUrl(value: string): boolean {
-  if (COURSE_PATH.test(value)) return true;
+  if (COURSE_PATH.test(value) || CLUB_PATH.test(value) || EVENT_PATH.test(value)) return true;
   try {
     const url = new URL(value);
     return url.protocol === "https:" && !url.username && !url.password && /(^|\.)aub\.edu\.lb$/.test(url.hostname);
@@ -40,13 +46,13 @@ export const questionSchema = z.object({
 /** One earlier question and the answer shown for it. Context only, never evidence. */
 export type HistoryTurn = z.infer<typeof questionSchema>["history"][number];
 
-/** A stored chunk of an official AUB page, or a catalogue course, retrieved for one question. */
+/** A stored chunk of an official AUB page, a catalogue course, a verified club or an upcoming event, retrieved for one question. */
 export type EvidenceChunk = {
   chunk_id: string;
   source_id: string;
   url: string;
   title: string;
-  /** When the page was fetched; null for catalogue courses, which are live data. */
+  /** When the page was fetched; null for courses, clubs and events, which are live data. */
   retrieved_at: string | null;
   text: string;
 };
