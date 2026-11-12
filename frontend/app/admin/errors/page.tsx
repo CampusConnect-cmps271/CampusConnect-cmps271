@@ -43,9 +43,14 @@ export default async function ErrorDashboardPage({
                 Recent redacted application errors, grouped for triage. Times are UTC.
               </p>
             </div>
-            <Link href="/admin" className="font-semibold text-blue-700 hover:underline">
-              Manage roles
-            </Link>
+            <nav className="flex gap-4 text-sm">
+              <Link href="/admin/health" className="font-semibold text-blue-700 hover:underline">
+                System health
+              </Link>
+              <Link href="/admin" className="font-semibold text-blue-700 hover:underline">
+                Manage roles
+              </Link>
+            </nav>
           </div>
           <nav className="mt-5 flex gap-2" aria-label="Dashboard time range">
             {Object.keys(RANGE_HOURS).map((option) => (

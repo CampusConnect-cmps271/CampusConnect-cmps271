@@ -1,6 +1,7 @@
 import "server-only";
 import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { notifyLogAlert } from "@/modules/monitoring/alerts";
 import { redact, redactMessage } from "./redact";
 import type { LogLevel } from "./schema";
 
@@ -56,7 +57,10 @@ export async function persistEntry(entry: LogEntry): Promise<void> {
           original_event: entry.event,
         }),
       );
+      return;
     }
+
+    await notifyLogAlert(entry);
   } catch (cause) {
     console.error(
       JSON.stringify({
