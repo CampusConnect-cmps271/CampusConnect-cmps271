@@ -63,7 +63,8 @@ describe("campus assistant club and event search", { skip: reachable ? false : "
       club("zztest-beta", "ZZTEST Beta Chess", "Weekly chess games for everyone.", { ...verified, embedding: axis(1) }),
       club("zztest-gamma", "ZZTEST Gamma Drama", "Stage plays and improv nights.", verified),
       // Pending clubs are readable by every student, so the functions themselves must hide them.
-      club("zztest-pending", "ZZTEST Pending Robotics", "Builds robots, not yet verified.", { embedding: axis(0) }),
+      // The status is spelled out: a bulk insert sends null, not the column default, for a missing key.
+      club("zztest-pending", "ZZTEST Pending Robotics", "Builds robots, not yet verified.", { verification_status: "pending", embedding: axis(0) }),
     ]);
     assert.equal(clubs.error, null);
 
@@ -98,11 +99,13 @@ describe("campus assistant club and event search", { skip: reachable ? false : "
 
   describe("keyword search", () => {
     it("finds a verified club by name and never a pending one", async () => {
-      assert.deepEqual(await clubSlugs("search_campus_clubs", { p_query: "ZZTEST robotics", p_limit: 5 }), ["zztest-alpha"]);
+      // Any term matches, so the query leaves out the shared "ZZTEST" prefix. The pending club also says "robots".
+      assert.deepEqual(await clubSlugs("search_campus_clubs", { p_query: "robotics", p_limit: 5 }), ["zztest-alpha"]);
     });
 
     it("finds a published upcoming event, and never a draft, a cancelled or a past one", async () => {
-      assert.deepEqual(await eventTitles("search_campus_events", { p_query: "ZZTEST robot demo", p_limit: 5 }), ["ZZTEST Alpha Robot Demo"]);
+      // The draft, cancelled and past events are all titled "... Robot Demo" too; only the published, upcoming one may come back.
+      assert.deepEqual(await eventTitles("search_campus_events", { p_query: "robot demo", p_limit: 5 }), ["ZZTEST Alpha Robot Demo"]);
     });
 
     it("returns the columns the app builds evidence from", async () => {
