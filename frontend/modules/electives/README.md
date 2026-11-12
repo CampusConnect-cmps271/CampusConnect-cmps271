@@ -110,13 +110,11 @@ limits before enabling AI in production. Provider failures leave the catalogue
 baseline and source evidence usable. Tests inject deterministic providers;
 fixtures are never enabled as a production substitute.
 
-Catalogue reads are ordered and paginated through every accessible course,
-across all departments, without a 5,000-record cutoff. Up to twenty courses matching a complete interest group
-are shown; partial or unrelated matches are not used to fill the list. Ratings are fetched only for complete interest matches that have not already
-been completed. The full catalogue count and cross-department search are
-preserved. Rating reads overlap up to four requests at a time; each ID filter
-contains at most 100 courses. The browser allows thirty seconds for the full
-database-and-provider request; each provider call still has a four-second limit.
+Catalogue candidates are filtered in the database by semester, one-section constraints and a conservative interest prefilter. Ratings come back in the same RPC. Exact Unicode interest matching and ranking remain in application code. Pagination covers every matching candidate with no 5,000-record cutoff; the displayed catalogue count retains the full semester/section scope independently of interests. Up to twenty exact interest matches are shown.
+
+Candidate data is cached for 30 seconds per verified student/project/query, with bounded memory and concurrent-read coalescing. Profiles, AI responses and final recommendations are not cached; responses remain private/no-store. The already verified request user is reused for catalogue/profile lookups. Server-Timing exposes numeric stage timings and catalogue request/byte/cache metrics without private inputs. See [PERFORMANCE.md](./PERFORMANCE.md) for measurements, limitations and the offline benchmark.
+
+The browser allows thirty seconds for the full database-and-provider request; each provider call still has a four-second limit.
 The authenticated profile supplies the student's major. Computer Science
 students see an approval/petition check on EECE courses, and an elective-credit
 check on other departments. These notices are advisory, not a blanket claim

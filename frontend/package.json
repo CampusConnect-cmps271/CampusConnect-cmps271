@@ -11,6 +11,7 @@
     "test": "npm run test:unit && npm run test:db",
     "test:unit": "vitest run",
     "test:watch": "vitest",
+    "perf:electives": "vitest run --config vitest.performance.config.mts",
     "test:db": "node --test tests/*.test.mjs",
     "test:e2e": "playwright test",
     "test:smoke": "playwright test --config playwright.smoke.config.ts",

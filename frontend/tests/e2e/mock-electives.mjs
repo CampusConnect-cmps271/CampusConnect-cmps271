@@ -1,4 +1,5 @@
-import { courses } from "./mock-courses.mjs";
+import { ratingFixture } from "./mock-reviews.mjs";
+import { courses, handleCourses } from "./mock-courses.mjs";
 const preferences = new Map();
 const electiveCourses = [...courses, {
   id: "10000000-0000-4000-8000-999999999991", code: "EECE 463", name: "Computing and Robotics",
@@ -23,6 +24,32 @@ const groupedCourses = [
 export async function handleElectives(request, response, url, claims) {
   if (!Object.hasOwn(electiveAccounts, claims.email ?? "")) return false;
   const json = (value, status = 200) => { response.statusCode = status; response.end(JSON.stringify(value)); return true; };
+  if (url.pathname === "/rest/v1/rpc/elective_candidate_page" && request.method === "POST") {
+    let raw=""; for await (const chunk of request) raw+=chunk;
+    const args=JSON.parse(raw),filters=args.p_filters??{};
+    let rows=claims.email === "recommendations-empty@mail.aub.edu" ? [] : claims.email === "recommendations-groups@mail.aub.edu" ? groupedCourses : electiveCourses;
+    const norm=value=>value.replace(/\s*\(P\)\s*$/,"").trim().toLowerCase();
+    if(filters.semester_id){
+      const capture={setHeader(){},end(body){rows=JSON.parse(body);}};
+      handleCourses({method:"GET"},capture,new URL(`http://mock/rest/v1/course_semester_catalogue?semester_id=eq.${filters.semester_id}`),claims.email);
+      rows=rows.map(row=>({...row,sections:row.sections.filter(section=>{
+        if(filters.instructors?.length&&!filters.instructors.some(w=>section.instructors.some(v=>norm(v)===norm(w))))return false;
+        if(filters.attributes?.some(w=>!section.attributes.some(v=>norm(v)===norm(w))))return false;
+        if(!filters.meeting_days?.length&&!filters.earliest_start&&!filters.latest_end)return true;
+        return section.sessions.length>0&&section.sessions.every(meeting=>{
+          const days=meeting.days.replace(/\s/g,"");
+          if(filters.meeting_days?.length&&(!/^[MTWRFSU]+$/.test(days)||[...days].some(d=>!filters.meeting_days.includes(d))))return false;
+          if(filters.earliest_start&&meeting.start<filters.earliest_start)return false;
+          if(filters.latest_end&&meeting.end>filters.latest_end)return false;
+          return true;
+        });
+      })})).filter(row=>row.sections.length);
+    }
+    const catalogue_count=rows.length;
+    rows=rows.map(row=>{const rating=courses.some(c=>c.id===row.id)?ratingFixture(row):{};return {...row,review_count:rating.review_count??null,average_workload:rating.average_workload??null,average_overall:rating.average_overall??null,
+      offering:filters.semester_id?{semester_id:row.semester_id,semester_name:row.semester_name,synced_at:row.synced_at,sections:row.sections}:null};});
+    return json({catalogue_count,candidate_count:rows.length,courses:rows.slice(args.p_offset,args.p_offset+args.p_limit)});
+  }
   if (url.pathname === "/rest/v1/courses" && request.method === "GET") {
     if (claims.email === "recommendations-empty@mail.aub.edu") return json([]);
     let rows = claims.email === "recommendations-groups@mail.aub.edu" ? groupedCourses : electiveCourses;
