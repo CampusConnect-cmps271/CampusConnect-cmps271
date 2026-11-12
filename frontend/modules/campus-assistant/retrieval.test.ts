@@ -38,18 +38,128 @@ describe("retrieveEvidence", () => {
     description: "Team-based software development.",
   };
   const client = (pages: unknown[] | null, courses: unknown[] | null, error: { code?: string } | null = null) => ({
-    rpc: vi.fn(async (fn: string) => ({ data: fn === "search_campus_chunks" ? pages : courses, error })),
+    rpc: vi.fn(async (fn: string) => {
+      if (fn === "search_campus_chunks") return { data: pages, error };
+      if (fn === "search_campus_courses") return { data: courses, error };
+      return { data: [], error: null };
+    }),
   });
 
-  it("searches pages and courses with the extracted terms and bounded limits", async () => {
+  it("searches pages, courses, clubs and events with the extracted terms and bounded limits", async () => {
     const supabase = client([REGISTRAR_CHUNK], [courseRow]);
 
     const evidence = await retrieveEvidence(supabase, "Who issues transcripts?");
 
     expect(supabase.rpc).toHaveBeenCalledWith("search_campus_chunks", { p_query: "issues transcripts", p_limit: 5 });
     expect(supabase.rpc).toHaveBeenCalledWith("search_campus_courses", { p_query: "issues transcripts", p_limit: 6 });
-    expect(supabase.rpc).toHaveBeenCalledTimes(2);
+    expect(supabase.rpc).toHaveBeenCalledWith("search_campus_clubs", { p_query: "issues transcripts", p_limit: 3 });
+    expect(supabase.rpc).toHaveBeenCalledWith("search_campus_events", { p_query: "issues transcripts", p_limit: 3 });
+    expect(supabase.rpc).toHaveBeenCalledTimes(4);
     expect(evidence.map((chunk) => chunk.chunk_id)).toEqual(["registrar:0", "course:CMPS 271"]);
+  });
+
+  describe("clubs and events", () => {
+    const clubRow = {
+      slug: "robotics-club",
+      name: "Robotics Club",
+      category: "Technology",
+      description: "Build and race robots every semester.",
+      public_website: "https://robotics.example.org",
+    };
+    const eventRow = {
+      id: "6f1c2a40-1b2c-4d3e-8f50-123456789abc",
+      title: "Robot Demo Night",
+      description: "Watch the club's robots compete.",
+      starts_at: "2026-11-13T16:00:00Z",
+      ends_at: "2026-11-13T18:00:00Z",
+      location: "Bliss Hall 204",
+      category: "Technology",
+      club_name: "Robotics Club",
+      registration_url: null,
+    };
+    const rows = (byFunction: Record<string, unknown[] | { error: { code: string } }>) => ({
+      rpc: vi.fn(async (fn: string) => {
+        const answer = byFunction[fn] ?? [];
+        return Array.isArray(answer) ? { data: answer, error: null } : { data: null, error: answer.error };
+      }),
+    });
+
+    it("turns a club row into evidence linked to the app's club page", async () => {
+      const [club] = await retrieveEvidence(rows({ search_campus_clubs: [clubRow] }), "robotics club");
+
+      expect(club).toEqual({
+        chunk_id: "club:robotics-club",
+        source_id: "club-directory",
+        url: "/clubs/robotics-club",
+        title: "Robotics Club (club)",
+        retrieved_at: null,
+        text: "Club Robotics Club. Category: Technology. Description: Build and race robots every semester. Website: https://robotics.example.org",
+      });
+    });
+
+    it("turns an event row into evidence with its Beirut time, linked to the app's event page", async () => {
+      const [event] = await retrieveEvidence(rows({ search_campus_events: [eventRow] }), "robot demo");
+
+      expect(event?.chunk_id).toBe("event:6f1c2a40-1b2c-4d3e-8f50-123456789abc");
+      expect(event?.url).toBe("/events/6f1c2a40-1b2c-4d3e-8f50-123456789abc");
+      expect(event?.title).toBe("Robot Demo Night (event)");
+      // 16:00 UTC is 18:00 in Beirut in November (UTC+2).
+      expect(event?.text).toContain("Friday, 13 November 2026");
+      expect(event?.text).toContain("18:00");
+      expect(event?.text).toContain("Where: Bliss Hall 204");
+      expect(event?.text).toContain("organised by Robotics Club");
+      expect(event?.text).toContain("Registration: none listed");
+    });
+
+    it("puts pages and courses before clubs and events", async () => {
+      const evidence = await retrieveEvidence(
+        rows({
+          search_campus_chunks: [REGISTRAR_CHUNK],
+          search_campus_courses: [courseRow],
+          search_campus_clubs: [clubRow],
+          search_campus_events: [eventRow],
+        }),
+        "robotics",
+      );
+
+      expect(evidence.map((chunk) => chunk.chunk_id)).toEqual([
+        "registrar:0",
+        "course:CMPS 271",
+        "club:robotics-club",
+        `event:${eventRow.id}`,
+      ]);
+    });
+
+    it("merges keyword and meaning results for clubs and events without repeating one", async () => {
+      const other = { ...clubRow, slug: "chess-club", name: "Chess Club" };
+      const evidence = await retrieveEvidence(
+        rows({
+          search_campus_clubs: [clubRow],
+          search_campus_clubs_semantic: [other, clubRow],
+          search_campus_events: [eventRow],
+          search_campus_events_semantic: [eventRow],
+        }),
+        "robotics",
+        [0.1, 0.2],
+      );
+
+      const ids = evidence.map((chunk) => chunk.chunk_id);
+      expect(ids.filter((id) => id.startsWith("club:"))).toEqual(["club:robotics-club", "club:chess-club"]);
+      expect(ids.filter((id) => id.startsWith("event:"))).toEqual([`event:${eventRow.id}`]);
+    });
+
+    it("keeps the page and course answer when club or event search fails", async () => {
+      const evidence = await retrieveEvidence(
+        rows({
+          search_campus_chunks: [REGISTRAR_CHUNK],
+          search_campus_clubs: { error: { code: "42883" } },
+          search_campus_events: { error: { code: "42883" } },
+        }),
+        "registrar",
+      );
+
+      expect(evidence.map((chunk) => chunk.chunk_id)).toEqual(["registrar:0"]);
+    });
   });
 
   it("turns a course row into evidence linked to the app's course page", async () => {
@@ -106,9 +216,11 @@ describe("retrieveEvidence with an embedding", () => {
 
     const evidence = await retrieveEvidence(supabase, "when does the library shut", embedding);
 
-    expect(supabase.rpc).toHaveBeenCalledTimes(4);
+    expect(supabase.rpc).toHaveBeenCalledTimes(8);
     expect(supabase.rpc).toHaveBeenCalledWith("search_campus_chunks_semantic", { p_embedding: "[0.5,0.25]", p_limit: 10 });
     expect(supabase.rpc).toHaveBeenCalledWith("search_campus_courses_semantic", { p_embedding: "[0.5,0.25]", p_limit: 10 });
+    expect(supabase.rpc).toHaveBeenCalledWith("search_campus_clubs_semantic", { p_embedding: "[0.5,0.25]", p_limit: 10 });
+    expect(supabase.rpc).toHaveBeenCalledWith("search_campus_events_semantic", { p_embedding: "[0.5,0.25]", p_limit: 10 });
     expect(evidence.map((chunk) => chunk.chunk_id)).toEqual(["registrar:0", "libraries:1"]);
   });
 
@@ -166,7 +278,8 @@ describe("retrieveEvidence with an embedding", () => {
   it("uses only the keyword searches when the embedding is missing", async () => {
     const supabase = answers({ search_campus_chunks: { data: [REGISTRAR_CHUNK] } });
     await retrieveEvidence(supabase, "registrar", null);
-    expect(supabase.rpc).toHaveBeenCalledTimes(2);
+    expect(supabase.rpc).toHaveBeenCalledTimes(4);
+    expect(supabase.rpc).not.toHaveBeenCalledWith(expect.stringMatching(/_semantic$/), expect.anything());
   });
 });
 

@@ -1,11 +1,31 @@
-# Campus assistant data — pages, courses and embeddings
+# Campus assistant data — pages, courses, clubs, events and embeddings
 
-The assistant at `/assistant` answers from two kinds of stored text: chunks of
-official AUB pages (`campus_source_chunks`) and catalogue courses (`courses`).
-Each row can carry an **embedding**, a list of 768 numbers that places its
-meaning, so a question worded differently from the text still finds it. Search
-runs the keyword functions and the meaning functions together and merges the
-results; if embedding a question fails, the keyword results are used alone.
+The assistant at `/assistant` answers from four kinds of stored text: chunks of
+official AUB pages (`campus_source_chunks`), catalogue courses (`courses`),
+verified student clubs (`clubs`) and upcoming events (`events`). Each row can
+carry an **embedding**, a list of 768 numbers that places its meaning, so a
+question worded differently from the text still finds it. Search runs the
+keyword functions and the meaning functions together and merges the results; if
+embedding a question fails, the keyword results are used alone.
+
+**Clubs and events (SCRUM-254)** come from the app's own tables, so there is
+nothing to load: they are searched as soon as they exist and are embedded by
+step 2. Only what students may be told is searched, whatever the table's read
+policy allows:
+
+| Kind | Searched | Never searched |
+|---|---|---|
+| Clubs | `verification_status = 'verified'` | pending and rejected clubs |
+| Events | `status = 'published'` and `ends_at` not yet passed | drafts, cancelled and past events |
+
+The embedding script applies the same filter, so an unpublished draft or an
+unverified club is never sent to Gemini. A club that is verified, or an event
+that is published, after the last run has no embedding yet: it is still found by
+keyword search straight away, and by meaning after the next
+`npm run embed:campus-content`. Answers link to `/clubs/<slug>` and
+`/events/<id>`. Club and event search only add to an answer: if the
+`20261112100000` migration is missing on a project, pages and courses still
+answer. News is not indexed (cancelled for this sprint).
 
 Run everything from `frontend/`, against the local Supabase stack
 (`npx supabase start`). Commands are in the order they depend on each other.
@@ -79,6 +99,17 @@ migration with `create or replace function`; if good questions find nothing,
 lower it.
 
 ## Not yet done
+
+- **Embedding events bumps their revision.** `enforce_event_management` raises
+  an event's `revision` (and `updated_at`) on every update, including the
+  backfill, which only sets `embedding`. An organizer with that event's edit form
+  open while `embed:campus-content` runs would get a stale-write conflict on
+  save. Run the backfill off-hours until that trigger is made to ignore
+  embedding-only updates.
+- **The club/event migration and tests were written without a running local
+  stack.** `tests/campus-assistant-clubs-events.test.mjs` skips itself unless
+  `npx supabase start` is up; run `npm run test:db` once with it running before
+  merging, to apply `20261112100000` and exercise the four new functions.
 
 - **Hosted Supabase:** the hosted project has four migrations this repository
   does not (`20261024120000`, `20261024130000`, `20261028094821`,
