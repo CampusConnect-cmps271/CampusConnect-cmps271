@@ -21,6 +21,7 @@ describe("answerQuestion: grounded answers", () => {
           url: REGISTRAR_CHUNK.url,
           title: "Office of the Registrar",
           retrieved_at: REGISTRAR_CHUNK.retrieved_at,
+          source_label: "AUB website",
         },
       ],
       insufficient_evidence: false,
@@ -67,8 +68,70 @@ describe("answerQuestion: grounded answers", () => {
     const result = await answerQuestion("What is CMPS 271?", retrieving(COURSE_CHUNK), providing(reply("A software engineering course.", ["course:CMPS 271"])));
 
     expect(result.citations).toEqual([
-      { source_id: "course-catalogue", chunk_id: "course:CMPS 271", url: "/courses/CMPS-271", title: "CMPS 271 · Software Engineering", retrieved_at: null },
+      {
+        source_id: "course-catalogue",
+        chunk_id: "course:CMPS 271",
+        url: "/courses/CMPS-271",
+        title: "CMPS 271 · Software Engineering",
+        retrieved_at: null,
+        source_label: "AUB course catalogue",
+      },
     ]);
+  });
+
+  describe("every kind of evidence can be cited, with its own source label", () => {
+    const own = (chunk_id: string, source_id: string, url: string, title: string): EvidenceChunk => ({
+      chunk_id, source_id, url, title, retrieved_at: null, text: `${title}.`,
+    });
+    const UUID = "6f1c2a40-1b2c-4d3e-8f50-123456789abc";
+    const kinds: [string, EvidenceChunk, string][] = [
+      ["a verified club", own("club:robotics-club", "club-directory", "/clubs/robotics-club", "Robotics Club (club)"), "Student clubs"],
+      ["an upcoming event", own(`event:${UUID}`, "campus-events", `/events/${UUID}`, "Robot Demo Night (event)"), "Campus events"],
+      ["the student's plan", own(`me:plan:${UUID}`, "student-plan", `/planner/${UUID}`, "Your Fall 2026 plan"), "Your semester plan"],
+      ["the student's saved events", own("me:events", "student-events", "/events", "Your saved events"), "Your saved events"],
+      ["the student's saved posts", own("me:saved-posts", "student-posts", "/saved", "Your saved posts"), "Your posts"],
+      ["the student's own posts", own("me:my-posts", "student-posts", "/profile", "Your posts"), "Your posts"],
+      ["the public feed", own("me:feed", "campus-feed", "/home", "Recent posts on the feed"), "Campus feed"],
+    ];
+
+    it.each(kinds)("cites %s, linking to the app and naming where it came from", async (_name, chunk, label) => {
+      const result = await answerQuestion("Tell me.", retrieving(chunk), providing(reply("Here it is.", [chunk.chunk_id])));
+
+      expect(result.insufficient_evidence).toBe(false);
+      expect(result.citations).toEqual([
+        { source_id: chunk.source_id, chunk_id: chunk.chunk_id, url: chunk.url, title: chunk.title, retrieved_at: null, source_label: label },
+      ]);
+    });
+
+    it("cites a student's private chunk and a public page together, each with its own label", async () => {
+      const plan = kinds[2]![1];
+      const result = await answerQuestion(
+        "Is the library open during my exam?",
+        retrieving(REGISTRAR_CHUNK, plan),
+        providing(reply("Yes.", [plan.chunk_id, REGISTRAR_CHUNK.chunk_id])),
+      );
+
+      expect(result.citations.map((citation) => citation.source_label)).toEqual(["Your semester plan", "AUB website"]);
+    });
+
+    it("cannot be made to cite another student's plan: only chunks retrieved for this question can be cited", async () => {
+      const othersPlan = "me:plan:99999999-9999-4999-8999-999999999999";
+      const result = await answerQuestion(
+        "What is on my schedule?",
+        retrieving(REGISTRAR_CHUNK),
+        providing(reply("Their plan says…", [othersPlan])),
+      );
+
+      expect(result).toEqual(INSUFFICIENT_ANSWER);
+    });
+
+    it("labels a source it does not know by where its link points, never calling an app page the AUB website", async () => {
+      const appPage = own("x:1", "something-new", "/clubs/robotics-club", "Stray app page");
+      const aubPage = { ...own("x:2", "something-else", "https://www.aub.edu.lb/x", "Stray AUB page"), retrieved_at: "2026-10-24T08:00:00.000Z" };
+      const result = await answerQuestion("Tell me.", retrieving(appPage, aubPage), providing(reply("Here.", ["x:1", "x:2"])));
+
+      expect(result.citations.map((citation) => citation.source_label)).toEqual(["CampusConnect", "AUB website"]);
+    });
   });
 
   it("accepts JSON wrapped in a code fence or a sentence", async () => {

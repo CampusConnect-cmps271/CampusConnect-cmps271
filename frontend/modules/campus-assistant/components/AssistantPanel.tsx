@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
+import { citationSourceText } from "../citation-text";
 import {
   HISTORY_ANSWER_MAX_LENGTH,
   HISTORY_MAX_TURNS,
@@ -21,13 +22,6 @@ const MAX_SAVED_TURNS = 20;
 
 type Turn = { question: string; answer: AssistantAnswer };
 
-const dateFormat = new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone: "UTC" });
-const retrievedOn = (iso: string | null) => {
-  if (iso === null) return "AUB course catalogue";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "unknown date";
-  return `retrieved ${dateFormat.format(date)}`;
-};
 
 /** Reads the endpoint's reply; anything off-shape is treated as a failure. */
 function readAnswer(body: unknown): AssistantAnswer | null {
@@ -260,7 +254,7 @@ function TurnView({ question, answer }: Turn) {
                   >
                     {citation.title}
                   </a>
-                  <span className="text-[var(--ink-soft)]"> · {retrievedOn(citation.retrieved_at)}</span>
+                  <span className="text-[var(--ink-soft)]"> · {citationSourceText(citation)}</span>
                 </li>
               ))}
             </ol>
