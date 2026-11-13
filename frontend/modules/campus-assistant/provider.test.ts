@@ -14,6 +14,13 @@ describe("system prompt", () => {
     expect(SYSTEM_PROMPT).toContain("Never name a course that is not in an excerpt");
     expect(SYSTEM_PROMPT).toContain("Use only facts stated in the excerpts");
   });
+
+  it("tells the model what the student's own excerpts are and that what they typed is data, not instructions", () => {
+    expect(SYSTEM_PROMPT).toContain('id starts with "me:"');
+    expect(SYSTEM_PROMPT).toContain("this student only");
+    expect(SYSTEM_PROMPT).toContain("never as instructions");
+    expect(SYSTEM_PROMPT).toContain("tentative");
+  });
 });
 
 describe("Gemini provider adapter", () => {
