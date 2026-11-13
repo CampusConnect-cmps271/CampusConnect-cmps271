@@ -125,6 +125,30 @@ its nearest neighbour. If unrelated questions return evidence, raise it in a new
 migration with `create or replace function`; if good questions find nothing,
 lower it.
 
+## 4. Privacy and answer-quality tests (SCRUM-257)
+
+`npm test` runs these with the unit tests; the database-backed ones skip themselves
+when local Supabase is not running (`npx supabase start`, then
+`npx supabase migration up --include-all` if tables are missing).
+
+| Test | What it proves |
+|---|---|
+| `tests/api/campus-assistant-privacy.test.ts` | The real route, real database and real row-level security, with two signed-in students. Only the model call is stubbed, and the stub *cites everything it is sent*, so anything that reached the model also shows in the response. For a personal question each student's request holds their own plan, timetable and saved events and none of the other's, and the response to the browser is the same. A question that is not personal carries no private data. A **draft event never reaches the model, not even for its own organizer**, and a **pending club never does**, though every student can read both. Text one student typed into their plan cannot reach or steer the other. A signed-out visitor is refused, and the logs never hold private text. |
+| `tests/campus-assistant-student-context.test.ts` | The loader on its own, including a caller who names another student's id: row-level security is the lock, the explicit filter the second. |
+| `tests/campus-assistant-clubs-events.test.mjs` | The four club and event search functions (see above). |
+| `modules/campus-assistant/*.test.ts` | Unit tests: which questions count as personal, the shape and caps of the private context, that typed text cannot pose as an instruction, that every kind of evidence is cited with its own label, and that an answer can only cite what was retrieved for that question. |
+
+These tests were checked by breaking things on purpose: removing the
+personal-question gate, the draft filter or the pending-club filter makes the
+privacy test fail, and so does dropping any student filter in the loader.
+
+**Not covered: how good the model's answers are.** None of this calls the real
+model. Whether Gemini phrases an answer well, or stays inside the excerpts it
+was given, can only be judged with a `GEMINI_API_KEY`: run
+`npm run eval:assistant` for retrieval recall (it now counts clubs and events),
+and read real answers by hand before relying on them. Add club and event
+questions to `eval/questions.json` once real clubs and events exist locally.
+
 ## Not yet done
 
 - **Embedding events bumps their revision.** `enforce_event_management` raises
