@@ -7,6 +7,7 @@ const electiveCourses = [...courses, {
   credits: 3, prerequisites: "Prerequisite: CMPS 101 or instructor consent.",
 }];
 export const electiveAccounts = {
+  "recommendations-browse@mail.aub.edu": "00000000-0000-4000-8000-000000000507",
   "recommendations-offerings@mail.aub.edu": "00000000-0000-4000-8000-000000000506",
   "recommendations-ranking@mail.aub.edu": "00000000-0000-4000-8000-000000000501",
   "recommendations-empty@mail.aub.edu": "00000000-0000-4000-8000-000000000502",
@@ -32,7 +33,7 @@ export async function handleElectives(request, response, url, claims) {
     if(filters.semester_id){
       const capture={setHeader(){},end(body){rows=JSON.parse(body);}};
       handleCourses({method:"GET"},capture,new URL(`http://mock/rest/v1/course_semester_catalogue?semester_id=eq.${filters.semester_id}`),claims.email);
-      rows=rows.map(row=>({...row,sections:row.sections.filter(section=>{
+      rows=rows.map(row=>({...row,sections:row.sections.map(section=>claims.email === "recommendations-browse@mail.aub.edu"?{...section,attributes:["Culture and History"]}:section).filter(section=>{
         if(filters.instructors?.length&&!filters.instructors.some(w=>section.instructors.some(v=>norm(v)===norm(w))))return false;
         if(filters.attributes?.some(w=>!section.attributes.some(v=>norm(v)===norm(w))))return false;
         if(!filters.meeting_days?.length&&!filters.earliest_start&&!filters.latest_end)return true;
@@ -44,6 +45,9 @@ export async function handleElectives(request, response, url, claims) {
           return true;
         });
       })})).filter(row=>row.sections.length);
+    }
+    if(claims.email === "recommendations-browse@mail.aub.edu" && filters.semester_id && rows.length){
+      rows=Array.from({length:53},(_,i)=>({...rows[0],id:`30000000-0000-4000-8000-${String(i).padStart(12,"0")}`,code:`HIST ${200+i}`,name:`Culture and History ${i+1}`,description:"Study culture, history and societies.",sections:rows[0].sections.map(section=>({...section,attributes:["Culture and History"],connected_crns:["29999"]}))}));
     }
     const catalogue_count=rows.length;
     rows=rows.map(row=>{const rating=courses.some(c=>c.id===row.id)?ratingFixture(row):{};return {...row,review_count:rating.review_count??null,average_workload:rating.average_workload??null,average_overall:rating.average_overall??null,

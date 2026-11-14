@@ -11,7 +11,6 @@ describe("elective preferences", () => {
     ["blank interest", { interests: [" "] }],
     ["too many interests", { interests: Array(11).fill("robotics") }],
     ["oversized interest", { interests: ["x".repeat(61)] }],
-    ["blank goals", { academic_goals: " " }],
     ["oversized goals", { academic_goals: "x".repeat(1001) }],
     ["invalid workload", { preferred_workload: "easy" }],
     ["forged ownership", { student_id: "another-user" }],
@@ -42,4 +41,11 @@ describe("elective preferences", () => {
     expect(parsePreferenceValues(readPreferences(form)).success).toBe(false);
     expect(parsePreferenceValues(readPreferences(new FormData())).success).toBe(false);
   });
+});
+
+it("accepts empty or punctuation-only interests with a semester and optional goals",()=>{
+ for(const interests of [[],["."]]){
+  const parsed=preferencesSchema.parse({...preferences,interests,academic_goals:"",offering_preferences:{semester_id:"202720",attributes:["Culture and History"]}});
+  expect(parsed.interests).toEqual([]);expect(parsed.academic_goals).toBe("");
+ }
 });
