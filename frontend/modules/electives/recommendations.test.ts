@@ -56,3 +56,14 @@ describe("bounded recommendation service", () => {
     expect(provider).not.toHaveBeenCalled();
   });
 });
+
+it("browses every semester match beyond twenty with no interest or AI requirement", async () => {
+  const input={...preferences,interests:[],academic_goals:"",offering_preferences:{semester_id:"202720",attributes:["Culture and History"]}};
+  const section={crn:"12345",section:"E1",title:"History",credits:3,instructors:["Professor Example"],attributes:["Culture and History"],prerequisites:null,campus:"Beirut",details_url:null,source_updated_at:null,restrictions:null,connected_crns:["12346"],sessions:[{days:"MWF",start:"10:00",end:"10:50",type:"Recitation",location:"Hall",instructor:"Professor Example"}]};
+  const rows=Array.from({length:53},(_,i)=>({...course,id:`history-${i}`,code:`HIST ${200+i}`,offering:{semester_id:"202720",semester_name:"Spring",synced_at:"2026-11-14",sections:[section]}}));
+  const provider=vi.fn();const result=await recommend(input,{courses:rows,truncated:false,catalogueCount:53},provider);
+  expect(result.recommendations).toHaveLength(53);expect(provider).not.toHaveBeenCalled();
+  expect(result.recommendations[0]).toMatchObject({description:course.description,offering:{sections:[{connected_crns:["12346"]}]}});
+  const punctuation=await recommend({...input,interests:["."],academic_goals:"."},{courses:rows,truncated:false,catalogueCount:53});
+  expect(punctuation.recommendations).toHaveLength(53);
+});

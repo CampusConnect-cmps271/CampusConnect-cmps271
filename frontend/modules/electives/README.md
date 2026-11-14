@@ -252,3 +252,38 @@ HH:mm windows on direct database writes as well as through form/API validation.
 The applied migration version is `20261109093451`. No existing student preferences
 were changed. The Supabase security advisor reported no findings for the new
 validation function or preference field.
+
+## Browse by semester and attribute
+
+Leave interests and academic goals blank and choose an imported semester to
+browse every matching course, including completed courses. For example, select
+Spring and the exact suggested attribute **Cultures and Histories**. Browse mode
+has no 20-course cutoff and never calls AI; the page reveals 24 cards at a time
+from the full filtered result. Interest-based recommendations still require a
+complete interest group and show up to 20 results. Punctuation-only interests
+are normalized to empty; without a semester, at least one real interest is required.
+Goals are optional ranking bonuses, not browse requirements.
+
+Cards include full catalogue descriptions, advisory prerequisites and the saved
+section prerequisite/co-requisite prose where supplied. The source does not
+provide a separate structured co-requisite field; do not infer eligibility or
+invent missing requirements. Each section shows actual meeting duration,
+instructor, attributes and CRN. MWF/TR/MW shortcuts select allowed days; they do
+not assert an exact meeting pattern or imply a fixed class duration. Every
+listed meeting must still satisfy all selected day/time constraints.
+
+The importer preserves explicit Resis `connected` CRNs and derives component
+labels from their saved section/meeting types. E1 is never assumed to mean lab:
+it can be a recitation or another listed type. Connected CRNs and labels remain
+visible even if their component is outside the selected day/time window. Links
+are advisory source connections; verify the required registration combination
+in AUB SIS. Existing snapshots were enriched from saved responses only, guarded
+by semester/fetch time; no Resis calls or active snapshot replacements were needed.
+
+Applied migrations: `20261114142822_elective_attribute_browse.sql`,
+`20261114142833_resis_connected_crns.sql`, and
+`20261114143203_resis_connected_labels.sql`. Owner RLS and existing validation
+triggers remain in force. Local regression tests cover empty preferences, all
+53 synthetic matches, Redis preservation, connection labels and stale-fetch
+protection. A hosted authenticated-role RPC returned all 133 Spring courses with
+Cultures and Histories; this is the saved snapshot, not current SIS availability.

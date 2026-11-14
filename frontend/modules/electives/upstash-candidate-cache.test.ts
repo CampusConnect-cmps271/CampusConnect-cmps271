@@ -98,7 +98,7 @@ it("preserves semester sections, instructors, attributes and prerequisite-aware 
  const now=()=>1000,shared=backend(now),store=createRedisCandidateStore(shared.client,"semester",now);
  const semesterValue={...value,courses:[{...course,review_count:4,average_workload:2.5,average_overall:4.5,offering:{
   semester_id:"202720",semester_name:"Spring 2027",synced_at:"2026-11-14T08:00:00Z",sections:[{
-   crn:"12345",section:"01",title:"Software Engineering",credits:3,instructors:["Professor Example"],attributes:["Quantitative Thought"],prerequisites:"CMPS 202",
+   crn:"12345",connected_crns:["12346"],connected_labels:["CMPS 271 · Section E1 · Recitation · CRN 12346"],section:"01",title:"Software Engineering",credits:3,instructors:["Professor Example"],attributes:["Quantitative Thought"],prerequisites:"CMPS 202",
    campus:"Beirut",details_url:"https://example.edu/course/12345",source_updated_at:"2026-11-14T07:45:00Z",restrictions:{major:["Computer Science"]},
    sessions:[{days:"MW",start:"10:00",end:"11:15",type:"Lecture",location:"Room 101",instructor:"Professor Example"}],
   }],
