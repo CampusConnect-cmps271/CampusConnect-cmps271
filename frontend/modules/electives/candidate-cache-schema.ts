@@ -3,7 +3,7 @@ import { z } from "zod";
 const text = z.string().max(20000);
 const names = z.array(z.string().max(300)).max(1000);
 const section = z.object({
-  crn: z.string().max(40), section: z.string().max(40), title: z.string().max(300), credits: z.number().min(0).max(999.99),
+  connected_labels: z.array(z.string().max(500)).max(1000).optional(), connected_crns: z.array(z.string().regex(/^\d+$/)).max(1000).optional(), crn: z.string().max(40), section: z.string().max(40), title: z.string().max(300), credits: z.number().min(0).max(999.99),
   instructors: names, attributes: names, prerequisites: text.nullable(), campus: text,
   details_url: z.string().max(2048).nullable(), source_updated_at: z.string().max(100).nullable(),
   restrictions: z.record(z.string(), z.unknown()).nullable(),

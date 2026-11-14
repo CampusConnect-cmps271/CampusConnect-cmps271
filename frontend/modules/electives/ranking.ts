@@ -18,26 +18,27 @@ export function prerequisiteStatus(prose: string, completed: string[]): Prerequi
 export function rankCandidates(courses: Candidate[], preferences: ElectivePreferences, limit = RECOMMENDATION_LIMIT, major: string | null = null): Recommendation[] {
   const interests = preferenceGroups(preferences.interests);
   const goals = preferenceGroups([preferences.academic_goals]);
+  const browsing = !interests.length && Boolean(preferences.offering_preferences?.semester_id);
   const workload = { light: 1.5, moderate: 3, heavy: 4.5 }[preferences.preferred_workload];
-  return courses.filter(c => !preferences.completed_course_codes.includes(c.code)).flatMap(course => {
+  return courses.filter(c => browsing || !preferences.completed_course_codes.includes(c.code)).flatMap(course => {
     const offering = matchingOffering(course.offering, preferences.offering_preferences);
     if (preferences.offering_preferences?.semester_id && !offering) return [];
     const corpus = new Set(tokens(`${course.name} ${course.department} ${course.description}`.slice(0, 20000)));
     const matches = interests.filter(group => group.words.every(word => corpus.has(word)));
     // Do not fill twenty slots with unrelated courses or partial group matches.
-    if (!matches.length) return [];
+    if (!matches.length && !browsing) return [];
     const goalMatches = goals.filter(group => group.words.every(word => corpus.has(word)));
     const status = prerequisiteStatus(course.prerequisites, preferences.completed_course_codes);
     const registration = registrationGuidance(course, major);
     const hasRatings = course.review_count !== null && course.review_count >= 3;
     const workloadFit = hasRatings && course.average_workload !== null ? 5 - Math.abs(course.average_workload - workload) : 0;
     const score = (status === "unmet" ? -1000 : 0) + (registration.status === "restricted" ? -1000 : 0) + matches.length * 5 + goalMatches.length + workloadFit + (hasRatings ? (course.average_overall ?? 0) / 5 : 0);
-    const rationale = [`Catalogue interest matches: ${matches.map(group => group.label).join(", ")}.`,
+    const rationale = [browsing ? "Matches your selected semester and section filters." : `Catalogue interest matches: ${matches.map(group => group.label).join(", ")}.`,
       ...(goalMatches.length ? [`Academic goal matches: ${goalMatches.map(group => group.label).join(", ")}.`] : []),
       hasRatings ? `Workload fit uses ${course.review_count} published reviews.` : course.review_count === null ? "Review ratings are unavailable; workload fit is unknown." : "Too few reviews to assess workload reliably.",
       status === "unknown" ? "Prerequisites need manual verification." : status === "unmet" ? "Your self-reported courses do not meet the listed requirements." : "Listed requirements match your self-reported courses."].join(" ");
     return [{ score, result: { course_id: course.id, code: course.code, name: course.name, department: course.department, rationale, evidence_review_ids: [], registration,
-      prerequisite_status: status, prerequisites: course.prerequisites, review_count: course.review_count,
+      prerequisite_status: status, prerequisites: course.prerequisites, description: course.description, review_count: course.review_count,
       ...(offering ? { offering } : {}), } satisfies Recommendation }];
   }).sort((a, b) => b.score - a.score || a.result.code.localeCompare(b.result.code)).slice(0, limit).map(row => row.result);
 }

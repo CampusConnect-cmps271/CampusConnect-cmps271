@@ -7,7 +7,7 @@ export type Candidate = {
 };
 export type Recommendation = {
   course_id: string; code: string; name: string; department: string; rationale: string; evidence_review_ids: string[];
-  prerequisite_status: PrerequisiteStatus; prerequisites: string; review_count: number | null;
+  description?: string; prerequisite_status: PrerequisiteStatus; prerequisites: string; review_count: number | null;
   offering?: CandidateOffering;
   registration: { status: "unverified" | "review_required" | "restricted"; message: string; evidence?: string };
 };

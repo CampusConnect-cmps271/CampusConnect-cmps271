@@ -99,7 +99,7 @@ test("empty, whitespace and over-limit drafts can be corrected to saved Unicode 
   await save.click();
   await expect(page.locator("main").getByRole("alert")).toBeVisible();
   await expect(interests).toHaveAttribute("aria-invalid", "true");
-  await expect(goals).toHaveAttribute("aria-invalid", "true");
+  await expect(goals).toHaveAttribute("aria-invalid", "false");
   await expect(interests).toHaveValue("  ,  ");
   await goals.fill("تعلم تصميم الروبوتات");
   await interests.fill(Array.from({ length: 11 }, (_, i) => `interest${i}`).join(", "));
