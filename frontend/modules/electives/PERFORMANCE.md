@@ -109,9 +109,9 @@ use isolated cache doubles and cannot contact this database.
 
 ### Extension validation
 
-- 1,091 full unit/integration tests passed, including shared-instance reuse,
+- 1,092 full unit/integration tests passed, including shared-instance reuse,
   authentication/key isolation, corrupt payloads, TTL inheritance, delayed writes,
-  oversize payloads and read/write outage fallback.
+  oversize payloads, read/write outage fallback and complete semester recommendation parity.
 - 552 database regression tests passed; four pre-existing TODO cases remain.
 - All 11 elective browser checks passed with real Redis explicitly disabled.
 - Type checking, lint and the webpack production build passed.

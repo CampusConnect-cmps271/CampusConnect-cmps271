@@ -4,6 +4,7 @@ const m=vi.hoisted(()=>({config:vi.fn(),get:vi.fn(),set:vi.fn()}));
 vi.mock("@upstash/redis",()=>({Redis:class { constructor(options:unknown){m.config(options);}get(key:string){return m.get(key);}set(...args:unknown[]){return m.set(...args);} }}));
 import {createRedisCandidateStore,configuredCandidateRedis,candidateRedisNamespace,CANDIDATE_TTL_MS} from "./upstash-candidate-cache";
 import {createCandidateCache,candidateCacheKey} from "./candidate-cache";
+import { recommend } from "./recommendations";
 const course={id:"10000000-0000-4000-8000-000000000001",code:"CMPS 271",name:"Software Engineering",description:"Software development",department:"Computer Science",prerequisites:"CMPS 202",credits:3,review_count:0,average_workload:null,average_overall:null};
 const value={courses:[course],truncated:false,catalogueCount:3380};
 const diagnostics={cache:"miss" as const,dbRequests:1,responseBytes:1000,queryMs:75};
@@ -91,4 +92,23 @@ it("skips background writes that start after the original expiry",async()=>{
  let now=1000;const shared=backend(()=>now),store=createRedisCandidateStore(shared.client,"late",()=>now),jobs:Array<()=>Promise<void>>=[];
  await createCandidateCache(()=>now,()=>store).load("key",async()=>result(),{deferWrite:job=>{jobs.push(job);}});
  now+=30001;await jobs[0]();expect(shared.client.set).not.toHaveBeenCalled();
+});
+
+it("preserves semester sections, instructors, attributes and prerequisite-aware recommendations through Redis",async()=>{
+ const now=()=>1000,shared=backend(now),store=createRedisCandidateStore(shared.client,"semester",now);
+ const semesterValue={...value,courses:[{...course,review_count:4,average_workload:2.5,average_overall:4.5,offering:{
+  semester_id:"202720",semester_name:"Spring 2027",synced_at:"2026-11-14T08:00:00Z",sections:[{
+   crn:"12345",section:"01",title:"Software Engineering",credits:3,instructors:["Professor Example"],attributes:["Quantitative Thought"],prerequisites:"CMPS 202",
+   campus:"Beirut",details_url:"https://example.edu/course/12345",source_updated_at:"2026-11-14T07:45:00Z",restrictions:{major:["Computer Science"]},
+   sessions:[{days:"MW",start:"10:00",end:"11:15",type:"Lecture",location:"Room 101",instructor:"Professor Example"}],
+  }],
+ }}]};
+ const preferences={interests:["software"],preferred_workload:"moderate" as const,academic_goals:"engineering",completed_course_codes:["CMPS 202"],offering_preferences:{semester_id:"202720",instructors:["Professor Example"],attributes:["Quantitative Thought"],meeting_days:["M" as const,"W" as const],earliest_start:"09:00",latest_end:"12:00"}};
+ const key=candidateCacheKey("student",preferences),load=vi.fn(async()=>({value:semesterValue,diagnostics}));
+ const cold=await createCandidateCache(now,()=>store).load(key,load);
+ const warm=await createCandidateCache(now,()=>store).load(key,load);
+ expect(warm.diagnostics.cacheTier).toBe("redis");expect(warm.value).toEqual(cold.value);expect(load).toHaveBeenCalledOnce();
+ const before=await recommend(preferences,cold.value),after=await recommend(preferences,warm.value);
+ expect(before.recommendations).toHaveLength(1);expect(after).toEqual(before);
+ expect(after.recommendations[0]).toMatchObject({prerequisite_status:"satisfied",offering:{sections:[{section:"01",instructors:["Professor Example"],attributes:["Quantitative Thought"],sessions:[{start:"10:00",end:"11:15"}]}]}});
 });
