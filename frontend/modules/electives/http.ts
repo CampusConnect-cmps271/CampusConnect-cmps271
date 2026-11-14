@@ -22,8 +22,9 @@ export function sameOrigin(request: Request) {
 export async function recommendationsPOST(request: Request) {
   const timing = recommendationTimings();
   let cache: string | undefined;
+  let cacheTier: string | undefined;
   let reads: number | undefined, bytes: number | undefined;
-  const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { ...headers, "Server-Timing": timing.header(cache, reads, bytes) } });
+  const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { ...headers, "Server-Timing": timing.header(cache, reads, bytes, cacheTier) } });
   const user = await timing.measure("auth", getCurrentUser);
   if (!user) return json({ error: "Sign in to get elective recommendations." }, 401);
   if (!sameOrigin(request)) return json({ error: "Invalid request origin." }, 403);
@@ -47,6 +48,8 @@ export async function recommendationsPOST(request: Request) {
     };
     const [catalogue, student] = await Promise.all([timing.measure("catalogue", () => loadCandidatesForUser(parsed.data, user)), timing.measure("profile", context)]);
     cache = catalogue.diagnostics?.cache;
+    cacheTier = catalogue.diagnostics?.cacheTier;
+    if (catalogue.diagnostics?.redisMs !== undefined) timing.record("redis", catalogue.diagnostics.redisMs);
     reads = catalogue.diagnostics?.dbRequests; bytes = catalogue.diagnostics?.responseBytes;
     if (catalogue.diagnostics) timing.record("catalogue_query", catalogue.diagnostics.queryMs);
     const result = await timing.measure("recommendation", () => recommend(parsed.data, catalogue, configuredProvider(), student, (stage, ms) => timing.record(stage, ms)));

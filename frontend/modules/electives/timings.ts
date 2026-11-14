@@ -9,9 +9,9 @@ export function recommendationTimings() {
       try { return await action(); } finally { values[name] = performance.now() - began; }
     },
     record(name: string, ms: number) { values[name] = ms; },
-    header(cache?: string, reads?: number, bytes?: number) {
+    header(cache?: string, reads?: number, bytes?: number, tier?: string) {
       values.total = performance.now() - start;
-      return Object.entries(values).map(([name,ms])=>`${name};dur=${ms.toFixed(1)}`).join(", ") + (cache ? `, catalogue_cache;desc="${cache}"` : "") + (reads === undefined ? "" : `, catalogue_reads;desc="${reads}", catalogue_bytes;desc="${bytes}"`);
+      return Object.entries(values).map(([name,ms])=>`${name};dur=${ms.toFixed(1)}`).join(", ") + (cache ? `, catalogue_cache;desc="${cache}"` : "") + (reads === undefined ? "" : `, catalogue_reads;desc="${reads}", catalogue_bytes;desc="${bytes}"`) + (tier ? `, catalogue_tier;desc="${tier}"` : "");
     },
   };
 }

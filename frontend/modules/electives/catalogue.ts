@@ -1,4 +1,5 @@
 import "server-only";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser, type CurrentUser } from "@/modules/auth";
 import type { ElectivePreferences } from "./schema";
@@ -15,6 +16,6 @@ export async function loadCandidates(preferences?: ElectivePreferences) {
 /** Only called with the user already verified for this server request. */
 export async function loadCandidatesForUser(preferences: ElectivePreferences | undefined, user: CurrentUser) {
   const client = await createClient();
-  const result = await candidateCache.load(candidateCacheKey(user.id, candidateQuery(preferences)), () => fetchCandidateCatalogue(client, preferences));
+  const result = await candidateCache.load(candidateCacheKey(user.id, candidateQuery(preferences)), () => fetchCandidateCatalogue(client, preferences), { deferWrite: work => after(work) });
   return { ...result.value, diagnostics: result.diagnostics };
 }

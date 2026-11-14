@@ -57,3 +57,64 @@ The runner uses the actual frozen/optimized loaders and actual SQL migration in 
 - Both hosted migrations are applied and local filenames match migration history: `20261112162408_elective_candidate_queries.sql` and `20261112162835_elective_candidate_query_cost.sql`.
 
 Apply both migrations before deploying the new frontend on another environment. The RPC fails closed with the existing generic catalogue error if unavailable; it does not silently return unfiltered courses. Existing Resis quota accounting and its maintenance-only importer are unchanged; the ledger still contains only the original three requests. SCRUM-242 was already merged through PR #53 and closed before this work.
+
+## Upstash extension — 14 November 2026
+
+Added the official `@upstash/redis` REST SDK (pinned to 1.41.0) and a Free Tier
+Tokyo database, matching the configured Vercel `hnd1` function region. Credentials
+are configured in ignored local environment only; hosting Preview/Production
+needs its own server-side environment values and redeployment before shared
+Redis is active there. The SQL and deterministic ranking are unchanged.
+
+The hierarchy is memory → shared Redis → authenticated Supabase. Memory retains
+the original 64-entry / 8 MiB serialized cap. Redis stores entries up to 256 KiB,
+with a 30-second TTL and validated, user/query-bound envelopes. An inherited
+entry keeps its original expiry. Redis never caches profiles, saved preferences,
+AI output or final recommendation results. Keys are hashed and namespaces separate
+Vercel production, preview and local; an optional namespace separates additional
+preview branches. Authentication still runs before any cache access.
+
+A Redis command uses a fresh AbortSignal, no retries and a 200 ms timeout on
+Vercel (1,500 ms locally; optional 50–2,000 ms override). Failures open a 30-second
+per-instance circuit and fall back to Supabase. Redis writes run after the
+response through Next.js `after()`, preserving the original expiry and avoiding
+SET latency in the response. Another cold instance can miss before the write
+completes; this is local coalescing plus shared reuse, not a distributed lock.
+
+### Live cross-instance verification
+
+The explicit smoke check used actual Upstash networking from this local machine
+to Tokyo, one synthetic course, and a fake counted database loader. It made zero
+Supabase, Resis or provider calls. It verified complete payload equality, exactly
+one loader call, a memory hit, and a Redis hit in an independent cache instance.
+The unique test key had 29,283 ms TTL remaining and was deleted in cleanup.
+
+| Scenario | Observed candidate-load time | Loader calls | Tier |
+| --- | ---: | ---: | --- |
+| First instance, cold | 894.3 ms | 1 | Database (synthetic loader) |
+| Same instance, repeated | 0.8 ms | 0 | Memory |
+| Independent second instance | 378.8 ms | 0 | Redis |
+
+The background SET took 462.0 ms, excluded from the cold response measurement.
+These are single observations over a distant local network, not production p95
+or evidence of lower end-to-end latency. The benefit established here is shared
+candidate reuse without a second catalogue query; colocated production latency
+must still be measured after hosting environment setup. The production timeout
+bounds Redis delay before database fallback. Historical November 12 replay
+figures above predate Redis and should not be presented as Redis measurements.
+
+Raw credential-free results: `tests/performance/upstash-results-2026-11-14.json`.
+Reproduce with `UPSTASH_LIVE_VERIFY=1 npm run verify:redis`; ordinary test suites
+use isolated cache doubles and cannot contact this database.
+
+### Extension validation
+
+- 1,091 full unit/integration tests passed, including shared-instance reuse,
+  authentication/key isolation, corrupt payloads, TTL inheritance, delayed writes,
+  oversize payloads and read/write outage fallback.
+- 552 database regression tests passed; four pre-existing TODO cases remain.
+- All 11 elective browser checks passed with real Redis explicitly disabled.
+- Type checking, lint and the webpack production build passed.
+- The live Upstash smoke check passed and removed its disposable record.
+- Local production preview returns the expected signed-out redirect. Resis usage
+  is unchanged: three original ledger attempts, zero new requests.
