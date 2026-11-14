@@ -38,6 +38,13 @@ test("private semester and section choices persist, filter recommendations and c
   await expect(matches).toContainText("10:30–11:45");
   await expect(matches).not.toContainText("12:00–13:15");
   await expect(matches).not.toContainText("Fall Instructor");
+  const repeat=page.waitForResponse(r=>r.url().endsWith("/api/electives/recommendations")&&r.request().method()==="POST");
+  await page.getByRole("button",{name:"Get recommendations"}).click();
+  const cached=await repeat;
+  expect(cached.headers()["server-timing"]).toContain('catalogue_cache;desc="hit"');
+  expect(cached.headers()["server-timing"]).toContain("auth;dur=");
+  await expect(page.getByRole("status")).toHaveText("1 recommendation found.");
+
   await expect(page.getByRole("link", { name: "CMPS 240 · Operating Systems", exact: true })).toHaveAttribute("href", "/courses/CMPS-240?semester=202720");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: "/tmp/campusconnect-elective-offering-results.png", fullPage: true });

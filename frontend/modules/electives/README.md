@@ -110,13 +110,11 @@ limits before enabling AI in production. Provider failures leave the catalogue
 baseline and source evidence usable. Tests inject deterministic providers;
 fixtures are never enabled as a production substitute.
 
-Catalogue reads are ordered and paginated through every accessible course,
-across all departments, without a 5,000-record cutoff. Up to twenty courses matching a complete interest group
-are shown; partial or unrelated matches are not used to fill the list. Ratings are fetched only for complete interest matches that have not already
-been completed. The full catalogue count and cross-department search are
-preserved. Rating reads overlap up to four requests at a time; each ID filter
-contains at most 100 courses. The browser allows thirty seconds for the full
-database-and-provider request; each provider call still has a four-second limit.
+Catalogue candidates are filtered in the database by semester, one-section constraints and a conservative interest prefilter. Ratings come back in the same RPC. Exact Unicode interest matching and ranking remain in application code. Pagination covers every matching candidate with no 5,000-record cutoff; the displayed catalogue count retains the full semester/section scope independently of interests. Up to twenty exact interest matches are shown.
+
+Candidate data is cached for 30 seconds per verified student/project/query, with bounded memory, optional shared Upstash Redis and concurrent-read coalescing. Profiles, AI responses and final recommendations are not cached; responses remain private/no-store. The already verified request user is reused for catalogue/profile lookups. Server-Timing exposes numeric stage timings and catalogue request/byte/cache metrics without private inputs. See [PERFORMANCE.md](./PERFORMANCE.md) for measurements, limitations and the offline benchmark.
+
+The browser allows thirty seconds for the full database-and-provider request; each provider call still has a four-second limit.
 The authenticated profile supplies the student's major. Computer Science
 students see an approval/petition check on EECE courses, and an elective-credit
 check on other departments. These notices are advisory, not a blanket claim
@@ -131,6 +129,56 @@ fewer than three reviews are not used for workload fit; unavailable rating data
 keeps counts and workload fit unknown. Prerequisite prose and
 ambiguous AND/OR rules remain visible and marked unknown. Self-reported
 completion is not verified eligibility.
+
+## Optional Upstash Redis cache
+
+The server checks its in-memory cache first, then Upstash Redis, then the
+student-authenticated Supabase RPC. Redis shares candidate facts across server
+instances; Supabase remains the source of truth. Authentication is checked on
+every request, and ranking still uses current preferences and profile data.
+
+Create a free Upstash Redis database in the same region as the deployed functions
+(`frontend/vercel.json` currently selects `hnd1`, Tokyo). Put the REST credentials
+in ignored `frontend/.env.local` for local use, or the hosting project's server
+secret settings for Preview/Production:
+
+```dotenv
+UPSTASH_REDIS_REST_URL=https://your-database.upstash.io
+UPSTASH_REDIS_REST_TOKEN=your-server-only-token
+```
+
+Never prefix these names with `NEXT_PUBLIC_`. Restart or redeploy after changing
+them. Missing configuration uses the memory/Supabase path automatically. Vercel
+production, preview and local namespaces are separated; use the optional
+`UPSTASH_REDIS_CACHE_NAMESPACE` to separate additional projects or preview branches.
+
+Redis entries expire within the original 30-second freshness window; a hit never
+extends that window. Memory retains at most 64 entries / 8 MiB of serialized JSON;
+shared entries over 256 KiB are skipped. Keys hash the Supabase project, verified
+student and normalized candidate query. Values contain catalogue facts and
+published rating aggregates, without student profiles, saved preferences, AI
+responses or final recommendations. Cached payloads are validated before use.
+
+Redis GET has no retries and a 200 ms command timeout on Vercel (1,500 ms locally).
+An error bypasses Redis for 30 seconds in that server instance and continues with
+Supabase. `UPSTASH_REDIS_TIMEOUT_MS` can override the deadline between 50 and 2,000
+ms. Redis writes run with Next.js `after()` so they do not delay the response;
+a write failure cannot invalidate a successful database result. A second instance
+may still query Supabase before that background write completes.
+
+`Server-Timing` includes `redis` and `catalogue_tier` (`memory`, `redis`, or
+`database`) alongside catalogue request counts. Ordinary unit/browser tests
+never contact the configured real Redis. An explicit live smoke check uses one
+unique synthetic entry with a 30-second TTL and deletes it afterward:
+
+```sh
+UPSTASH_LIVE_VERIFY=1 npm run verify:redis
+```
+
+That check reads `.env.local`, verifies reuse by two independent cache instances,
+and saves credential-free results to `/tmp/upstash-live-results.json`. It never
+calls Supabase, Resis or an AI provider. See [PERFORMANCE.md](./PERFORMANCE.md) for
+the measured local latency and its limitations.
 
 ## Matching comma-separated preferences
 

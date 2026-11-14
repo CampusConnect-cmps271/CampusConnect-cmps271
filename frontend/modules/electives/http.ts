@@ -1,16 +1,16 @@
 import "server-only";
 import { getCurrentUser } from "@/modules/auth";
-import { getMyProfile } from "@/modules/profiles";
+import { getProfile } from "@/modules/profiles";
 import { log } from "@/modules/logging";
 import { preferencesSchema } from "./schema";
 import { validateCompletedCourses, validateOfferingSemester } from "./preferences";
-import { loadCandidates } from "./catalogue";
+import { loadCandidatesForUser } from "./catalogue";
 import { configuredProvider, boundedJson } from "./provider";
 import { recommend } from "./recommendations";
+import { recommendationTimings } from "./timings";
 import type { StudentContext } from "./types";
 
 const headers = { "Cache-Control": "private, no-store" };
-const json = (body: unknown, status = 200) => Response.json(body, { status, headers });
 export function sameOrigin(request: Request) {
   try {
     const origin = new URL(request.headers.get("origin") ?? "");
@@ -20,7 +20,12 @@ export function sameOrigin(request: Request) {
   } catch { return false; }
 }
 export async function recommendationsPOST(request: Request) {
-  const user = await getCurrentUser();
+  const timing = recommendationTimings();
+  let cache: string | undefined;
+  let cacheTier: string | undefined;
+  let reads: number | undefined, bytes: number | undefined;
+  const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { ...headers, "Server-Timing": timing.header(cache, reads, bytes, cacheTier) } });
+  const user = await timing.measure("auth", getCurrentUser);
   if (!user) return json({ error: "Sign in to get elective recommendations." }, 401);
   if (!sameOrigin(request)) return json({ error: "Invalid request origin." }, 403);
   if (!request.headers.get("content-type")?.startsWith("application/json")) return json({ error: "Send JSON preferences." }, 415);
@@ -29,11 +34,11 @@ export async function recommendationsPOST(request: Request) {
   const parsed = preferencesSchema.safeParse(input);
   if (!parsed.success) return json({ error: "Check your elective preferences." }, 400);
   try {
-    if ((await validateCompletedCourses(parsed.data)).length) return json({ error: "Use completed course codes from the catalogue." }, 400);
-    if (parsed.data.offering_preferences?.semester_id && !(await validateOfferingSemester(parsed.data))) return json({ error: "Choose a semester with imported course data." }, 400);
+    if ((await timing.measure("completed_codes", () => validateCompletedCourses(parsed.data))).length) return json({ error: "Use completed course codes from the catalogue." }, 400);
+    if (parsed.data.offering_preferences?.semester_id && !(await timing.measure("semester", () => validateOfferingSemester(parsed.data)))) return json({ error: "Choose a semester with imported course data." }, 400);
     const context = async (): Promise<StudentContext> => {
       try {
-        const profile = await getMyProfile();
+        const profile = await getProfile(user.id);
         const major = profile?.major?.trim() || null;
         return { major, majorStatus: major ? "known" : "missing" };
       } catch {
@@ -41,8 +46,14 @@ export async function recommendationsPOST(request: Request) {
         return { major: null, majorStatus: "unavailable" };
       }
     };
-    const [catalogue, student] = await Promise.all([loadCandidates(parsed.data), context()]);
-    return json(await recommend(parsed.data, catalogue, configuredProvider(), student));
+    const [catalogue, student] = await Promise.all([timing.measure("catalogue", () => loadCandidatesForUser(parsed.data, user)), timing.measure("profile", context)]);
+    cache = catalogue.diagnostics?.cache;
+    cacheTier = catalogue.diagnostics?.cacheTier;
+    if (catalogue.diagnostics?.redisMs !== undefined) timing.record("redis", catalogue.diagnostics.redisMs);
+    reads = catalogue.diagnostics?.dbRequests; bytes = catalogue.diagnostics?.responseBytes;
+    if (catalogue.diagnostics) timing.record("catalogue_query", catalogue.diagnostics.queryMs);
+    const result = await timing.measure("recommendation", () => recommend(parsed.data, catalogue, configuredProvider(), student, (stage, ms) => timing.record(stage, ms)));
+    return json(result);
   } catch {
     log.error("electives.recommendations.failure", {}, { userId: user.id });
     return json({ error: "Recommendations are temporarily unavailable. Please try again." }, 503);

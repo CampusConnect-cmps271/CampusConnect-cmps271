@@ -29,6 +29,9 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:3101",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_only",
       SUPABASE_SECRET_KEY: "sb_secret_test_only",
+      // Browser fixtures must never contact the real shared cache.
+      UPSTASH_REDIS_REST_URL: "",
+      UPSTASH_REDIS_REST_TOKEN: "",
       NEXT_PUBLIC_ALLOWED_EMAIL_DOMAINS: "mail.aub.edu",
     },
   }],
