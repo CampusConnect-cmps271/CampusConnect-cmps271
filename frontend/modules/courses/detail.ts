@@ -5,7 +5,7 @@ import { log } from "@/modules/logging";
 import type { Course } from "./catalogue";
 import { normalizeCourseCode, parsePrerequisiteReferences } from "./references";
 
-type CourseDetail = Course & { prerequisites: string };
+type CourseDetail = Course & { prerequisites: string; data_source?: string };
 type CourseReference = { code: string; name: string };
 
 export class CourseUnavailable extends Error {
@@ -24,7 +24,7 @@ export async function getCourseDetail(value: string) {
   try {
     const client = await createClient();
     const { data: course, error } = await client.from("courses")
-      .select("id,code,name,credits,description,department,prerequisites")
+      .select("id,code,name,credits,description,department,prerequisites,data_source")
       .eq("code", code).maybeSingle<CourseDetail>();
     if (error) {
       log.error("courses.detail.read_failure", { code: error.code });
