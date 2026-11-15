@@ -5,6 +5,7 @@ import { log } from '@/modules/logging'
 import { REGISTRAR_CHUNK, reply } from '@/modules/campus-assistant/fixtures'
 import { postRequest } from '../helpers'
 
+vi.mock("server-only", () => ({}));
 vi.mock('@/modules/logging', () => ({ log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
 vi.mock('@/modules/auth', () => ({ getCurrentUser: vi.fn() }))
 const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }))
