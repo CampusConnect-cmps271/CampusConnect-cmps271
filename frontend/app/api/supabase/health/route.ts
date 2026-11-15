@@ -1,3 +1,4 @@
+import { trackApiRequest } from "@/modules/logging/api-metrics";
 import { NextResponse } from "next/server";
 import { getSupabaseConfig } from "@/lib/supabase/config";
 
@@ -10,7 +11,7 @@ function result(status: number, message: string) {
   );
 }
 
-export async function GET() {
+async function trackedGET() {
   const config = getSupabaseConfig();
 
   if (!config) {
@@ -39,3 +40,5 @@ export async function GET() {
     return result(502, "Could not reach Supabase. Check your internet connection and project URL, then try again.");
   }
 }
+
+export const GET = trackApiRequest("/api/supabase/health", "GET", trackedGET);
