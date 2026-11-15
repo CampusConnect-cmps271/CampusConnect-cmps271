@@ -1,3 +1,4 @@
+
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { POST } from '@/app/api/campus-assistant/route'
 import { getCurrentUser } from '@/modules/auth'
@@ -5,9 +6,10 @@ import { log } from '@/modules/logging'
 import { REGISTRAR_CHUNK, reply } from '@/modules/campus-assistant/fixtures'
 import { postRequest } from '../helpers'
 
-vi.mock("server-only", () => ({}));
+vi.mock('server-only', () => ({}))
 vi.mock('@/modules/logging', () => ({ log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
 vi.mock('@/modules/auth', () => ({ getCurrentUser: vi.fn() }))
+
 const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }))
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn(async () => ({ rpc })) }))
 
@@ -29,11 +31,21 @@ function answerRequestBody() {
   return JSON.parse((call?.[1] as RequestInit).body as string)
 }
 
+/** Verify that no model or other unexpected network requests were made. */
+function expectOnlyMetricsRequests() {
+  const requests = vi.mocked(fetch).mock.calls
+
+  expect(
+    requests.every(([url]) => String(url).includes('/rest/v1/app_logs'))
+  ).toBe(true)
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   rpc.mockImplementation(async (fn: string) => ({ data: fn === 'search_campus_chunks' ? [REGISTRAR_CHUNK] : [], error: null }))
   vi.unstubAllEnvs()
   vi.stubEnv('GEMINI_API_KEY', KEY)
+
   // A fresh user per test, so the in-memory rate limit does not carry over.
   nextUser += 1
   vi.mocked(getCurrentUser).mockResolvedValue({ id: `user-${nextUser}`, email: null, name: 'Student' })
@@ -55,10 +67,12 @@ describe('POST /api/campus-assistant', () => {
     const res = await POST(postRequest(URL, { question: 'When does the library shut?' }) as never)
 
     expect(res.status).toBe(200)
+
     // 768 numbers, scaled to unit length by the embedding client.
     const vector = expect.stringMatching(/^\[0\.\d+(,0\.\d+){767}\]$/)
     expect(rpc).toHaveBeenCalledWith('search_campus_chunks_semantic', { p_embedding: vector, p_limit: 10 })
     expect(rpc).toHaveBeenCalledWith('search_campus_courses_semantic', { p_embedding: vector, p_limit: 10 })
+
     const embedCall = vi.mocked(fetch).mock.calls.find(([url]) => String(url).includes(':embedContent'))
     expect(JSON.parse((embedCall?.[1] as RequestInit).body as string).content.parts[0].text).toBe('When does the library shut?')
   })
@@ -79,7 +93,7 @@ describe('POST /api/campus-assistant', () => {
 
     expect(res.status).toBe(200)
     expect((await res.json()).insufficient_evidence).toBe(true)
-    expect(fetch).not.toHaveBeenCalled()
+    expectOnlyMetricsRequests()
     expect(rpc).not.toHaveBeenCalled()
   })
 
@@ -101,13 +115,13 @@ describe('POST /api/campus-assistant', () => {
     ['missing', {}],
   ])('rejects a question that is %s', async (_name, body) => {
     expect((await POST(postRequest(URL, body) as never)).status).toBe(400)
-    expect(fetch).not.toHaveBeenCalled()
+    expectOnlyMetricsRequests()
   })
 
   it('rejects malformed JSON and oversized bodies before calling the provider', async () => {
     expect((await POST(postRequest(URL, '{nope', true) as never)).status).toBe(400)
     expect((await POST(postRequest(URL, { question: 'a'.repeat(20000) }) as never)).status).toBe(413)
-    expect(fetch).not.toHaveBeenCalled()
+    expectOnlyMetricsRequests()
   })
 
   it('accepts a follow-up with earlier turns and sends them to the provider as history', async () => {
@@ -127,11 +141,14 @@ describe('POST /api/campus-assistant', () => {
     ['not a list', 'hello'],
   ])('rejects history with %s', async (_name, history) => {
     expect((await POST(postRequest(URL, { question: 'And more?', history }) as never)).status).toBe(400)
-    expect(fetch).not.toHaveBeenCalled()
+    expectOnlyMetricsRequests()
   })
 
   it('rate limits one student after ten questions', async () => {
-    for (let n = 0; n < 10; n += 1) expect((await POST(postRequest(URL, { question: 'Who issues transcripts?' }) as never)).status).toBe(200)
+    for (let n = 0; n < 10; n += 1) {
+      expect((await POST(postRequest(URL, { question: 'Who issues transcripts?' }) as never)).status).toBe(200)
+    }
+
     const res = await POST(postRequest(URL, { question: 'Who issues transcripts?' }) as never)
     expect(res.status).toBe(429)
     expect(Number(res.headers.get('retry-after'))).toBeGreaterThan(0)
@@ -142,12 +159,15 @@ describe('POST /api/campus-assistant', () => {
     const res = await POST(postRequest(URL, { question: 'Who issues transcripts?' }) as never)
 
     expect(res.status).toBe(503)
-    expect(fetch).not.toHaveBeenCalled()
+    expectOnlyMetricsRequests()
     expect(log.error).toHaveBeenCalledWith('campus_assistant.failed', expect.objectContaining({ kind: 'not_configured' }), expect.anything())
   })
 
   it('answers 504 on a provider timeout and 503 on an outage', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => { throw Object.assign(new Error('t'), { name: 'TimeoutError' }) }))
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw Object.assign(new Error('t'), { name: 'TimeoutError' })
+    }))
+
     expect((await POST(postRequest(URL, { question: 'Who issues transcripts?' }) as never)).status).toBe(504)
 
     modelReplies('{}', 500)
@@ -157,6 +177,7 @@ describe('POST /api/campus-assistant', () => {
   it('never logs the question or the provider key', async () => {
     const question = 'My private question about transcripts'
     await POST(postRequest(URL, { question }) as never)
+
     modelReplies('{}', 500)
     await POST(postRequest(URL, { question }) as never)
 
