@@ -204,9 +204,15 @@ html {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: var(--maroon);
+  background: linear-gradient(135deg, var(--maroon), var(--maroon-dark));
+  box-shadow: var(--shadow-sm);
   color: var(--white);
   font-size: 18px;
+  transition: transform 0.2s ease;
+}
+
+.brand:hover .brand-mark {
+  transform: scale(1.06);
 }
 
 .nav-links {
@@ -219,11 +225,31 @@ html {
 }
 
 .nav-links a:not(.btn) {
+  position: relative;
   color: var(--ink-soft);
+  transition: color 0.15s ease;
+}
+
+.nav-links a:not(.btn)::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--maroon);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.2s ease;
 }
 
 .nav-links a:not(.btn):hover {
   color: var(--maroon);
+}
+
+.nav-links a:not(.btn):hover::after {
+  transform: scaleX(1);
 }
 
 .nav-links form {
@@ -983,6 +1009,10 @@ html {
 
   .nav-links.open {
     max-height: 320px;
+  }
+
+  .nav-links a:not(.btn)::after {
+    display: none;
   }
 
   .nav-links a:not(.btn) {
