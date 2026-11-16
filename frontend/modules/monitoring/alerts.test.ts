@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import type { LogEntry } from "@/modules/logging/log";
+import type { LogEntry } from "@/modules/logging";
 import {
   alertForLogEntry,
   alertsForHealthSnapshot,

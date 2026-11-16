@@ -1,7 +1,7 @@
 import "server-only";
 import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notifyLogAlert } from "@/modules/monitoring/alerts";
+import { notifyLogAlert } from "@/modules/monitoring";
 import { redact, redactMessage } from "./redact";
 import type { LogLevel } from "./schema";
 

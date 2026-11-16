@@ -1,5 +1,5 @@
 import "server-only";
-import type { LogEntry } from "@/modules/logging/log";
+import type { LogEntry } from "@/modules/logging";
 import type { HealthSnapshot } from "./types";
 
 const ALERT_TIMEOUT_MS = 5_000;
