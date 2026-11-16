@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/AppShell";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requireUser } from "@/modules/auth";
 import {
   availableTerms,
@@ -35,6 +36,13 @@ export default async function PlannerPage() {
         </div>
 
         <PlannerNotice />
+
+        <p className="text-sm">
+          <Link href="/calendar" className="font-semibold text-[var(--maroon)] underline">
+            Open calendar
+          </Link>{" "}
+          <span className="text-[var(--ink-soft)]">to see today or this week across your plans and saved events.</span>
+        </p>
 
         <section aria-labelledby="new-plan-heading" className="flex flex-col gap-3">
           <h2 id="new-plan-heading" className="text-lg font-semibold text-[var(--ink)]">

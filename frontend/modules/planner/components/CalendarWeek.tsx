@@ -28,13 +28,29 @@ type Block = CalendarEntry & { start: number; end: number; lane: number; lanes: 
 
 const HOUR_REM = 2.5;
 
-const KIND_NAME: Record<CalendarEntryKind, string> = { class: "Class", item: "Your item", event: "Event" };
+const KIND_NAME: Record<CalendarEntryKind, string> = {
+  class: "Class",
+  item: "Your item",
+  event: "Event",
+  saved: "Event (saved)",
+  cancelled: "Event (cancelled)",
+  reminder: "Reminder",
+};
 
-const KIND_STYLE: Record<CalendarEntryKind, string> = {
+/** The kinds the plan page's calendar shows, in its key. */
+const PLAN_KINDS: readonly CalendarEntryKind[] = ["class", "item", "event"];
+
+export const KIND_STYLE: Record<CalendarEntryKind, string> = {
   class: "border-[var(--maroon-200)] bg-[var(--maroon-50)]",
   item: "border-[#b26a00] bg-[#fff6e5]",
   event: "border-[#2f6f8f] bg-[#e7f2f7]",
+  saved: "border-dashed border-[#2f6f8f] bg-white",
+  cancelled: "border-dashed border-[var(--ink-soft)] bg-[#f3f3f3] line-through",
+  reminder: "border-[#6b4fa0] bg-[#f1ecf9]",
 };
+
+/** A reminder is a moment; the grid gives it this many minutes of height so it can be seen. */
+const MOMENT_MINUTES = 20;
 
 const CONFLICT_STYLE = {
   backgroundImage: "repeating-linear-gradient(45deg, #fdecea 0 4px, #f8c9c4 4px 8px)",
@@ -48,7 +64,10 @@ function assignLanes(entries: readonly CalendarEntry[]): Block[] {
   const laneEnds: number[] = [];
   const placed = entries
     .filter((entry) => entry.start_minute !== null && entry.end_minute !== null)
-    .map((entry) => ({ ...entry, start: entry.start_minute ?? 0, end: entry.end_minute ?? 0 }))
+    .map((entry) => {
+      const start = entry.start_minute ?? 0;
+      return { ...entry, start, end: Math.max(entry.end_minute ?? 0, start + (entry.kind === "reminder" ? MOMENT_MINUTES : 1)) };
+    })
     .sort((a, b) => a.start - b.start || a.end - b.end)
     .map((block) => {
       let lane = laneEnds.findIndex((end) => end <= block.start);
@@ -109,7 +128,7 @@ export function CalendarWeek({ plan, monday, range, today, days }: CalendarWeekP
       </div>
 
       <ul aria-label="Key" className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--ink-soft)]">
-        {(Object.keys(KIND_NAME) as CalendarEntryKind[]).map((kind) => (
+        {PLAN_KINDS.map((kind) => (
           <li key={kind} className="flex items-center gap-1.5">
             <span aria-hidden="true" className={`inline-block h-3 w-3 rounded-sm border ${KIND_STYLE[kind]}`} />
             {KIND_NAME[kind]}
@@ -161,8 +180,11 @@ export function CalendarWeek({ plan, monday, range, today, days }: CalendarWeekP
   );
 }
 
-/** The week as a time grid. Its links are for the mouse; the list above serves the keyboard and screen readers. */
-function WeekGrid({ dates, days, today }: { dates: readonly string[]; days: readonly CalendarEntry[][]; today: string }) {
+/**
+ * The week as a time grid. Its links are for the mouse; a list beside it
+ * serves the keyboard and screen readers. Also used by /calendar.
+ */
+export function WeekGrid({ dates, days, today }: { dates: readonly string[]; days: readonly CalendarEntry[][]; today: string }) {
   const blocks = days.map(assignLanes);
   const timed = blocks.flat();
   const first = Math.min(8 * 60, ...timed.map((block) => Math.floor(block.start / 60) * 60));
