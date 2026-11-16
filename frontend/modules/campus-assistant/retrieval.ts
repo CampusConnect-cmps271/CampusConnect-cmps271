@@ -1,4 +1,4 @@
-import { MAX_COURSE_EVIDENCE, MAX_PAGE_EVIDENCE, type EvidenceChunk } from "./schema";
+import { MAX_CLUB_EVIDENCE, MAX_COURSE_EVIDENCE, MAX_EVENT_EVIDENCE, MAX_PAGE_EVIDENCE, type EvidenceChunk } from "./schema";
 
 const MAX_TERMS = 12;
 /** Words that appear in nearly every chunk and so say nothing about the topic. */
@@ -30,10 +30,40 @@ type CourseRow = {
   description: string;
 };
 
+type ClubRow = {
+  slug: string;
+  name: string;
+  category: string;
+  description: string;
+  public_website: string | null;
+};
+
+type EventRow = {
+  id: string;
+  title: string;
+  description: string;
+  starts_at: string;
+  ends_at: string;
+  location: string;
+  category: string;
+  club_name: string | null;
+  registration_url: string | null;
+};
+
+type SearchFunction =
+  | "search_campus_chunks"
+  | "search_campus_courses"
+  | "search_campus_clubs"
+  | "search_campus_events"
+  | "search_campus_chunks_semantic"
+  | "search_campus_courses_semantic"
+  | "search_campus_clubs_semantic"
+  | "search_campus_events_semantic";
+
 /** The slice of a Supabase client that retrieval needs. */
 export type RpcClient = {
   rpc(
-    fn: "search_campus_chunks" | "search_campus_courses" | "search_campus_chunks_semantic" | "search_campus_courses_semantic",
+    fn: SearchFunction,
     args: { p_query: string; p_limit: number } | { p_embedding: string; p_limit: number },
   ): PromiseLike<{ data: unknown[] | null; error: { code?: string } | null }>;
 };
@@ -79,10 +109,44 @@ function courseEvidence(course: CourseRow): EvidenceChunk {
   };
 }
 
+/** A verified club as evidence, linked to the app's own club page. */
+function clubEvidence(club: ClubRow): EvidenceChunk {
+  return {
+    chunk_id: `club:${club.slug}`,
+    source_id: "club-directory",
+    url: `/clubs/${club.slug}`,
+    title: `${club.name} (club)`,
+    retrieved_at: null,
+    text:
+      `Club ${club.name}. Category: ${club.category}. Description: ${club.description}` +
+      (club.public_website ? ` Website: ${club.public_website}` : ""),
+  };
+}
+
+const EVENT_TIME = new Intl.DateTimeFormat("en-GB", { dateStyle: "full", timeStyle: "short", timeZone: "Asia/Beirut" });
+
+/** An upcoming published event as evidence, with its time in Beirut, linked to the app's own event page. */
+function eventEvidence(event: EventRow): EvidenceChunk {
+  const when = `${EVENT_TIME.format(new Date(event.starts_at))} to ${EVENT_TIME.format(new Date(event.ends_at))} (Beirut time)`;
+  return {
+    chunk_id: `event:${event.id}`,
+    source_id: "campus-events",
+    url: `/events/${event.id}`,
+    title: `${event.title} (event)`,
+    retrieved_at: null,
+    text:
+      `Event ${event.title}${event.club_name ? `, organised by ${event.club_name}` : ""}. Category: ${event.category}. ` +
+      `When: ${when}. Where: ${event.location}. Registration: ${event.registration_url ?? "none listed"}. ` +
+      `Description: ${event.description.trim() || "none"}`,
+  };
+}
+
 /**
- * Looks the question up in the stored AUB pages and in the course catalogue,
- * with the caller's own session so row-level security applies. Returns page
- * chunks first, then courses.
+ * Looks the question up in the stored AUB pages, the course catalogue, the
+ * verified clubs and the upcoming events, with the caller's own session so
+ * row-level security applies. Returns page chunks first, then courses, clubs
+ * and events. Club and event search only add to the answer: if they fail (the
+ * migration is missing on a project, say) the pages and courses still answer.
  */
 export async function retrieveEvidence(
   client: RpcClient,
@@ -96,11 +160,15 @@ export async function retrieveEvidence(
   const p_embedding = embedding ? `[${embedding.join(",")}]` : null;
   const keywordPages = p_embedding ? CANDIDATES : MAX_PAGE_EVIDENCE;
   const keywordCourses = p_embedding ? CANDIDATES : MAX_COURSE_EVIDENCE;
-  const [pages, courses, meaningPages, meaningCourses] = await Promise.all([
+  const [pages, courses, meaningPages, meaningCourses, clubs, events, meaningClubs, meaningEvents] = await Promise.all([
     client.rpc("search_campus_chunks", { p_query, p_limit: keywordPages }),
     client.rpc("search_campus_courses", { p_query, p_limit: keywordCourses }),
     p_embedding ? client.rpc("search_campus_chunks_semantic", { p_embedding, p_limit: CANDIDATES }) : null,
     p_embedding ? client.rpc("search_campus_courses_semantic", { p_embedding, p_limit: CANDIDATES }) : null,
+    client.rpc("search_campus_clubs", { p_query, p_limit: p_embedding ? CANDIDATES : MAX_CLUB_EVIDENCE }),
+    client.rpc("search_campus_events", { p_query, p_limit: p_embedding ? CANDIDATES : MAX_EVENT_EVIDENCE }),
+    p_embedding ? client.rpc("search_campus_clubs_semantic", { p_embedding, p_limit: CANDIDATES }) : null,
+    p_embedding ? client.rpc("search_campus_events_semantic", { p_embedding, p_limit: CANDIDATES }) : null,
   ]);
   for (const { error } of [pages, courses]) {
     if (error) throw new Error(`Source search failed (database code: ${error.code ?? "unknown"}).`);
@@ -124,5 +192,20 @@ export async function retrieveEvidence(
   // ranks it, whatever the meaning search thinks of the other courses.
   const named = keywordCourseRows.filter((course) => p_query.includes(course.code.toLowerCase()));
   const orderedCourses = [...new Map([...named, ...mergedCourses].map((course) => [course.code, course])).values()].slice(0, MAX_COURSE_EVIDENCE);
-  return [...mergedPages, ...orderedCourses.map(courseEvidence)];
+  const mergedClubs = reciprocalRankFusion(
+    [semanticRows<ClubRow>(clubs), semanticRows<ClubRow>(meaningClubs)],
+    (club) => club.slug,
+    MAX_CLUB_EVIDENCE,
+  );
+  const mergedEvents = reciprocalRankFusion(
+    [semanticRows<EventRow>(events), semanticRows<EventRow>(meaningEvents)],
+    (event) => event.id,
+    MAX_EVENT_EVIDENCE,
+  );
+  return [
+    ...mergedPages,
+    ...orderedCourses.map(courseEvidence),
+    ...mergedClubs.map(clubEvidence),
+    ...mergedEvents.map(eventEvidence),
+  ];
 }
