@@ -204,9 +204,15 @@ html {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: var(--maroon);
+  background: linear-gradient(135deg, var(--maroon), var(--maroon-dark));
+  box-shadow: var(--shadow-sm);
   color: var(--white);
   font-size: 18px;
+  transition: transform 0.2s ease;
+}
+
+.brand:hover .brand-mark {
+  transform: scale(1.06);
 }
 
 .nav-links {
@@ -219,11 +225,31 @@ html {
 }
 
 .nav-links a:not(.btn) {
+  position: relative;
   color: var(--ink-soft);
+  transition: color 0.15s ease;
+}
+
+.nav-links a:not(.btn)::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--maroon);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.2s ease;
 }
 
 .nav-links a:not(.btn):hover {
   color: var(--maroon);
+}
+
+.nav-links a:not(.btn):hover::after {
+  transform: scaleX(1);
 }
 
 .nav-links form {
@@ -821,6 +847,59 @@ html {
   margin-top: 4px;
 }
 
+/* Sign-up is the longest auth form: tighter spacing so it fits one screen
+   without zooming out. */
+.auth-page-compact {
+  min-height: 0;
+  padding: 12px 16px 24px;
+}
+
+.auth-page-compact .auth-top {
+  margin-bottom: 6px;
+}
+
+.auth-page-compact .auth-brand {
+  margin-bottom: 10px;
+  font-size: 20px;
+}
+
+.auth-page-compact .auth-card {
+  padding: 22px 28px;
+}
+
+.auth-page-compact .auth-card h1 {
+  font-size: 22px;
+  margin-bottom: 4px;
+}
+
+.auth-page-compact .auth-subtitle {
+  margin-bottom: 14px;
+  font-size: 15px;
+}
+
+.auth-page-compact .field {
+  margin-bottom: 12px;
+}
+
+.auth-page-compact .field label {
+  margin-bottom: 4px;
+}
+
+.auth-page-compact .field input {
+  padding: 9px 14px;
+}
+
+.auth-page-compact .field-hint,
+.auth-page-compact .field-error {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.auth-page-compact .auth-footer {
+  margin-top: 14px;
+}
+
 .password-rules {
   list-style: none;
   padding: 0;
@@ -983,6 +1062,10 @@ html {
 
   .nav-links.open {
     max-height: 320px;
+  }
+
+  .nav-links a:not(.btn)::after {
+    display: none;
   }
 
   .nav-links a:not(.btn) {

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import {
   DEFAULT_SIGNED_IN_PATH,
   getCurrentUser,
@@ -18,17 +20,25 @@ export default async function RegisterPage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-8 px-4 py-12 sm:px-6">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          Create your account
-        </h1>
-        <p className="text-sm opacity-80">
+    <main className="cc-page auth-page auth-page-compact">
+      <div className="auth-top">
+        <Link href="/" className="back-link">
+          <ArrowLeft size={18} aria-hidden="true" /> Go back home
+        </Link>
+      </div>
+      <Link href="/" className="brand auth-brand">
+        <span className="brand-mark" aria-hidden="true">
+          C
+        </span>
+        CampusConnect
+      </Link>
+      <div className="auth-card">
+        <h1>Create your account</h1>
+        <p className="auth-subtitle">
           Join CampusConnect with your university email.
         </p>
-      </header>
-
-      <RegisterForm />
+        <RegisterForm />
+      </div>
     </main>
   );
 }
