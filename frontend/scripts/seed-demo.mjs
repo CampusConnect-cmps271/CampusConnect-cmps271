@@ -3,7 +3,8 @@
  * a student, a moderator and an administrator, with filled-in profiles,
  * their roles, a handful of sample posts across the categories, two
  * SkillSwap posts that match each other, and a Spring 2027 semester plan for
- * the student with demo meeting times (SCRUM-67).
+ * the student with demo meeting times (SCRUM-67), and communities with
+ * members, followers and posts (SCRUM-236).
  *
  * Usage:
  *   npm run seed:demo                local Supabase, from .env.local
@@ -150,6 +151,100 @@ const UPVOTES = [
   ["moderator", POSTS[0].title],
   ["admin", POSTS[0].title],
   ["student", POSTS[3].title],
+];
+
+// SCRUM-236: one community per topic, plus a second course one. The two
+// course communities are for courses in the student's demo plan; the student
+// is in CMPS 202's but not MATH 201's, and not in the machine learning one,
+// so "Suggested for you" has a course reason and an interest reason to show.
+// Course communities are skipped while their course is not in the catalogue.
+const COMMUNITIES = [
+  {
+    owner: "moderator",
+    name: "CMPS 202 study group",
+    topic: "course",
+    course: "CMPS 202",
+    description: "Weekly problem sets and exam reviews for CMPS 202.",
+    members: ["student", "admin"],
+    followers: [],
+    posts: [
+      { author: "moderator", category: "Academics", title: "Problem set 3 walkthrough", body: "I wrote up how I approached the recursion questions. Add your own solutions in the comments." },
+      { author: "student", category: "Academics", title: "Anyone up for a review before the quiz?", body: "Thinking of going over the last two lectures together. Reply if you want to join." },
+    ],
+  },
+  {
+    owner: "admin",
+    name: "MATH 201 problem sessions",
+    topic: "course",
+    course: "MATH 201",
+    description: "Working through practice problems together.",
+    members: ["moderator"],
+    followers: [],
+    posts: [
+      { author: "admin", category: "Academics", title: "Practice problems for chapter 2", body: "Post the ones you got stuck on and we will work through them." },
+      { author: "moderator", category: "Academics", title: "Tips for double integrals", body: "Draw the region first. It saves a lot of time choosing the limits." },
+    ],
+  },
+  {
+    owner: "student",
+    name: "Chess players",
+    topic: "interest",
+    description: "Casual games, puzzles and the occasional tournament.",
+    members: ["moderator"],
+    followers: ["admin"],
+    posts: [
+      { author: "student", category: "Campus Life", title: "Lunchtime blitz games", body: "Bring a board if you have one. All levels welcome." },
+      { author: "moderator", category: "Campus Life", title: "Puzzle of the week", body: "White to move and win in three. Answers in the comments." },
+    ],
+  },
+  {
+    owner: "admin",
+    name: "Machine learning reading group",
+    topic: "interest",
+    description: "We read one paper or chapter a week and discuss it.",
+    members: ["moderator"],
+    followers: [],
+    posts: [
+      { author: "admin", category: "Academics", title: "This week: decision trees", body: "Read the chapter on decision trees before we meet. Questions welcome here." },
+      { author: "moderator", category: "General", title: "Beginner-friendly resources", body: "Share the tutorials and videos that helped you get started." },
+    ],
+  },
+  {
+    owner: "moderator",
+    name: "Life on campus",
+    topic: "student_life",
+    description: "Food, clubs, quiet corners and everything else about student life.",
+    members: ["student", "admin"],
+    followers: [],
+    posts: [
+      { author: "moderator", category: "Campus Life", title: "Favourite places to eat near campus?", body: "Looking for new lunch spots. What do you recommend?" },
+      { author: "student", category: "Campus Life", title: "Clubs worth joining this semester", body: "Which clubs did you enjoy last year? Share why." },
+    ],
+  },
+  {
+    owner: "student",
+    name: "Housing near campus",
+    topic: "housing",
+    description: "Rooms, roommates and tips for living near campus.",
+    members: ["admin"],
+    followers: ["moderator"],
+    posts: [
+      { author: "student", category: "Housing", title: "What to check before signing a lease", body: "Share what you wish you had asked your landlord before moving in." },
+      { author: "admin", category: "Housing", title: "Looking for a roommate thread", body: "Post what you are looking for: budget, move-in date and habits." },
+    ],
+  },
+  {
+    owner: "admin",
+    name: "Ask CampusConnect",
+    topic: "other",
+    description: "Questions and ideas about CampusConnect itself.",
+    members: ["student", "moderator"],
+    followers: [],
+    posts: [
+      { author: "admin", category: "General", title: "What should we build next?", body: "Tell us which feature would help you most this semester." },
+      { author: "student", category: "General", title: "Communities are live", body: "You can now start a community for a course or an interest." },
+    ],
+  },
 ];
 
 // --------------------------------------------------------------- configuration
@@ -567,6 +662,105 @@ const PLANNER_DEMO = {
     }
   }
   await asStudent.auth.signOut();
+}
+
+// SCRUM-236: communities, their members and followers, and their posts.
+// Written with the service role, so the slug comes from the database's
+// trigger. Communities are matched by name, members and follows are
+// upserted, and posts are matched by author and title: a re-run adds nothing.
+if (await tableExists("communities")) {
+  const accountId = (key) => ACCOUNTS.find((account) => account.key === key).id;
+  const courseCodes = COMMUNITIES.flatMap((community) => (community.course ? [community.course] : []));
+  const { data: catalogue, error: courseError } = await supabase.from("courses").select("id, code").in("code", courseCodes);
+  if (courseError) fail(`could not look up the communities' courses: ${courseError.message}`);
+  const courseIds = new Map(catalogue.map((row) => [row.code, row.id]));
+
+  let created = 0;
+  let postsAdded = 0;
+  const skipped = [];
+  for (const community of COMMUNITIES) {
+    if (community.course && !courseIds.has(community.course)) {
+      skipped.push(community.course);
+      continue;
+    }
+
+    let { data: row, error } = await supabase
+      .from("communities")
+      .select("id, slug")
+      .eq("name", community.name)
+      .eq("status", "active")
+      .maybeSingle();
+    if (error) fail(`could not look up "${community.name}": ${error.message}`);
+    if (!row) {
+      ({ data: row, error } = await supabase
+        .from("communities")
+        .insert({
+          name: community.name,
+          description: community.description,
+          topic: community.topic,
+          course_id: community.course ? courseIds.get(community.course) : null,
+          owner_id: accountId(community.owner),
+        })
+        .select("id, slug")
+        .single());
+      if (error) fail(`could not create "${community.name}": ${error.message}`);
+      created += 1;
+    }
+
+    const memberRows = [
+      { community_id: row.id, student_id: accountId(community.owner), role: "owner" },
+      ...community.members.map((key) => ({ community_id: row.id, student_id: accountId(key), role: "member" })),
+    ];
+    const { error: memberError } = await supabase
+      .from("community_members")
+      .upsert(memberRows, { onConflict: "community_id,student_id", ignoreDuplicates: true });
+    if (memberError) fail(`could not add members to "${community.name}": ${memberError.message}`);
+
+    // Joining follows, so members follow too, plus anyone who only follows.
+    const followerRows = [community.owner, ...community.members, ...community.followers].map((key) => ({
+      community_id: row.id,
+      student_id: accountId(key),
+    }));
+    const { error: followError } = await supabase
+      .from("community_follows")
+      .upsert(followerRows, { onConflict: "community_id,student_id", ignoreDuplicates: true });
+    if (followError) fail(`could not add followers to "${community.name}": ${followError.message}`);
+
+    for (const post of community.posts) {
+      const authorId = accountId(post.author);
+      const { data: existing, error: findError } = await supabase
+        .from("posts")
+        .select("id")
+        .eq("author_id", authorId)
+        .eq("title", post.title)
+        .eq("status", "published")
+        .limit(1);
+      if (findError) fail(`could not look up community posts: ${findError.message}`);
+
+      let postId = existing[0]?.id;
+      if (!postId) {
+        const { data: inserted, error: insertError } = await supabase
+          .from("posts")
+          .insert({ author_id: authorId, title: post.title, body: post.body, category: post.category })
+          .select("id")
+          .single();
+        if (insertError) fail(`could not create "${post.title}": ${insertError.message}`);
+        postId = inserted.id;
+        postsAdded += 1;
+      }
+
+      const { error: linkError } = await supabase
+        .from("community_posts")
+        .upsert({ post_id: postId, community_id: row.id }, { onConflict: "post_id", ignoreDuplicates: true });
+      if (linkError) fail(`could not link "${post.title}" to "${community.name}": ${linkError.message}`);
+    }
+  }
+  summary.push(
+    `communities ${created} added, ${COMMUNITIES.length - created - skipped.length} already there, ${postsAdded} posts added` +
+      (skipped.length ? ` (skipped ${skipped.join(", ")}: not in the catalogue)` : ""),
+  );
+} else {
+  summary.push("skipped   SCRUM-236 communities (communities table missing)");
 }
 
 // Later stories add their demo data here, each skipped while its table is
