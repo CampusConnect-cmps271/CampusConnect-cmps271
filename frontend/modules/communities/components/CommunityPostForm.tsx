@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, type FormEvent } from "react";
+import { startTransition, useActionState, useState, type FormEvent } from "react";
 import Link from "next/link";
 import type { CommunityPostFormState } from "../actions";
 import {
@@ -38,14 +38,19 @@ export function CommunityPostForm({ action, cancelHref }: CommunityPostFormProps
     if (clientErrors[field]) setClientErrors((current) => ({ ...current, [field]: undefined }));
   }
 
+  // Submitted through a transition rather than the form's native action:
+  // React resets a form after its action runs, which would clear the
+  // controlled selects while their state keeps the old value.
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     const result = validateCommunityPostForm(values);
-    if (result.success) {
-      setClientErrors({});
+    if (!result.success) {
+      setClientErrors(result.errors);
       return;
     }
-    event.preventDefault();
-    setClientErrors(result.errors);
+    setClientErrors({});
+    const formData = new FormData(event.currentTarget);
+    startTransition(() => formAction(formData));
   }
 
   const error = (field: keyof CommunityPostFieldErrors) =>
