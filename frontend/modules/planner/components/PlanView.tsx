@@ -1,11 +1,14 @@
 import Link from "next/link";
-import { addCourse, deletePlan, moveCourse, removeCourse } from "../actions";
+import { addCourse, deletePlan, moveCourse, removeCourse, switchToTypedTimes, updateSectionTimes } from "../actions";
 import { itemWindow, type CalendarEntry } from "../calendar";
 import type { ConflictReport } from "../conflicts";
 import { invalidItemHelp, invalidMeetingHelp } from "../conflict-text";
 import { creditHundredths, creditLabel, totalCreditHundredths } from "../credits";
-import { AUB_CALENDAR_SOURCE, formatTermDate } from "../terms";
-import type { CourseSearchResult, PlanDetails, PlannedCourse, PlannerEvent } from "../types";
+import type { PlanSectionState, SectionPicker as SectionPickerData } from "../queries";
+import { sectionCountLabel } from "../sections";
+import { AUB_CALENDAR_SOURCE, formatTermDate, resisSemesterName } from "../terms";
+import { timeFromMinutes, weekdayLabel } from "../time";
+import type { CourseSearchResult, ImportedSemester, PlanDetails, PlannedCourse, PlannerEvent, SectionChange } from "../types";
 import { CalendarWeek } from "./CalendarWeek";
 import { ConflictPanel } from "./ConflictPanel";
 import { EventsSection } from "./EventsSection";
@@ -13,6 +16,8 @@ import { AddItemForm, ItemRow, type ItemCourseOption } from "./ItemForms";
 import { AddMeetingForm, MeetingItem, TimeZoneList } from "./MeetingForms";
 import { PlannerButton } from "./PlannerButton";
 import { PlannerNotice } from "./PlannerNotice";
+import { importedOn, ScheduleLink } from "./ScheduleLink";
+import { SectionPicker } from "./SectionPicker";
 
 type PlanViewProps = {
   plan: PlanDetails;
@@ -26,7 +31,15 @@ type PlanViewProps = {
   events: readonly PlannerEvent[] | null;
   /** The week the calendar shows. */
   calendar: { monday: string; range: { first: string; last: string }; today: string; days: readonly CalendarEntry[][] };
+  /** Imported semesters, section changes and offered courses (SCRUM-243). */
+  sectionState?: PlanSectionState;
+  /** The open section picker, from ?sections=. */
+  picker?: SectionPickerData | null;
+  /** The course whose sections were just saved, from ?chosen=; `only` when it was its one section, chosen on adding it. */
+  chosen?: { planCourseId: string; only: boolean } | null;
 };
+
+const NO_SECTION_STATE: PlanSectionState = { semesters: [], changes: [], offered: new Map() };
 
 /** What the lists mark on each meeting, item and event. */
 type Notes = {
@@ -37,7 +50,17 @@ type Notes = {
 const SECTION_HEADING = "text-lg font-semibold text-[var(--ink)]";
 
 /** One plan: credit total, conflicts, the week calendar, courses and their meetings, own items and events. */
-export function PlanView({ plan, report, query, results, events, calendar }: PlanViewProps) {
+export function PlanView({
+  plan,
+  report,
+  query,
+  results,
+  events,
+  calendar,
+  sectionState = NO_SECTION_STATE,
+  picker = null,
+  chosen = null,
+}: PlanViewProps) {
   const total = totalCreditHundredths(plan.courses);
   const count = plan.courses.length;
   const meetings = new Map(plan.courses.flatMap((planned) => planned.meetings.map((meeting) => [meeting.id, meeting] as const)));
@@ -75,6 +98,12 @@ export function PlanView({ plan, report, query, results, events, calendar }: Pla
           ).
         </p>
         <PlannerNotice />
+        <ScheduleLink
+          planId={plan.id}
+          semester={plan.semester ?? null}
+          semesters={sectionState.semesters}
+          suggestedName={resisSemesterName(plan.term)}
+        />
         <p
           aria-live="polite"
           className="rounded-lg border border-[var(--border)] bg-white px-4 py-3 text-base text-[var(--ink)]"
@@ -109,6 +138,11 @@ export function PlanView({ plan, report, query, results, events, calendar }: Pla
                 first={index === 0}
                 last={index === count - 1}
                 notes={notes}
+                semester={plan.semester ?? null}
+                offered={sectionState.offered.get(planned.course_id) ?? null}
+                changes={sectionState.changes.filter((change) => change.plan_course_id === planned.plan_course_id)}
+                picker={picker?.planned.plan_course_id === planned.plan_course_id ? picker : null}
+                justChosen={chosen?.planCourseId === planned.plan_course_id ? (chosen.only ? "only" : "picked") : null}
               />
             ))}
           </ol>
@@ -207,7 +241,16 @@ function CourseSearch({ plan, query, results }: Pick<PlanViewProps, "plan" | "qu
                 <p className="text-sm font-semibold text-[var(--ink)]">
                   {course.code} <span className="font-normal">{course.name}</span>
                 </p>
-                <p className="text-xs text-[var(--ink-soft)]">{creditLabel(creditHundredths(course.credits))}</p>
+                <p className="text-xs text-[var(--ink-soft)]">
+                  {creditLabel(creditHundredths(course.credits))}
+                  {plan.semester && course.section_count !== undefined ? (
+                    course.section_count === null ? (
+                      <> · Not in the imported {plan.semester.name} schedule; you can still add it and type its times</>
+                    ) : (
+                      <> · {sectionCountLabel(course.section_count)} in {plan.semester.name}</>
+                    )
+                  ) : null}
+                </p>
               </div>
               {planned.has(course.id) ? (
                 <span className="rounded-full bg-[var(--maroon-50)] px-2 py-1 text-xs font-medium text-[var(--maroon)]">
@@ -237,15 +280,31 @@ function PlannedCourseCard({
   first,
   last,
   notes,
+  semester,
+  offered,
+  changes,
+  picker,
+  justChosen,
 }: {
   planId: string;
   planned: PlannedCourse;
   first: boolean;
   last: boolean;
   notes: Notes;
+  /** The imported semester the plan is linked to, or null. */
+  semester: ImportedSemester | null;
+  /** Its sections in the linked semester, or null when not offered. */
+  offered: number | null;
+  /** Its chosen sections that a newer snapshot changed or dropped. */
+  changes: readonly SectionChange[];
+  picker: SectionPickerData | null;
+  /** Its sections were just saved: picked in the picker, or its only section chosen on adding it. */
+  justChosen: "picked" | "only" | null;
 }) {
   const headingId = `planned-${planned.plan_course_id}`;
   const fields = { planId, planCourseId: planned.plan_course_id };
+  const sections = planned.sections ?? [];
+  const pickerHref = `/planner/${planId}?sections=${planned.plan_course_id}#course-${planned.plan_course_id}`;
 
   return (
     <li>
@@ -283,26 +342,175 @@ function PlannedCourseCard({
           </div>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <h4 className="text-sm font-semibold text-[var(--ink)]">Meeting times</h4>
-          {planned.meetings.length === 0 ? (
-            <p className="text-sm text-[var(--ink-soft)]">No times yet.</p>
-          ) : (
+        {justChosen && sections.length > 0 ? (
+          <p role="status" className="text-sm text-[var(--success)]">
+            {justChosen === "only" && sections.length === 1
+              ? `Added. It has one section in AUB's schedule, so it was chosen: Section ${sections[0].section} (CRN ${sections[0].crn}).`
+              : "Section times added from AUB's schedule."}
+          </p>
+        ) : null}
+
+        {sections.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            <h4 className="text-sm font-semibold text-[var(--ink)]">
+              Sections <span className="font-normal text-[var(--ink-soft)]">· From AUB&apos;s schedule (Resis)</span>
+            </h4>
+            {changes.map((change) => (
+              <SectionChangeNotice key={change.crn} planId={planId} planned={planned} change={change} pickerHref={pickerHref} />
+            ))}
             <ul className="flex flex-col gap-2">
-              {planned.meetings.map((meeting) => (
-                <MeetingItem
-                  key={meeting.id}
-                  planId={planId}
-                  meeting={meeting}
-                  conflict={notes.conflicting.has(meeting.id)}
-                  problem={notes.problems.get(meeting.id)}
-                />
-              ))}
+              {sections.map((section) => {
+                const meetings = planned.meetings.filter((meeting) => meeting.crn === section.crn);
+                return (
+                  <li key={section.crn} className="rounded-md bg-[var(--maroon-50)] px-3 py-2">
+                    <p className="text-sm font-medium text-[var(--ink)]">
+                      Section {section.section} · CRN {section.crn}
+                    </p>
+                    {meetings.length === 0 ? (
+                      <p className="text-xs text-[var(--ink-soft)]">Times to be announced: AUB&apos;s schedule doesn&apos;t list them yet.</p>
+                    ) : (
+                      <ul className="flex flex-col gap-1">
+                        {meetings.map((meeting) => {
+                          const conflict = notes.conflicting.has(meeting.id);
+                          const problem = notes.problems.get(meeting.id);
+                          return (
+                            <li
+                              key={meeting.id}
+                              id={`meeting-${meeting.id}`}
+                              className={`flex scroll-mt-24 flex-wrap items-center gap-x-3 text-sm text-[var(--ink)] ${conflict || problem ? "border-l-4 border-[var(--danger)] pl-2" : ""}`}
+                            >
+                              {weekdayLabel(meeting.weekday)} {timeFromMinutes(meeting.start_minute)}–{timeFromMinutes(meeting.end_minute)}
+                              {conflict ? (
+                                <span className="rounded-full border border-[var(--danger)] bg-white px-2 py-0.5 text-xs font-semibold text-[var(--danger)]">
+                                  <span aria-hidden="true">⚠ </span>Overlaps something else
+                                </span>
+                              ) : null}
+                              {problem ? <span className="w-full text-xs text-[var(--danger)]">{problem}</span> : null}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
-          )}
-          <AddMeetingForm planId={planId} planCourseId={planned.plan_course_id} courseCode={planned.code} />
-        </div>
+            <div className="flex flex-wrap items-start gap-2">
+              {semester && !picker ? (
+                <Link
+                  href={pickerHref}
+                  aria-label={`Change section of ${planned.code}`}
+                  className="rounded-md border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--ink)] hover:border-[var(--maroon)]"
+                >
+                  Change section
+                </Link>
+              ) : null}
+              <PlannerButton action={switchToTypedTimes} fields={fields} label={`Use typed times for ${planned.code} instead of its sections`}>
+                Use typed times instead
+              </PlannerButton>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <h4 className="text-sm font-semibold text-[var(--ink)]">
+              Meeting times
+              {planned.meetings.length > 0 ? <span className="font-normal text-[var(--ink-soft)]"> · Tentative, entered by you</span> : null}
+            </h4>
+            {planned.meetings.length === 0 ? (
+              <p className="text-sm text-[var(--ink-soft)]">No times yet.</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {planned.meetings.map((meeting) => (
+                  <MeetingItem
+                    key={meeting.id}
+                    planId={planId}
+                    meeting={meeting}
+                    conflict={notes.conflicting.has(meeting.id)}
+                    problem={notes.problems.get(meeting.id)}
+                  />
+                ))}
+              </ul>
+            )}
+            {semester && offered !== null && !picker ? (
+              <p className="text-sm text-[var(--ink)]">
+                <Link href={pickerHref} className="font-medium text-[var(--maroon)] underline">
+                  Choose a section of {planned.code}
+                </Link>{" "}
+                <span className="text-[var(--ink-soft)]">
+                  ({sectionCountLabel(offered)} in AUB&apos;s {semester.name} schedule) to fill in its times.
+                </span>
+              </p>
+            ) : null}
+            <AddMeetingForm planId={planId} planCourseId={planned.plan_course_id} courseCode={planned.code} />
+          </div>
+        )}
+
+        {picker ? (
+          <SectionPicker
+            planId={planId}
+            planned={picker.planned}
+            semester={picker.semester}
+            options={picker.options}
+            chosen={picker.chosen}
+            typedMeetings={picker.typedMeetings}
+          />
+        ) : null}
       </article>
     </li>
+  );
+}
+
+/** What changed for a chosen section in AUB's newer schedule, and how to deal with it. */
+function SectionChangeNotice({
+  planId,
+  planned,
+  change,
+  pickerHref,
+}: {
+  planId: string;
+  planned: PlannedCourse;
+  change: SectionChange;
+  pickerHref: string;
+}) {
+  const fields = { planId, planCourseId: planned.plan_course_id };
+  const crns = (planned.sections ?? []).map((section) => section.crn).join(",");
+
+  return (
+    <div role="note" className="flex flex-col gap-2 rounded-md border border-[var(--danger)] bg-white px-3 py-2">
+      {change.status === "changed" ? (
+        <>
+          <p className="text-sm text-[var(--ink)]">
+            AUB&apos;s schedule for {planned.code} section {change.section} changed (imported {importedOn(change.imported_at)}).
+          </p>
+          <PlannerButton
+            action={updateSectionTimes}
+            fields={{ ...fields, crns }}
+            label={`Update times of ${planned.code} from AUB's schedule`}
+            variant="primary"
+            className="self-start"
+          >
+            Update times
+          </PlannerButton>
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-[var(--ink)]">
+            Section {change.section} (CRN {change.crn}) is no longer in the imported schedule.
+          </p>
+          <div className="flex flex-wrap items-start gap-2">
+            <Link
+              href={pickerHref}
+              aria-label={`Choose another section of ${planned.code}`}
+              className="rounded-md border border-[var(--maroon)] bg-[var(--maroon)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--maroon-dark)]"
+            >
+              Choose another section
+            </Link>
+            <PlannerButton action={switchToTypedTimes} fields={fields} label={`Use typed times for ${planned.code}`}>
+              Use typed times
+            </PlannerButton>
+          </div>
+        </>
+      )}
+    </div>
   );
 }

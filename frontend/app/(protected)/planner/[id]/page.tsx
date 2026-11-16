@@ -6,6 +6,8 @@ import {
   beirutToday,
   checkPlanConflicts,
   getMyPlan,
+  getPlanSectionState,
+  getSectionPicker,
   listSavedEventsNear,
   parsePlannerSearch,
   planCalendar,
@@ -19,8 +21,16 @@ export const metadata: Metadata = {
 
 type PlanPageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ q?: string | string[]; week?: string | string[] }>;
+  searchParams: Promise<{
+    q?: string | string[];
+    week?: string | string[];
+    sections?: string | string[];
+    chosen?: string | string[];
+    only?: string | string[];
+  }>;
 };
+
+const single = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
 
 export default async function PlanPage({ params, searchParams }: PlanPageProps) {
   await requireUser();
@@ -31,9 +41,13 @@ export default async function PlanPage({ params, searchParams }: PlanPageProps) 
   if (!plan) notFound();
 
   const search = await searchParams;
-  const [events, results] = await Promise.all([
+  const pickerFor = single(search.sections);
+  const chosen = single(search.chosen);
+  const [events, results, sectionState, picker] = await Promise.all([
     listSavedEventsNear(plan),
-    searchCoursesForPlan(parsePlannerSearch(search.q)),
+    searchCoursesForPlan(parsePlannerSearch(search.q), plan.semester?.id),
+    getPlanSectionState(plan),
+    pickerFor ? getSectionPicker(plan, pickerFor) : Promise.resolve(null),
   ]);
 
   // Checked on every render, so after every action, against the saved plan.
@@ -50,6 +64,9 @@ export default async function PlanPage({ params, searchParams }: PlanPageProps) 
         results={results}
         events={events}
         calendar={calendar}
+        sectionState={sectionState}
+        picker={picker}
+        chosen={chosen ? { planCourseId: chosen, only: single(search.only) === "1" } : null}
       />
     </main>
 </AppShell>

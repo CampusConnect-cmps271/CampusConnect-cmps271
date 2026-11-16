@@ -2,7 +2,8 @@
 export function PlannerNotice() {
   return (
     <p className="text-sm text-[var(--ink-soft)]">
-      Times in your plans are what you typed, not the official AUB schedule.
+      Times you type are tentative. A chosen section&apos;s times come from AUB&apos;s schedule as imported via Resis; check AUB SIS
+      before you register.
     </p>
   );
 }
