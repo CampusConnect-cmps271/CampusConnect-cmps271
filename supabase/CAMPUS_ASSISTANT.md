@@ -50,8 +50,10 @@ from everything above, because it is private:
 
 Citations point at `/planner/<id>` (the plan) or the list pages `/events`,
 `/saved`, `/profile` and `/home`, which are the only app pages `isCitableUrl`
-allows besides courses, clubs and single events. Plan meeting times are typed by
-the student, so the model is told they are tentative.
+allows besides courses, clubs and single events. A plan meeting time is either
+typed by the student, and the model is told it is tentative, or taken from a
+section the student chose in AUB's imported schedule (SCRUM-243), and the model
+is told it comes from AUB's schedule via Resis, with the section and CRN.
 
 What is sent to the answer model (Gemini) for a personal question is therefore
 that student's plan, saved events, post titles and the recent feed. Tell students
