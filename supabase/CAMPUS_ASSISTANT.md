@@ -24,7 +24,7 @@ that is published, after the last run has no embedding yet: it is still found by
 keyword search straight away, and by meaning after the next
 `npm run embed:campus-content`. Answers link to `/clubs/<slug>` and
 `/events/<id>`. Club and event search only add to an answer: if the
-`20261112100000` migration is missing on a project, pages and courses still
+`20261116113715` migration is missing on a project, pages and courses still
 answer. News is not indexed (cancelled for this sprint).
 
 Run everything from `frontend/`, against the local Supabase stack
@@ -129,7 +129,10 @@ lower it.
 
 `npm test` runs these with the unit tests; the database-backed ones skip themselves
 when local Supabase is not running (`npx supabase start`, then
-`npx supabase migration up --include-all` if tables are missing).
+`npx supabase migration up --include-all` if tables are missing). They seed a plan
+with the catalogue course `CMPS 240`, so after a fresh `npx supabase db reset`
+import the course catalogue first (`npm run import:courses -- <catalogue.csv>`;
+see [COURSES.md](COURSES.md)), or they fail during setup.
 
 | Test | What it proves |
 |---|---|
@@ -160,7 +163,7 @@ questions to `eval/questions.json` once real clubs and events exist locally.
 - **The club/event migration and tests were written without a running local
   stack.** `tests/campus-assistant-clubs-events.test.mjs` skips itself unless
   `npx supabase start` is up; run `npm run test:db` once with it running before
-  merging, to apply `20261112100000` and exercise the four new functions.
+  merging, to apply `20261116113715` and exercise the four new functions.
 
 - **Hosted Supabase:** the hosted project has four migrations this repository
   does not (`20261024120000`, `20261024130000`, `20261028094821`,

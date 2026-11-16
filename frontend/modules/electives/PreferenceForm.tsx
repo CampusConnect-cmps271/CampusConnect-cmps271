@@ -47,6 +47,8 @@ export function PreferenceForm({ initial, offeringOptions = { semesters: [], ins
         </div>
         <fieldset className={styles.dayChoices}><legend>Allowed meeting days</legend>
           <p>Leave all unchecked for any day. Every listed meeting must fit your selected days.</p>
+          <div aria-label="Quick meeting days">{[{label:"MWF",days:"M,W,F"},{label:"TR",days:"T,R"},{label:"MW",days:"M,W"},{label:"Any days",days:""}].map(preset => <button key={preset.label} type="button" aria-pressed={(values.meeting_days ?? "") === preset.days} onClick={() => setValues(previous => ({...previous,meeting_days:preset.days}))}>{preset.label}</button>)}</div>
+          <p>Presets select allowed days, not an exact pattern. Actual meeting durations are shown on each course.</p>
           <div>{MEETING_DAYS.map(day => <label key={day.value}><input type="checkbox" name="meeting_days" value={day.value}
             checked={(values.meeting_days ?? "").split(",").includes(day.value)} onChange={event => {
               const selected = new Set((values.meeting_days ?? "").split(",").filter(Boolean));
@@ -63,14 +65,14 @@ export function PreferenceForm({ initial, offeringOptions = { semesters: [], ins
       {errors("offering_preferences")}
     </fieldset>
     <div><label htmlFor="interests">Interests</label>
-      <p id="interests-hint">Up to 10 interests, separated by commas; 60 characters each. Words within one interest are matched together: software security, cryptography means software AND security, OR cryptography.</p>
-      <input {...field("interests")} required maxLength={620} autoComplete="off" />{errors("interests")}</div>
+      <p id="interests-hint">Leave blank to browse every course matching your semester and attributes. Up to 10 interests, separated by commas; 60 characters each. Words within one interest are matched together: software security, cryptography means software AND security, OR cryptography.</p>
+      <input {...field("interests")} required={!values.semester_id} maxLength={620} autoComplete="off" />{errors("interests")}</div>
     <div><label htmlFor="preferred_workload">Preferred workload</label>
       <p id="preferred_workload-hint">Choose the workload that fits your semester.</p>
       <select {...field("preferred_workload")}><option value="light">Light</option><option value="moderate">Moderate</option><option value="heavy">Heavy</option></select>{errors("preferred_workload")}</div>
     <div><label htmlFor="academic_goals">Academic goals</label>
-      <p id="academic_goals-hint">What would you like to learn? Separate goals with commas; words within each goal are matched together for an extra ranking bonus. Up to 1,000 characters.</p>
-      <textarea {...field("academic_goals")} required maxLength={1000} rows={4} />{errors("academic_goals")}</div>
+      <p id="academic_goals-hint">Optional. What would you like to learn? Separate goals with commas; words within each goal are matched together for an extra ranking bonus. Up to 1,000 characters.</p>
+      <textarea {...field("academic_goals")} maxLength={1000} rows={4} />{errors("academic_goals")}</div>
     <div><label htmlFor="completed_course_codes">Completed course codes (self-reported)</label>
       <p id="completed_course_codes-hint">Optional. Use catalogue codes separated by commas (up to 60). These are not verified academic records.</p>
       <input {...field("completed_course_codes")} maxLength={2040} autoComplete="off" />{errors("completed_course_codes")}</div>

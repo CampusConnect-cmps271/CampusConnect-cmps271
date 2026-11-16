@@ -1,0 +1,132 @@
+{
+  "generatedAt": "2026-11-12T16:31:26.711Z",
+  "baselineCommit": "39b0ebb",
+  "courses": 3380,
+  "latencyMs": 75,
+  "environment": "Local PGlite replay of saved course/semester data; added latency per database request. Excludes sign-in, profile, proxy and AI latency; bytes are JSON payload, not compressed wire bytes.",
+  "results": [
+    {
+      "scenario": "All courses",
+      "mode": "before",
+      "samples": 5,
+      "medianMs": 702.754027,
+      "p95Ms": 714.4785860000002,
+      "requests": 5,
+      "responseBytes": 1959406,
+      "databaseMedianMs": 138.0817559999996
+    },
+    {
+      "scenario": "All courses",
+      "mode": "cold",
+      "samples": 5,
+      "medianMs": 277.0360299999993,
+      "p95Ms": 284.0960410000007,
+      "requests": 1,
+      "responseBytes": 9943,
+      "databaseMedianMs": 198.35342499999933
+    },
+    {
+      "scenario": "All courses",
+      "mode": "warm",
+      "samples": 5,
+      "medianMs": 2.4506600000004255,
+      "p95Ms": 4.3402919999989535,
+      "requests": 0,
+      "responseBytes": 0,
+      "databaseMedianMs": 0
+    },
+    {
+      "scenario": "Spring semester",
+      "mode": "before",
+      "samples": 5,
+      "medianMs": 439.470655000001,
+      "p95Ms": 490.0922150000006,
+      "requests": 3,
+      "responseBytes": 3184950,
+      "databaseMedianMs": 115.26827400000002
+    },
+    {
+      "scenario": "Spring semester",
+      "mode": "cold",
+      "samples": 5,
+      "medianMs": 176.58870000000024,
+      "p95Ms": 181.71100300000035,
+      "requests": 1,
+      "responseBytes": 8558,
+      "databaseMedianMs": 98.07523500000025
+    },
+    {
+      "scenario": "Spring semester",
+      "mode": "warm",
+      "samples": 5,
+      "medianMs": 2.2886859999998705,
+      "p95Ms": 2.8508849999998347,
+      "requests": 0,
+      "responseBytes": 0,
+      "databaseMedianMs": 0
+    },
+    {
+      "scenario": "Spring schedule",
+      "mode": "before",
+      "samples": 5,
+      "medianMs": 415.55605300000025,
+      "p95Ms": 447.1047269999999,
+      "requests": 3,
+      "responseBytes": 3191165,
+      "databaseMedianMs": 119.2226410000003
+    },
+    {
+      "scenario": "Spring schedule",
+      "mode": "cold",
+      "samples": 5,
+      "medianMs": 362.5180390000023,
+      "p95Ms": 400.79956499999753,
+      "requests": 1,
+      "responseBytes": 129483,
+      "databaseMedianMs": 263.07310700000016
+    },
+    {
+      "scenario": "Spring schedule",
+      "mode": "warm",
+      "samples": 5,
+      "medianMs": 4.291643000000477,
+      "p95Ms": 4.874644999999873,
+      "requests": 0,
+      "responseBytes": 0,
+      "databaseMedianMs": 0
+    },
+    {
+      "scenario": "No matches",
+      "mode": "before",
+      "samples": 5,
+      "medianMs": 506.9629590000004,
+      "p95Ms": 603.3906690000003,
+      "requests": 4,
+      "responseBytes": 1958235,
+      "databaseMedianMs": 65.11905399999887
+    },
+    {
+      "scenario": "No matches",
+      "mode": "cold",
+      "samples": 5,
+      "medianMs": 275.8775539999988,
+      "p95Ms": 290.1624950000005,
+      "requests": 1,
+      "responseBytes": 57,
+      "databaseMedianMs": 200.2182700000012
+    },
+    {
+      "scenario": "No matches",
+      "mode": "warm",
+      "samples": 5,
+      "medianMs": 0.07611099999849102,
+      "p95Ms": 0.14140999999654014,
+      "requests": 0,
+      "responseBytes": 0,
+      "databaseMedianMs": 0
+    }
+  ],
+  "fixtureSha256": "072c1d57bf6160129600ce6b285abb34d883e29e9e2e2d93fd2c0a7448304567",
+  "snapshotDates": "Resis snapshots from 8 November 2026; no API calls made.",
+  "verification": "All recommended IDs, order, rationales, prerequisites, registration guidance, ratings, section facts and catalogue counts matched the frozen baseline. Timestamps were compared as instants."
+}
