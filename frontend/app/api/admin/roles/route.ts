@@ -1,3 +1,4 @@
+import { trackApiRequest } from "@/modules/logging/api-metrics";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isAppRole } from "@/lib/auth/roles";
@@ -5,7 +6,7 @@ import { isAppRole } from "@/lib/auth/roles";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export async function PATCH(request: Request) {
+async function trackedPATCH(request: Request) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -69,3 +70,5 @@ export async function PATCH(request: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
+export const PATCH = trackApiRequest("/api/admin/roles", "PATCH", trackedPATCH);

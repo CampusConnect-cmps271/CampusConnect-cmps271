@@ -1,3 +1,4 @@
+import { trackApiRequest } from "@/modules/logging/api-metrics";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
@@ -50,7 +51,7 @@ function embedderFor(userId: string): QueryEmbedder | null {
   }
 }
 
-export async function POST(request: NextRequest): Promise<Response> {
+async function trackedPOST(request: NextRequest): Promise<Response> {
   const user = await getCurrentUser();
   if (!user) return apiError(401, "UNAUTHENTICATED", "Sign in first.");
 
@@ -135,3 +136,5 @@ export async function POST(request: NextRequest): Promise<Response> {
     return apiError(503, "ASSISTANT_UNAVAILABLE", "The assistant is unavailable right now. Please try again later.");
   }
 }
+
+export const POST = trackApiRequest("/api/campus-assistant", "POST", trackedPOST);

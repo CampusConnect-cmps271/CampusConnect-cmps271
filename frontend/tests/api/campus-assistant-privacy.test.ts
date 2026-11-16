@@ -16,6 +16,13 @@ import { hoursFromNow, insertAs, seedPrivateData, serviceClient, signUpStudent, 
  */
 
 const session = vi.hoisted(() => ({ user: null as { id: string } | null, client: null as unknown }));
+// The route is wrapped in the API request metrics (SP4-28), a server-only module
+// that writes its own log rows; this test is about what reaches the model, so the
+// wrapper passes requests straight to the handler.
+vi.mock("server-only", () => ({}));
+vi.mock("@/modules/logging/api-metrics", () => ({
+  trackApiRequest: <Args extends unknown[]>(_endpoint: string, _method: string, handler: (...args: Args) => Promise<Response>) => handler,
+}));
 vi.mock("@/modules/logging", () => ({ log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 vi.mock("@/modules/auth", () => ({
   getCurrentUser: vi.fn(async () => (session.user ? { id: session.user.id, email: null, name: "Student" } : null)),
