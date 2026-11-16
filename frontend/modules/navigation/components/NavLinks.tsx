@@ -11,6 +11,7 @@ import {
   Sparkles,
   Target,
   UserRound,
+  UsersRound,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -60,6 +61,7 @@ export function NavLinks({ messagesBadge, notifications, logout }: NavLinksProps
 
   const inCourses = pathname === "/courses" || pathname.startsWith("/courses/");
   const inPlanner = pathname === "/planner" || pathname.startsWith("/planner/");
+  const inCommunities = pathname === "/communities" || pathname.startsWith("/communities/");
   const inElectives = pathname === "/electives" || pathname.startsWith("/electives/");
   const inSkillSwap = pathname === "/skillswap" || pathname.startsWith("/skillswap/");
   const inAssistant = pathname === "/assistant";
@@ -146,6 +148,7 @@ export function NavLinks({ messagesBadge, notifications, logout }: NavLinksProps
         <ul className="flex flex-col gap-1">
           {item("/courses", inCourses, BookOpen, "Browse courses", firstLink)}
           {item("/planner", inPlanner, CalendarDays, "Plan your semester")}
+          {item("/communities", inCommunities, UsersRound, "Communities")}
           {item("/electives/preferences", inElectives, Target, "Elective preferences")}
           {item("/skillswap", inSkillSwap, Repeat2, "SkillSwap")}
           {item("/assistant", inAssistant, Sparkles, "Assistant")}
