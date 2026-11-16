@@ -120,8 +120,8 @@ describe("loadStudentContext", () => {
       };
       const { chunks } = await load(fakeClient({ semester_plans: { data: [zoned] } }));
       const text = chunks[0]?.text ?? "";
-      expect(text).toContain("CMPS 271 Software Engineering: Mon 09:00-10:15" + "
-");
+      expect(text).toContain("CMPS 271 Software Engineering: Mon 09:00-10:15");
+      expect(text).not.toContain("Asia/Beirut");
       expect(text).toContain("MATH 201 Calculus III: Tue 10:00-11:15 (America/New_York time)");
     });
 
