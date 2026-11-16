@@ -10,6 +10,21 @@ describe("isCitableUrl", () => {
     expect(isCitableUrl("/events/6f1c2a40-1b2c-4d3e-8f50-123456789abc")).toBe(true);
   });
 
+  it("accepts the student's own plan page and the few pages their private context points to", () => {
+    expect(isCitableUrl("/planner/11111111-1111-4111-8111-111111111111")).toBe(true);
+    for (const path of ["/events", "/saved", "/profile", "/home"]) expect(isCitableUrl(path)).toBe(true);
+  });
+
+  it("rejects every other page of the app, including other students' profiles and plan lists", () => {
+    for (const path of [
+      "/planner", "/planner/new", "/planner/not-a-uuid", "/planner/11111111-1111-4111-8111-111111111111/edit",
+      "/profile/11111111-1111-4111-8111-111111111111", "/messages", "/messages/11111111-1111-4111-8111-111111111111",
+      "/admin", "/events/", "/saved/", "/home?x=1", "/profile#top", "/posts/new",
+    ]) {
+      expect(isCitableUrl(path), path).toBe(false);
+    }
+  });
+
   it("rejects other hosts, schemes and credentials", () => {
     expect(isCitableUrl("https://aub.edu.lb.evil.example/")).toBe(false);
     expect(isCitableUrl("http://www.aub.edu.lb/registrar")).toBe(false);

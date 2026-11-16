@@ -7,8 +7,8 @@ import { postRequest } from '../helpers'
 
 vi.mock('@/modules/logging', () => ({ log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }))
 vi.mock('@/modules/auth', () => ({ getCurrentUser: vi.fn() }))
-const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }))
-vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn(async () => ({ rpc })) }))
+const { rpc, from } = vi.hoisted(() => ({ rpc: vi.fn(), from: vi.fn() }))
+vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn(async () => ({ rpc, from })) }))
 
 const URL = '/api/campus-assistant'
 const KEY = 'sk-test-secret-key'
@@ -162,5 +162,108 @@ describe('POST /api/campus-assistant', () => {
     const logged = JSON.stringify([log.info, log.warn, log.error].map((fn) => vi.mocked(fn).mock.calls))
     expect(logged).not.toContain('private question')
     expect(logged).not.toContain(KEY)
+  })
+})
+
+/** Stands in for the student's own tables; `eqs` records every filter each query asked for. */
+function studentData(rows: Record<string, unknown[] | { error: { code: string } }>) {
+  const eqs: [string, string, unknown][] = []
+  from.mockImplementation((table: string) => {
+    const builder: Record<string, unknown> = {}
+    for (const method of ['select', 'gte', 'order', 'limit', 'returns']) builder[method] = () => builder
+    builder.eq = (column: string, value: unknown) => { eqs.push([table, column, value]); return builder }
+    builder.then = (resolve: (value: unknown) => void) => {
+      const answer = rows[table] ?? []
+      resolve(Array.isArray(answer) ? { data: answer, error: null } : { data: null, error: answer.error })
+    }
+    return builder
+  })
+  return eqs
+}
+
+const PLAN_ID = '11111111-1111-4111-8111-111111111111'
+const plan = {
+  id: PLAN_ID,
+  term: 'Fall 2026',
+  starts_on: '2026-01-01',
+  ends_on: '2099-12-20',
+  plan_courses: [{ position: 1, courses: { code: 'CMPS 271', name: 'Software Engineering' }, plan_meetings: [{ weekday: 1, start_minute: 540, end_minute: 615 }] }],
+  plan_items: [{ title: 'Dentist appointment', on_date: '2099-01-01', start_minute: null, end_minute: null }],
+}
+
+describe('POST /api/campus-assistant with the student\'s private context', () => {
+  const ask = (question: string, history: unknown[] = []) => POST(postRequest(URL, { question, history }) as never)
+  const sentToModel = () => answerRequestBody().contents[0].parts[0].text as string
+
+  beforeEach(() => {
+    from.mockReset()
+    from.mockImplementation(() => { throw new Error('the private tables must not be read for this question') })
+  })
+
+  it('reads the student\'s plan for a personal question and lets the answer cite it', async () => {
+    studentData({ semester_plans: [plan] })
+    modelReplies(reply('You have CMPS 271 on Mondays.', [`me:plan:${PLAN_ID}`]))
+
+    const res = await ask('What is on my schedule today?')
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.answer).toBe('You have CMPS 271 on Mondays.')
+    expect(body.citations).toEqual([expect.objectContaining({ chunk_id: `me:plan:${PLAN_ID}`, url: `/planner/${PLAN_ID}` })])
+    expect(sentToModel()).toContain(`<chunk id="me:plan:${PLAN_ID}">`)
+    expect(sentToModel()).toContain('CMPS 271 Software Engineering: Mon 09:00-10:15')
+  })
+
+  it('does not read, or send, any private data for an ordinary question', async () => {
+    const res = await ask('Who issues transcripts?')
+
+    expect(res.status).toBe(200)
+    expect(from).not.toHaveBeenCalled()
+    expect(sentToModel()).not.toContain('me:')
+  })
+
+  it('asks every private query for the signed-in student\'s own rows', async () => {
+    const eqs = studentData({})
+    await ask('Which events did I save?')
+
+    const me = (await vi.mocked(getCurrentUser).mock.results[0]?.value)?.id
+    expect(me).toBeTruthy()
+    expect(eqs).toContainEqual(['semester_plans', 'student_id', me])
+    expect(eqs).toContainEqual(['saved_events', 'student_id', me])
+    expect(eqs).toContainEqual(['saved_posts', 'user_id', me])
+    expect(eqs).toContainEqual(['posts', 'author_id', me])
+  })
+
+  it('treats a vague follow-up to a personal question as personal', async () => {
+    studentData({ semester_plans: [plan] })
+    modelReplies(reply('Nothing else.', [`me:plan:${PLAN_ID}`]))
+
+    const res = await ask('And tomorrow?', [{ question: 'What is on my schedule today?', answer: 'CMPS 271.' }])
+
+    expect(res.status).toBe(200)
+    expect(from).toHaveBeenCalledWith('semester_plans')
+  })
+
+  it('still answers from the shared sources, and logs only the part names, when private data cannot be read', async () => {
+    studentData({ semester_plans: { error: { code: 'SECRET-DB-ERROR' } } })
+    modelReplies(reply('The Registrar issues transcripts.', ['registrar:0']))
+
+    const res = await ask('What is my plan for transcripts?')
+
+    expect(res.status).toBe(200)
+    expect(log.warn).toHaveBeenCalledWith('campus_assistant.context_unavailable', { sections: ['plan'] }, expect.anything())
+    expect(JSON.stringify(vi.mocked(log.warn).mock.calls)).not.toContain('SECRET-DB-ERROR')
+  })
+
+  it('never logs what the student typed into their plan, or the question', async () => {
+    studentData({ semester_plans: [plan] })
+    modelReplies(reply('You have a dentist appointment.', [`me:plan:${PLAN_ID}`]))
+
+    await ask('When is my dentist appointment this week?')
+
+    const logged = JSON.stringify([log.info, log.warn, log.error].map((fn) => vi.mocked(fn).mock.calls))
+    expect(logged).not.toContain('Dentist')
+    expect(logged).not.toContain('dentist')
+    expect(logged).toContain('campus_assistant.answered')
   })
 })

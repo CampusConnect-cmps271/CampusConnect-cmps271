@@ -15,12 +15,18 @@ const CLUB_PATH = /^\/clubs\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
 /** An event page of this app, e.g. /events/6f1c...; ids are UUIDs. */
 const EVENT_PATH = /^\/events\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
+/** A semester plan page of this app. Plans are private, so the page only opens for the student who owns it. */
+const PLAN_PATH = /^\/planner\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/** The few list pages the student's own saved events and posts live on. Nothing else in the app, and no other student's page. */
+const OWN_PAGES = new Set(["/events", "/saved", "/profile", "/home"]);
+
 /**
  * True only for the places a citation may point: an https page on aub.edu.lb,
- * or a course, club or event page of this app.
+ * or a course, club, event, plan or list page of this app.
  */
 export function isCitableUrl(value: string): boolean {
   if (COURSE_PATH.test(value) || CLUB_PATH.test(value) || EVENT_PATH.test(value)) return true;
+  if (PLAN_PATH.test(value) || OWN_PAGES.has(value)) return true;
   try {
     const url = new URL(value);
     return url.protocol === "https:" && !url.username && !url.password && /(^|\.)aub\.edu\.lb$/.test(url.hostname);

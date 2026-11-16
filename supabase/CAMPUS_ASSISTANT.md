@@ -30,6 +30,33 @@ answer. News is not indexed (cancelled for this sprint).
 Run everything from `frontend/`, against the local Supabase stack
 (`npx supabase start`). Commands are in the order they depend on each other.
 
+## The student's own context (SCRUM-255)
+
+For a question about the student themselves ("what is on my schedule today?",
+"which events did I save?") the assistant also reads that student's **own**
+semester plan, saved and going events, saved posts and posts, plus the newest
+public posts, and the answer can cite them. This data is handled differently
+from everything above, because it is private:
+
+| Rule | How it is kept |
+|---|---|
+| Only the student's own rows | Read at request time with **their own session**, so row-level security hides every other student; each query also asks for their id explicitly. `tests/campus-assistant-student-context.test.ts` proves it with two real students, including a caller who names someone else's id. |
+| Only when needed | `modules/campus-assistant/personal.ts` asks for a first-person word **and** a topic ("my schedule", "did I save"). Library hours or transcripts never carry a timetable. A vague follow-up counts as personal if the question before it was. It is a narrow heuristic: a missed question gets a less personal answer, never a leak. |
+| Never stored | Nothing private is written to the search index or embedded. It exists for one request. `embed:campus-content` never touches these tables. |
+| Short fields only | Titles, categories and times; never post bodies. Lists are capped (2 plans, 10 events and upcoming items, 10 saved posts, 5 own posts, 5 feed posts). |
+| Typed text is data | A plan item or post title is flattened to one capped line, escaped like any evidence, and the system prompt calls it data, never instructions. |
+| Not logged | Logs carry only how many private parts were attached (`private_parts`) and the names of parts that failed, never their content. |
+| Fails soft | A part that cannot be read is skipped; the rest of the answer still works. |
+
+Citations point at `/planner/<id>` (the plan) or the list pages `/events`,
+`/saved`, `/profile` and `/home`, which are the only app pages `isCitableUrl`
+allows besides courses, clubs and single events. Plan meeting times are typed by
+the student, so the model is told they are tentative.
+
+What is sent to the answer model (Gemini) for a personal question is therefore
+that student's plan, saved events, post titles and the recent feed. Tell students
+this in the privacy notice before the assistant is announced.
+
 ## 1. Load the data
 
 | Command | What it does |

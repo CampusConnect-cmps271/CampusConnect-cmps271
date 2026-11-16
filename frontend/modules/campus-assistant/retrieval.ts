@@ -1,3 +1,4 @@
+import { formatBeirutTime } from "./beirut-time";
 import { MAX_CLUB_EVIDENCE, MAX_COURSE_EVIDENCE, MAX_EVENT_EVIDENCE, MAX_PAGE_EVIDENCE, type EvidenceChunk } from "./schema";
 
 const MAX_TERMS = 12;
@@ -123,11 +124,9 @@ function clubEvidence(club: ClubRow): EvidenceChunk {
   };
 }
 
-const EVENT_TIME = new Intl.DateTimeFormat("en-GB", { dateStyle: "full", timeStyle: "short", timeZone: "Asia/Beirut" });
-
 /** An upcoming published event as evidence, with its time in Beirut, linked to the app's own event page. */
 function eventEvidence(event: EventRow): EvidenceChunk {
-  const when = `${EVENT_TIME.format(new Date(event.starts_at))} to ${EVENT_TIME.format(new Date(event.ends_at))} (Beirut time)`;
+  const when = `${formatBeirutTime(event.starts_at)} to ${formatBeirutTime(event.ends_at)} (Beirut time)`;
   return {
     chunk_id: `event:${event.id}`,
     source_id: "campus-events",

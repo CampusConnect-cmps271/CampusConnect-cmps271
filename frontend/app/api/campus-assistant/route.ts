@@ -10,6 +10,8 @@ import {
   EmbeddingError,
   getConfiguredProvider,
   getConfiguredQueryEmbedder,
+  isPersonalQuestion,
+  loadStudentContext,
   ProviderError,
   QUESTION_MAX_LENGTH,
   questionSchema,
@@ -23,7 +25,9 @@ import { log } from "@/modules/logging";
  * Authenticated question answering for the campus assistant (SP3-41).
  *
  * The provider key is read here, on the server, and never reaches the browser.
- * Logs carry the question's length and the outcome, never its text.
+ * Logs carry the question's length and the outcome, never its text, and for a
+ * personal question (SCRUM-255) only how many private parts were attached, never
+ * what the student's plan, events or posts say.
  */
 
 /** A question, plus up to three earlier turns of at most 1,100 characters each, with room for Arabic and JSON framing. */
@@ -88,6 +92,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     const provider = getConfiguredProvider();
     const supabase = await createClient();
     const embedder = embedderFor(user.id);
+    let privateParts = 0;
     // Embedded per searched text: a vague follow-up is searched together with the
     // previous question, and the meaning search must see the same words.
     const retrieve = async (text: string) => {
@@ -95,13 +100,30 @@ export async function POST(request: NextRequest): Promise<Response> {
       if (searchTerms(text).length === 0) return [];
       const embedding = embedder ? await embedQuerySafely(embedder, text) : null;
       if (embedder && !embedding) log.warn("campus_assistant.embedding_unavailable", { kind: "failed" }, { userId: user.id });
-      return retrieveEvidence(supabase, text, embedding);
+      const evidence = await retrieveEvidence(supabase, text, embedding);
+
+      // The student's own plan, saved events and posts are read, and sent to the
+      // model, only for a question about themselves: a question about library
+      // hours never carries their timetable. Read with their own session, so it
+      // is theirs alone; a part that can't be read just leaves the answer less personal.
+      if (!isPersonalQuestion(text)) return evidence;
+      const context = await loadStudentContext(supabase, user.id);
+      if (context.failed.length > 0) {
+        log.warn("campus_assistant.context_unavailable", { sections: context.failed }, { userId: user.id });
+      }
+      privateParts = context.chunks.length;
+      return [...evidence, ...context.chunks];
     };
     const result = await answerQuestion(question, retrieve, provider, history);
 
     log.info(
       "campus_assistant.answered",
-      { question_length: question.length, citations: result.citations.length, insufficient: result.insufficient_evidence },
+      {
+        question_length: question.length,
+        citations: result.citations.length,
+        insufficient: result.insufficient_evidence,
+        private_parts: privateParts,
+      },
       { userId: user.id },
     );
     return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
