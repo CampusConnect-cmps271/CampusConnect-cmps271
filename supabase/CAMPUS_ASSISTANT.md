@@ -24,7 +24,7 @@ that is published, after the last run has no embedding yet: it is still found by
 keyword search straight away, and by meaning after the next
 `npm run embed:campus-content`. Answers link to `/clubs/<slug>` and
 `/events/<id>`. Club and event search only add to an answer: if the
-`20261112100000` migration is missing on a project, pages and courses still
+`20261116113715` migration is missing on a project, pages and courses still
 answer. News is not indexed (cancelled for this sprint).
 
 Run everything from `frontend/`, against the local Supabase stack
@@ -160,7 +160,7 @@ questions to `eval/questions.json` once real clubs and events exist locally.
 - **The club/event migration and tests were written without a running local
   stack.** `tests/campus-assistant-clubs-events.test.mjs` skips itself unless
   `npx supabase start` is up; run `npm run test:db` once with it running before
-  merging, to apply `20261112100000` and exercise the four new functions.
+  merging, to apply `20261116113715` and exercise the four new functions.
 
 - **Hosted Supabase:** the hosted project has four migrations this repository
   does not (`20261024120000`, `20261024130000`, `20261028094821`,

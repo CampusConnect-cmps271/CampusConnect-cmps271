@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { tokens } from "./preference-matching";
 
 const text = (max: number) => z.string().trim().min(1).max(max)
   .refine((value) => !/[\u0000-\u001f\u007f]/u.test(value), "Remove control characters");
@@ -16,14 +17,16 @@ export const offeringPreferencesSchema = z.object({
 });
 export type OfferingPreferences = z.infer<typeof offeringPreferencesSchema>;
 export const preferencesSchema = z.object({
-  interests: z.array(text(60)).min(1, "Add at least one interest").max(10)
-    .transform((values) => [...new Map(values.map((v) => [v.toLocaleLowerCase(), v])).values()]),
+  interests: z.array(text(60)).max(10)
+    .transform((values) => [...new Map(values.filter(v => tokens(v).length).map((v) => [v.toLocaleLowerCase(), v])).values()]),
   preferred_workload: z.enum(["light", "moderate", "heavy"]),
-  academic_goals: text(1000),
+  academic_goals: z.string().trim().max(1000).refine(v => !/[\u0000-\u001f\u007f]/u.test(v), "Remove control characters"),
   completed_course_codes: z.array(text(32).transform((v) => v.toUpperCase().replace(/\s+/g, " "))).max(60)
     .transform((values) => [...new Set(values)]),
   offering_preferences: offeringPreferencesSchema.optional(),
-}).strict();
+}).strict().superRefine((value, ctx) => {
+  if (!value.interests.length && !value.offering_preferences?.semester_id) ctx.addIssue({ code: "custom", path: ["interests"], message: "Choose a semester to browse, or add an interest." });
+});
 
 export type ElectivePreferences = z.infer<typeof preferencesSchema>;
 type BasicKey = "interests" | "preferred_workload" | "academic_goals" | "completed_course_codes";
@@ -37,7 +40,7 @@ export type PreferenceState = {
 };
 export function readPreferences(form: FormData): PreferenceValues {
   const values = Object.fromEntries(["interests", "preferred_workload", "academic_goals", "completed_course_codes"]
-    .map((key) => [key, typeof form.get(key) === "string" ? form.get(key) : ""])) as PreferenceValues;
+    .map((key) => [key, typeof form.get(key) === "string" ? form.get(key) : form.get(key) === null ? "" : "\u0000"])) as PreferenceValues;
   for (const key of ["semester_id", "instructors", "attributes", "earliest_start", "latest_end"] as const) {
     if (form.has(key)) values[key] = typeof form.get(key) === "string" ? form.get(key) as string : "\u0000";
   }
