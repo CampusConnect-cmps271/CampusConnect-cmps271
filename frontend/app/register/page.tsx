@@ -20,7 +20,7 @@ export default async function RegisterPage() {
   }
 
   return (
-    <main className="cc-page auth-page">
+    <main className="cc-page auth-page auth-page-compact">
       <div className="auth-top">
         <Link href="/" className="back-link">
           <ArrowLeft size={18} aria-hidden="true" /> Go back home

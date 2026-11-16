@@ -847,6 +847,59 @@ html {
   margin-top: 4px;
 }
 
+/* Sign-up is the longest auth form: tighter spacing so it fits one screen
+   without zooming out. */
+.auth-page-compact {
+  min-height: 0;
+  padding: 12px 16px 24px;
+}
+
+.auth-page-compact .auth-top {
+  margin-bottom: 6px;
+}
+
+.auth-page-compact .auth-brand {
+  margin-bottom: 10px;
+  font-size: 20px;
+}
+
+.auth-page-compact .auth-card {
+  padding: 22px 28px;
+}
+
+.auth-page-compact .auth-card h1 {
+  font-size: 22px;
+  margin-bottom: 4px;
+}
+
+.auth-page-compact .auth-subtitle {
+  margin-bottom: 14px;
+  font-size: 15px;
+}
+
+.auth-page-compact .field {
+  margin-bottom: 12px;
+}
+
+.auth-page-compact .field label {
+  margin-bottom: 4px;
+}
+
+.auth-page-compact .field input {
+  padding: 9px 14px;
+}
+
+.auth-page-compact .field-hint,
+.auth-page-compact .field-error {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.auth-page-compact .auth-footer {
+  margin-top: 14px;
+}
+
 .password-rules {
   list-style: none;
   padding: 0;
