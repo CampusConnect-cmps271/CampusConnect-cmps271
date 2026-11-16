@@ -21,7 +21,7 @@ export default async function RegisterPage() {
 
   return (
     <main className="cc-page auth-page">
-      <div className="auth-top">
+      <div className="auth-top auth-top-wide">
         <Link href="/" className="back-link">
           <ArrowLeft size={18} aria-hidden="true" /> Go back home
         </Link>
@@ -32,7 +32,7 @@ export default async function RegisterPage() {
         </span>
         CampusConnect
       </Link>
-      <div className="auth-card">
+      <div className="auth-card auth-card-wide">
         <h1>Create your account</h1>
         <p className="auth-subtitle">
           Join CampusConnect with your university email.
