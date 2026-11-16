@@ -8,7 +8,7 @@ const readMigration = (name) =>
 
 const rolesMigration = await readMigration("20261005010000_roles_and_permissions.sql");
 const appLogsSource = await readMigration("20261005103145_create_app_logs.sql");
-const monitoringSource = await readMigration("20261109182458_sprint4_monitoring_alerts.sql");
+const monitoringSource = await readMigration("20261116114632_sprint4_monitoring_alerts.sql");
 const vercelConfig = JSON.parse(
   await readFile(new URL("../vercel.json", import.meta.url), "utf8"),
 );
