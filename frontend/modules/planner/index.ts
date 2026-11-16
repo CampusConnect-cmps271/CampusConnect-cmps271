@@ -58,8 +58,11 @@ export {
 export {
   chosenCrns,
   linkedPrompt,
+  importedOn,
   MAX_SECTIONS_PER_COURSE,
+  SECTION_NOTICES,
   sectionCountLabel,
+  sectionNoticeText,
   sectionOptions,
   sessionMeetings,
   sessionWhen,
@@ -67,6 +70,7 @@ export {
   type LinkedOption,
   type ResisSection,
   type ResisSession,
+  type SectionNotice,
   type SectionOption,
   type SessionMeeting,
 } from "./sections";

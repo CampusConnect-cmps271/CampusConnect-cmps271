@@ -2,17 +2,11 @@
 
 import { useActionState } from "react";
 import { linkSemester } from "../actions";
+import { importedOn } from "../sections";
 import type { ImportedSemester } from "../types";
 import { FIELD_CLASS, LABEL_CLASS } from "./MeetingForms";
 
 const RESIS_URL = "https://resis.org/";
-
-const IMPORTED = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Beirut", day: "numeric", month: "short", year: "numeric" });
-
-/** "8 Nov 2026": when a snapshot was fetched, in Beirut. */
-export function importedOn(value: string | null): string {
-  return value ? IMPORTED.format(new Date(value)) : "on an unknown date";
-}
 
 type ScheduleLinkProps = {
   planId: string;

@@ -69,6 +69,10 @@ function sessionRows(session) {
 }
 
 const sectionLinks = [];
+// As if a newer snapshot moved CMPS 240's section after it was chosen: reported
+// as changed until the student updates that course's times.
+const MOVED_CRNS = new Set(["90021"]);
+const updatedCourses = new Set();
 
 // Synthetic published events that planner-calendar has saved. Not real AUB
 // events. Tue 16 Feb 2027 10:00-11:00 and Wed 17 Feb 2027 13:00-15:00 Beirut.
@@ -453,9 +457,17 @@ export async function handlePlanner(request, response, url, claims) {
     return send(response, 200, rows), true;
   }
 
-  // Every chosen section here comes from the one active snapshot, so nothing changes.
   if (path === "/rest/v1/rpc/planner_section_changes" && method === "POST") {
-    return send(response, 200, []), true;
+    const { p_plan_id: planId } = await readBody(request);
+    const plan = ownedPlan(planId, userId);
+    const semester = plan?.resis_semester_id ? SEMESTERS[plan.resis_semester_id] : null;
+    const inPlan = new Set(planCourses.filter((planned) => planned.plan_id === planId).map((planned) => planned.id));
+    const rows = semester
+      ? sectionLinks
+          .filter((link) => inPlan.has(link.plan_course_id) && MOVED_CRNS.has(link.crn) && !updatedCourses.has(link.plan_course_id))
+          .map((link) => ({ plan_course_id: link.plan_course_id, crn: link.crn, section: link.section, status: "changed", imported_at: semester.synced_at }))
+      : [];
+    return send(response, 200, rows), true;
   }
 
   // planner_choose_sections: its checks and the rows it writes, in miniature.
@@ -477,6 +489,8 @@ export async function handlePlanner(request, response, url, claims) {
     const chosen = (offeringFor(planned.course_id) ?? []).filter((section) => crns.includes(section.crn));
     if (chosen.length !== crns.length) return fail(response, 400, "22023", "Each CRN must be a section of this course"), true;
 
+    const before = sectionLinks.filter((link) => link.plan_course_id === planCourseId).map((link) => link.crn).sort();
+    if (before.length && JSON.stringify(before) === JSON.stringify([...crns].sort())) updatedCourses.add(planCourseId);
     removeWhere(meetings, (meeting) => meeting.plan_course_id === planCourseId);
     removeWhere(sectionLinks, (link) => link.plan_course_id === planCourseId);
     const seen = new Set();

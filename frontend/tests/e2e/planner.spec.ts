@@ -529,7 +529,7 @@ test("a linked plan fills class times from the chosen section, and typed times s
   });
 
   await test.step("its days and times fill in from the schedule, named as such", async () => {
-    await expect(page).toHaveURL(/\?chosen=[0-9a-f-]{36}#course-/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\?done=[0-9a-f-]{36}&what=picked#course-/, { timeout: 20_000 });
     const course = planned(page, "MATH 202");
     await expect(course.getByText("Section times added from AUB's schedule.")).toBeVisible();
     await expect(course.getByText("From AUB's schedule (Resis)", { exact: false })).toBeVisible();
@@ -543,8 +543,16 @@ test("a linked plan fills class times from the chosen section, and typed times s
   await test.step("a course with one section gets it straight away", async () => {
     await search(page, "CMPS 240");
     await page.getByRole("button", { name: "Add CMPS 240 to this plan" }).click();
-    await expect(page.getByText("Added. It has one section in AUB's schedule, so it was chosen: Section 1 (CRN 90021).")).toBeVisible();
+    await expect(planned(page, "CMPS 240").getByText("Added. It has one section in AUB's schedule, so it was chosen: Section 1 (CRN 90021).")).toBeVisible();
     await expect(planned(page, "CMPS 240").getByText("Thu 14:00–15:15")).toBeVisible();
+  });
+
+  await test.step("when a newer import moves a chosen section, the plan says so and updates on request", async () => {
+    const course = planned(page, "CMPS 240");
+    await expect(course.getByRole("note")).toHaveText(/AUB's schedule for CMPS 240 section 1 changed \(imported 8 Nov 2026\)\./);
+    await course.getByRole("button", { name: "Update times of CMPS 240 from AUB's schedule" }).click();
+    await expect(course.getByText("Times updated from AUB's schedule.")).toBeVisible();
+    await expect(course.getByRole("note")).toHaveCount(0);
   });
 
   await test.step("a course the schedule doesn't have takes typed times, and overlaps are still found", async () => {
@@ -557,6 +565,7 @@ test("a linked plan fills class times from the chosen section, and typed times s
 
   await test.step("switching a course back to typed times removes its section times", async () => {
     await planned(page, "MATH 202").getByRole("button", { name: "Use typed times for MATH 202 instead of its sections" }).click();
+    await expect(planned(page, "MATH 202").getByText("Section times removed. Add your own times.")).toBeVisible();
     await expect(planned(page, "MATH 202").getByText("No times yet.")).toBeVisible();
     await expect(planned(page, "MATH 202").getByRole("link", { name: "Choose a section of MATH 202" })).toBeVisible();
     await expect(status(page)).not.toHaveText("1 conflict found");

@@ -13,6 +13,7 @@ import {
   planCalendar,
   PlanView,
   searchCoursesForPlan,
+  SECTION_NOTICES,
 } from "@/modules/planner";
 
 export const metadata: Metadata = {
@@ -25,8 +26,8 @@ type PlanPageProps = {
     q?: string | string[];
     week?: string | string[];
     sections?: string | string[];
-    chosen?: string | string[];
-    only?: string | string[];
+    done?: string | string[];
+    what?: string | string[];
   }>;
 };
 
@@ -42,7 +43,8 @@ export default async function PlanPage({ params, searchParams }: PlanPageProps) 
 
   const search = await searchParams;
   const pickerFor = single(search.sections);
-  const chosen = single(search.chosen);
+  const donePlanCourse = single(search.done);
+  const what = SECTION_NOTICES.find((notice) => notice === single(search.what));
   const [events, results, sectionState, picker] = await Promise.all([
     listSavedEventsNear(plan),
     searchCoursesForPlan(parsePlannerSearch(search.q), plan.semester?.id),
@@ -66,7 +68,7 @@ export default async function PlanPage({ params, searchParams }: PlanPageProps) 
         calendar={calendar}
         sectionState={sectionState}
         picker={picker}
-        chosen={chosen ? { planCourseId: chosen, only: single(search.only) === "1" } : null}
+        done={donePlanCourse && what ? { planCourseId: donePlanCourse, what } : null}
       />
     </main>
 </AppShell>

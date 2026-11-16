@@ -64,6 +64,31 @@ export function sessionWhen(session: ResisSession): string | null {
   return `${meetings.map((meeting) => weekdayLabel(meeting.weekday)).join(", ")} ${timeFromMinutes(start)}–${timeFromMinutes(end)}`;
 }
 
+const IMPORTED = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Beirut", day: "numeric", month: "short", year: "numeric" });
+
+/** "8 Nov 2026": when a Resis snapshot was fetched, in Beirut. */
+export function importedOn(value: string | null | undefined): string {
+  return value ? IMPORTED.format(new Date(value)) : "on an unknown date";
+}
+
+/**
+ * What was just done to a course's sections, shown on its card after the
+ * action returns to the plan (?done=<plan course>&what=<this>).
+ */
+export type SectionNotice = "picked" | "only" | "updated" | "typed";
+
+export const SECTION_NOTICES: readonly SectionNotice[] = ["picked", "only", "updated", "typed"];
+
+/** The card's sentence for a notice; `only` names the one section it chose. */
+export function sectionNoticeText(what: SectionNotice, sections: readonly { section: string; crn: string }[]): string {
+  if (what === "only" && sections.length === 1) {
+    return `Added. It has one section in AUB's schedule, so it was chosen: Section ${sections[0].section} (CRN ${sections[0].crn}).`;
+  }
+  if (what === "updated") return "Times updated from AUB's schedule.";
+  if (what === "typed") return "Section times removed. Add your own times.";
+  return "Section times added from AUB's schedule.";
+}
+
 /** "12 sections", "1 section". */
 export function sectionCountLabel(count: number): string {
   return `${count} ${count === 1 ? "section" : "sections"}`;

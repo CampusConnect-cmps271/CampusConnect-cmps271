@@ -20,7 +20,7 @@ import {
   type MeetingFormValues,
 } from "./schema";
 import { readCourseSections } from "./queries";
-import { chosenCrns, MAX_SECTIONS_PER_COURSE } from "./sections";
+import { chosenCrns, MAX_SECTIONS_PER_COURSE, type SectionNotice } from "./sections";
 import { officialTerm } from "./terms";
 
 /** The result of a planner button: a message for its aria-live region. */
@@ -146,7 +146,7 @@ export async function addCourse(_previous: PlannerActionState, formData: FormDat
       return { ok: true, message: "Added to your plan." };
     }
     log.info("planner.sections.chosen", { planId, planCourseId: data.id, count: 1, automatic: true }, { userId: user.id });
-    redirect(`/planner/${planId}?chosen=${data.id}&only=1#course-${data.id}`);
+    redirect(doneUrl(planId, data.id, "only"));
   }
 
   redirect(`/planner/${planId}?sections=${data.id}#course-${data.id}`);
@@ -454,6 +454,15 @@ export async function linkSemester(_previous: PlannerActionState, formData: Form
   };
 }
 
+/**
+ * Back to the course's card, which says what was done. The button that did
+ * it is gone once it worked (the picker closes, a notice clears, the section
+ * list becomes typed times), so its own status line can't.
+ */
+function doneUrl(planId: string, planCourseId: string, what: SectionNotice): string {
+  return `/planner/${planId}?done=${planCourseId}&what=${what}#course-${planCourseId}`;
+}
+
 /** Calls planner_choose_sections; the database checks every CRN against the snapshot. */
 async function saveSections(planId: string, planCourseId: string, crns: string[], userId: string) {
   const supabase = await createClient();
@@ -490,7 +499,7 @@ export async function chooseSections(_previous: PlannerActionState, formData: Fo
 
   const saved = await saveSections(planId, planCourseId, crns, user.id);
   if (!saved.ok) return saved;
-  redirect(`/planner/${planId}?chosen=${planCourseId}#course-${planCourseId}`);
+  redirect(doneUrl(planId, planCourseId, "picked"));
 }
 
 /** "Update times": the same sections again, from the newest snapshot. */
@@ -503,7 +512,8 @@ export async function updateSectionTimes(_previous: PlannerActionState, formData
   if (crns.length === 0 || crns.length > MAX_SECTIONS_PER_COURSE) return { ok: false, message: plannerErrorMessage("chooseSections", "22023") };
 
   const saved = await saveSections(planId, planCourseId, crns, user.id);
-  return saved.ok ? { ok: true, message: "Times updated from AUB's schedule." } : saved;
+  if (!saved.ok) return saved;
+  redirect(doneUrl(planId, planCourseId, "updated"));
 }
 
 /** "Use typed times": removes the course's sections and their times. */
@@ -514,7 +524,8 @@ export async function switchToTypedTimes(_previous: PlannerActionState, formData
   if (!planId || !planCourseId) return { ok: false, message: PLAN_NOT_FOUND };
 
   const saved = await saveSections(planId, planCourseId, [], user.id);
-  return saved.ok ? { ok: true, message: "Section times removed. Add your own times." } : saved;
+  if (!saved.ok) return saved;
+  redirect(doneUrl(planId, planCourseId, "typed"));
 }
 
 /** Every plan page and the event's own page show the going mark. */

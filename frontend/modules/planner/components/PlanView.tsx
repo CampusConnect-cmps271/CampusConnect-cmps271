@@ -5,7 +5,7 @@ import type { ConflictReport } from "../conflicts";
 import { invalidItemHelp, invalidMeetingHelp } from "../conflict-text";
 import { creditHundredths, creditLabel, totalCreditHundredths } from "../credits";
 import type { PlanSectionState, SectionPicker as SectionPickerData } from "../queries";
-import { sectionCountLabel } from "../sections";
+import { importedOn, sectionCountLabel, sectionNoticeText, type SectionNotice } from "../sections";
 import { AUB_CALENDAR_SOURCE, formatTermDate, resisSemesterName } from "../terms";
 import { timeFromMinutes, weekdayLabel } from "../time";
 import type { CourseSearchResult, ImportedSemester, PlanDetails, PlannedCourse, PlannerEvent, SectionChange } from "../types";
@@ -16,7 +16,7 @@ import { AddItemForm, ItemRow, type ItemCourseOption } from "./ItemForms";
 import { AddMeetingForm, MeetingItem, TimeZoneList } from "./MeetingForms";
 import { PlannerButton } from "./PlannerButton";
 import { PlannerNotice } from "./PlannerNotice";
-import { importedOn, ScheduleLink } from "./ScheduleLink";
+import { ScheduleLink } from "./ScheduleLink";
 import { SectionPicker } from "./SectionPicker";
 
 type PlanViewProps = {
@@ -35,8 +35,8 @@ type PlanViewProps = {
   sectionState?: PlanSectionState;
   /** The open section picker, from ?sections=. */
   picker?: SectionPickerData | null;
-  /** The course whose sections were just saved, from ?chosen=; `only` when it was its one section, chosen on adding it. */
-  chosen?: { planCourseId: string; only: boolean } | null;
+  /** What was just done to a course's sections, from ?done=<plan course>&what=. */
+  done?: { planCourseId: string; what: SectionNotice } | null;
 };
 
 const NO_SECTION_STATE: PlanSectionState = { semesters: [], changes: [], offered: new Map() };
@@ -59,7 +59,7 @@ export function PlanView({
   calendar,
   sectionState = NO_SECTION_STATE,
   picker = null,
-  chosen = null,
+  done = null,
 }: PlanViewProps) {
   const total = totalCreditHundredths(plan.courses);
   const count = plan.courses.length;
@@ -142,7 +142,7 @@ export function PlanView({
                 offered={sectionState.offered.get(planned.course_id) ?? null}
                 changes={sectionState.changes.filter((change) => change.plan_course_id === planned.plan_course_id)}
                 picker={picker?.planned.plan_course_id === planned.plan_course_id ? picker : null}
-                justChosen={chosen?.planCourseId === planned.plan_course_id ? (chosen.only ? "only" : "picked") : null}
+                done={done?.planCourseId === planned.plan_course_id ? done.what : null}
               />
             ))}
           </ol>
@@ -284,7 +284,7 @@ function PlannedCourseCard({
   offered,
   changes,
   picker,
-  justChosen,
+  done,
 }: {
   planId: string;
   planned: PlannedCourse;
@@ -298,8 +298,8 @@ function PlannedCourseCard({
   /** Its chosen sections that a newer snapshot changed or dropped. */
   changes: readonly SectionChange[];
   picker: SectionPickerData | null;
-  /** Its sections were just saved: picked in the picker, or its only section chosen on adding it. */
-  justChosen: "picked" | "only" | null;
+  /** What was just done to its sections, if anything. */
+  done: SectionNotice | null;
 }) {
   const headingId = `planned-${planned.plan_course_id}`;
   const fields = { planId, planCourseId: planned.plan_course_id };
@@ -342,11 +342,9 @@ function PlannedCourseCard({
           </div>
         </div>
 
-        {justChosen && sections.length > 0 ? (
+        {done && (done === "typed" ? sections.length === 0 : sections.length > 0) ? (
           <p role="status" className="text-sm text-[var(--success)]">
-            {justChosen === "only" && sections.length === 1
-              ? `Added. It has one section in AUB's schedule, so it was chosen: Section ${sections[0].section} (CRN ${sections[0].crn}).`
-              : "Section times added from AUB's schedule."}
+            {sectionNoticeText(done, sections)}
           </p>
         ) : null}
 

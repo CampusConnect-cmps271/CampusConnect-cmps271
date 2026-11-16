@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { chosenCrns, linkedPrompt, sectionCountLabel, sectionOptions, sessionMeetings, sessionWhen, type ResisSection } from "./sections";
+import {
+  chosenCrns,
+  importedOn,
+  linkedPrompt,
+  sectionCountLabel,
+  sectionNoticeText,
+  sectionOptions,
+  sessionMeetings,
+  sessionWhen,
+  type ResisSection,
+} from "./sections";
 
 // Synthetic sections shaped like the Resis importer's; not AUB's schedule.
 const at = (days: string, start = "09:00", end = "09:50", type = "Lecture") => ({ days, start, end, type, location: "Test Hall", instructor: "Test Instructor" });
@@ -101,6 +111,21 @@ describe("sectionOptions: what the picker lists", () => {
   it("counts sections for the course search", () => {
     expect(sectionCountLabel(12)).toBe("12 sections");
     expect(sectionCountLabel(1)).toBe("1 section");
+  });
+
+  it("words what was just done to a course's sections", () => {
+    expect(sectionNoticeText("only", [{ section: "1", crn: "30001" }])).toBe(
+      "Added. It has one section in AUB's schedule, so it was chosen: Section 1 (CRN 30001).",
+    );
+    expect(sectionNoticeText("picked", [])).toBe("Section times added from AUB's schedule.");
+    expect(sectionNoticeText("updated", [])).toBe("Times updated from AUB's schedule.");
+    expect(sectionNoticeText("typed", [])).toBe("Section times removed. Add your own times.");
+  });
+
+  it("dates an import in Beirut", () => {
+    // 23:30 UTC on 8 November is already 9 November in Beirut.
+    expect(importedOn("2026-11-08T23:30:00Z")).toBe("9 Nov 2026");
+    expect(importedOn(null)).toBe("on an unknown date");
   });
 });
 
