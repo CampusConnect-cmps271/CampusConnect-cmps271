@@ -10,6 +10,7 @@ import { handlePostSearch, postSearchFixtures } from "./mock-post-search.mjs";
 import { clubTestAccounts, handleClubs } from "./mock-clubs.mjs";
 import { electiveAccounts, handleElectives } from "./mock-electives.mjs";
 import { handlePlanner, plannerTestAccounts } from "./mock-planner.mjs";
+import { calendarTestAccounts, handleCalendar } from "./mock-calendar.mjs";
 import { electivePreferenceAccounts, handleElectivePreferences } from "./mock-elective-preferences.mjs";
 
 const user = {
@@ -53,6 +54,8 @@ const profileAccounts = {
   "clubs-representative@mail.aub.edu": clubTestAccounts.REP_ID,
   "clubs-admin@mail.aub.edu": clubTestAccounts.ADMIN_ID,
   ...plannerTestAccounts,
+  // SCRUM-244/245: the calendar's students.
+  ...calendarTestAccounts,
   ...electivePreferenceAccounts,
 };
 // Another student whose public profile the tests visit.
@@ -271,6 +274,8 @@ createServer(async (request, response) => {
 
   // Sprint 2 tables: posts, comments, upvotes and saved posts.
   if (await handleElectivePreferences(request, response, url, bearerClaims(request))) return;
+  // SCRUM-244/245: answers only for the calendar's students, before the shared course and planner mocks.
+  if (await handleCalendar(request, response, url, bearerClaims(request))) return;
   if (await handleElectives(request, response, url, bearerClaims(request))) return;
   if (handleCourses(request, response, url, bearerEmail(request))) return;
   if (handleRatings(request, response, url, bearerClaims(request))) return;
