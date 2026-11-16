@@ -449,24 +449,68 @@ if (await tableExists("post_skillswap")) {
 }
 
 // SCRUM-67: a Spring 2027 plan for the student, to show the planner and its
-// conflict check. These meeting times are demo entries typed for the
-// walkthrough, NOT AUB sections: CMPS 202 and MATH 201 overlap on Tuesday
-// 11:00-11:15, and ENGL 203 is left without times. Courses missing from the
-// catalogue are skipped. The plan is written as the signed-in student, since
-// the planner tables are private under RLS and grant the service role
-// nothing. Re-running adds nothing new.
+// conflict check. Courses missing from the catalogue are skipped. The plan is
+// written as the signed-in student, since the planner tables are private
+// under RLS and grant the service role nothing. Re-running adds nothing new.
+//
+// SCRUM-243: when the section tables exist and Spring 2026-2027 has an active
+// Resis import, the plan is linked to it and CMPS 202 and CMPS 211 take their
+// times from real sections, looked up by course code now (the first section
+// with listed times, plus one of each kind linked to it) and chosen through
+// planner_choose_sections. MATH 201 keeps typed times, set to overlap CMPS
+// 202's chosen section so the demo still shows a conflict, and ENGL 203 has
+// none. Otherwise every course gets the typed demo times below, which are
+// demo entries, NOT AUB sections: CMPS 202 and MATH 201 overlap on Tuesday
+// 11:00-11:15.
 const PLANNER_DEMO = {
   // The official Spring 2026-27 dates, as in modules/planner/terms.ts.
   term: "Spring 2027",
   starts_on: "2027-01-13",
   ends_on: "2027-04-27",
   courses: [
-    { code: "CMPS 202", meetings: [[2, "10:00", "11:15"], [4, "10:00", "11:15"]] },
-    { code: "MATH 201", meetings: [[2, "11:00", "12:15"], [4, "11:30", "12:45"]] },
-    { code: "CMPS 211", meetings: [[1, "14:00", "15:15"], [3, "14:00", "15:15"]] },
+    { code: "CMPS 202", sections: true, meetings: [[2, "10:00", "11:15"], [4, "10:00", "11:15"]] },
+    { code: "MATH 201", overlaps: "CMPS 202", meetings: [[2, "11:00", "12:15"], [4, "11:30", "12:45"]] },
+    { code: "CMPS 211", sections: true, meetings: [[1, "14:00", "15:15"], [3, "14:00", "15:15"]] },
     { code: "ENGL 203", meetings: [] },
   ],
 };
+
+/** A section's sessions have days and HH:MM times, as planner_resis_session_rows reads them. */
+function hasListedTimes(section) {
+  return (section.sessions ?? []).some(
+    (session) =>
+      /^[MTWRFSU]+$/.test((session.days ?? "").replace(/\s/g, "")) &&
+      /^\s*([01]\d|2[0-3]):[0-5]\d\s*$/.test(session.start ?? "") &&
+      /^\s*([01]\d|2[0-3]):[0-5]\d\s*$/.test(session.end ?? ""),
+  );
+}
+
+/**
+ * The demo's pick from a course's real sections: the first one with listed
+ * times, lectures first and then in section order, plus the first of each
+ * kind of section linked to it. Up to 4 CRNs, as planner_choose_sections
+ * allows.
+ */
+function demoSectionChoice(sections) {
+  const lecture = (section) => (section.sessions ?? []).some((session) => /lecture/i.test(session.type ?? ""));
+  const sorted = [...sections].sort(
+    (a, b) => Number(lecture(b)) - Number(lecture(a)) || String(a.section).localeCompare(String(b.section), "en", { numeric: true }),
+  );
+  const primary = sorted.find(hasListedTimes);
+  if (!primary) return null;
+  const byCrn = new Map(sections.map((section) => [section.crn, section]));
+  const kinds = new Set([(primary.sessions ?? []).map((session) => session.type).join("/")]);
+  const crns = [primary.crn];
+  for (const crn of primary.connected_crns ?? []) {
+    const linked = byCrn.get(crn);
+    if (!linked || !hasListedTimes(linked)) continue;
+    const kind = (linked.sessions ?? []).map((session) => session.type).join("/");
+    if (kinds.has(kind) || crns.length >= 4) continue;
+    kinds.add(kind);
+    crns.push(crn);
+  }
+  return { section: primary.section, crns };
+}
 
 {
   const minutesOf = (time) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
@@ -522,14 +566,50 @@ const PLANNER_DEMO = {
         if (planError) fail(`could not create the demo plan: ${planError.message}`);
       }
 
+      // SCRUM-243: link the plan to the imported semester when there is one.
+      // Every lookup is skipped quietly when its table or function is missing.
+      let activeImportId = null;
+      let semesterName = null;
+      {
+        const { error: sectionsProbe } = await asStudent.from("plan_course_sections").select("crn").limit(0);
+        const { data: linkRow, error: linkError } = sectionsProbe
+          ? { data: null, error: sectionsProbe }
+          : await asStudent.from("semester_plans").select("resis_semester_id").eq("id", plan.id).single();
+        let semesterId = linkError ? null : linkRow.resis_semester_id;
+        if (!linkError && !semesterId) {
+          const { data: match } = await asStudent.rpc("planner_matching_resis_semester", { p_term: PLANNER_DEMO.term });
+          if (match) {
+            const { error } = await asStudent.from("semester_plans").update({ resis_semester_id: match }).eq("id", plan.id);
+            if (error) fail(`could not link the demo plan to semester ${match}: ${error.message}`);
+            semesterId = match;
+          }
+        }
+        if (semesterId) {
+          const { data: semester } = await asStudent
+            .from("resis_semesters")
+            .select("name, active_import_id")
+            .eq("id", semesterId)
+            .maybeSingle();
+          activeImportId = semester?.active_import_id ?? null;
+          semesterName = semester?.name ?? null;
+        }
+      }
+
       const { data: existing, error: listError } = await asStudent
         .from("plan_courses")
-        .select("id, course_id, plan_meetings(weekday, start_minute, end_minute)")
+        .select(
+          activeImportId
+            ? "id, course_id, plan_meetings(weekday, start_minute, end_minute, source), plan_course_sections(crn)"
+            : "id, course_id, plan_meetings(weekday, start_minute, end_minute)",
+        )
         .eq("plan_id", plan.id);
       if (listError) fail(`could not read the demo plan: ${listError.message}`);
 
       let coursesAdded = 0;
       let meetingsAdded = 0;
+      const chosenSections = [];
+      /** The first section meeting of each course given real sections, for MATH 201's overlap. */
+      const sectionMeeting = new Map();
       for (const course of present) {
         let planned = existing.find((row) => row.course_id === courseIds.get(course.code));
         if (!planned) {
@@ -539,12 +619,50 @@ const PLANNER_DEMO = {
             .select("id")
             .single();
           if (error) fail(`could not add ${course.code} to the demo plan: ${error.message}`);
-          planned = { id: data.id, plan_meetings: [] };
+          planned = { id: data.id, plan_meetings: [], plan_course_sections: [] };
           coursesAdded += 1;
         }
 
-        for (const [weekday, start, end] of course.meetings) {
-          const [startMinute, endMinute] = [minutesOf(start), minutesOf(end)];
+        if (activeImportId && course.sections) {
+          if (!planned.plan_course_sections?.length) {
+            const { data: offering, error } = await asStudent
+              .from("course_offerings")
+              .select("sections")
+              .eq("import_id", activeImportId)
+              .eq("course_id", courseIds.get(course.code))
+              .maybeSingle();
+            if (error) fail(`could not read ${course.code}'s sections: ${error.message}`);
+            const choice = offering ? demoSectionChoice(offering.sections) : null;
+            if (choice) {
+              const { error: chooseError } = await asStudent.rpc("planner_choose_sections", {
+                p_plan_course_id: planned.id,
+                p_crns: choice.crns,
+              });
+              if (chooseError) fail(`could not choose ${course.code}'s sections: ${chooseError.message}`);
+              chosenSections.push(`${course.code} section ${choice.section}`);
+            }
+          }
+          const { data: rows } = await asStudent
+            .from("plan_meetings")
+            .select("weekday, start_minute, end_minute")
+            .eq("plan_course_id", planned.id)
+            .eq("source", "resis")
+            .order("weekday")
+            .order("start_minute")
+            .limit(1);
+          if (rows?.length) {
+            sectionMeeting.set(course.code, rows[0]);
+            continue;
+          }
+          // Not offered, or no listed times: typed demo times instead.
+        }
+
+        // MATH 201 overlaps the chosen CMPS 202 section: 15 minutes after it starts.
+        const anchor = course.overlaps ? sectionMeeting.get(course.overlaps) : undefined;
+        const meetings = anchor
+          ? [[anchor.weekday, anchor.start_minute + 15, Math.min(anchor.start_minute + 90, 1440)]]
+          : course.meetings.map(([weekday, start, end]) => [weekday, minutesOf(start), minutesOf(end)]);
+        for (const [weekday, startMinute, endMinute] of meetings) {
           const known = planned.plan_meetings.some(
             (meeting) => meeting.weekday === weekday && meeting.start_minute === startMinute && meeting.end_minute === endMinute,
           );
@@ -561,8 +679,13 @@ const PLANNER_DEMO = {
         }
       }
       summary.push(
-        `planner   ${PLANNER_DEMO.term}: ${coursesAdded} courses and ${meetingsAdded} demo meetings added ` +
+        `planner   ${PLANNER_DEMO.term}: ${coursesAdded} courses and ${meetingsAdded} typed demo meetings added ` +
           `(${present.length} of ${PLANNER_DEMO.courses.length} courses in the catalogue)`,
+      );
+      summary.push(
+        activeImportId
+          ? `planner   linked to ${semesterName}; ${chosenSections.length ? `sections chosen: ${chosenSections.join(", ")}` : "sections already chosen"}`
+          : "skipped   SCRUM-243 sections (no section tables or active Spring import)",
       );
     }
   }
