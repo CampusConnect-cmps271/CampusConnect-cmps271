@@ -129,7 +129,10 @@ lower it.
 
 `npm test` runs these with the unit tests; the database-backed ones skip themselves
 when local Supabase is not running (`npx supabase start`, then
-`npx supabase migration up --include-all` if tables are missing).
+`npx supabase migration up --include-all` if tables are missing). They seed a plan
+with the catalogue course `CMPS 240`, so after a fresh `npx supabase db reset`
+import the course catalogue first (`npm run import:courses -- <catalogue.csv>`;
+see [COURSES.md](COURSES.md)), or they fail during setup.
 
 | Test | What it proves |
 |---|---|
