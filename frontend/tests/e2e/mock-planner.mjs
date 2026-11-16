@@ -35,7 +35,8 @@ const SEMESTERS = {
 const TERM_SEMESTER = { "Spring 2027": "202720" };
 
 // Synthetic sections, NOT AUB's schedule: MATH 202 has two lectures sharing
-// one recitation, CMPS 240 has a single section, MATH 201 isn't offered.
+// one recitation, CMPS 241 a lecture with a linked lab, CMPS 240 has a single
+// section, MATH 201 isn't offered.
 const lecture = (days, start, end) => ({ days, start, end, type: "Lecture", location: "Test Hall 101", instructor: "Test Instructor" });
 const OFFERINGS = {
   "MATH 202": [
@@ -50,6 +51,18 @@ const OFFERINGS = {
     },
   ],
   "CMPS 240": [{ crn: "90021", section: "1", sessions: [lecture("TR", "14:00", "15:15")], instructors: ["Test Instructor"], connected_crns: [] }],
+  // One section whose time isn't announced yet.
+  "CMPS 101": [{ crn: "90041", section: "1", sessions: [{ days: "", start: "TBA", end: "TBA", type: "Lecture", location: "", instructor: "TBA" }], connected_crns: [] }],
+  "CMPS 241": [
+    { crn: "90031", section: "L1", sessions: [lecture("MW", "10:00", "11:15")], instructors: ["Test Instructor"], connected_crns: ["90032"] },
+    {
+      crn: "90032",
+      section: "B1",
+      sessions: [{ days: "F", start: "14:00", end: "16:00", type: "Lab", location: "Test Lab 1", instructor: "Test Assistant" }],
+      instructors: ["Test Assistant"],
+      connected_crns: ["90031"],
+    },
+  ],
 };
 const offeringFor = (courseId) => {
   const code = courses.find((course) => course.id === courseId)?.code;

@@ -169,11 +169,11 @@ export function CalendarView({ model }: { model: CalendarViewModel }) {
                     <a href={overlap.first.href} className={LINK}>
                       {overlap.first.title}
                     </a>{" "}
-                    ({overlap.first.kindLabel.toLowerCase()}) and{" "}
+                    ({overlap.first.kind}) and{" "}
                     <a href={overlap.second.href} className={LINK}>
                       {overlap.second.title}
                     </a>{" "}
-                    ({overlap.second.kindLabel.toLowerCase()}) overlap on {overlap.when} (Beirut time).
+                    ({overlap.second.kind}) overlap on {overlap.when} (Beirut time).
                   </li>
                 ))}
               </ul>

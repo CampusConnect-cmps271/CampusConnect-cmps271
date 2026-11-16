@@ -170,8 +170,9 @@ export type CalendarDay = { date: string; heading: string; today: boolean; entri
 
 export type OverlapLine = {
   key: string;
-  first: { title: string; kindLabel: string; href: string };
-  second: { title: string; kindLabel: string; href: string };
+  /** `kind` in a few words for the sentence: "class", "your item", "event you're going to". */
+  first: { title: string; kind: string; href: string };
+  second: { title: string; kind: string; href: string };
   when: string;
 };
 
@@ -206,6 +207,9 @@ function kindOf(entry: CalendarDataEntry): ViewEntryKind {
   if (entry.kind === "event") return entry.cancelled ? "cancelled" : entry.going ? "event" : "saved";
   return entry.kind;
 }
+
+/** How an overlap line names each side. Only these three kinds can overlap. */
+const OVERLAP_KIND: Partial<Record<ViewEntryKind, string>> = { class: "class", item: "your item", event: "event you're going to" };
 
 export const KIND_LABEL: Record<ViewEntryKind, string> = {
   class: "Class",
@@ -352,8 +356,8 @@ export function buildCalendarView({
     days,
     overlaps: inView.map((overlap) => ({
       key: overlap.key,
-      first: { title: titleOf(overlap.first), kindLabel: KIND_LABEL[kindOf(overlap.first)], href: overlap.first.href },
-      second: { title: titleOf(overlap.second), kindLabel: KIND_LABEL[kindOf(overlap.second)], href: overlap.second.href },
+      first: { title: titleOf(overlap.first), kind: OVERLAP_KIND[kindOf(overlap.first)] ?? "", href: overlap.first.href },
+      second: { title: titleOf(overlap.second), kind: OVERLAP_KIND[kindOf(overlap.second)] ?? "", href: overlap.second.href },
       when: overlapWhen(overlap),
     })),
     next: ahead ? { title: titleOf(ahead), time: clock(ahead.starts_at!) } : null,

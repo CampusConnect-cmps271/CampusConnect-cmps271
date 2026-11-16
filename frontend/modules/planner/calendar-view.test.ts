@@ -166,8 +166,8 @@ describe("buildCalendarView: Today", () => {
     expect(model.overlaps).toEqual([
       {
         key: "class:m-tue:2027-02-16|event:Career fair",
-        first: { title: "SEC 202", kindLabel: "Class", href: `/planner/${FIXTURE_PLAN.id}#meeting-m-tue` },
-        second: { title: "Career fair", kindLabel: "Event (going)", href: "/events/Career fair" },
+        first: { title: "SEC 202", kind: "class", href: `/planner/${FIXTURE_PLAN.id}#meeting-m-tue` },
+        second: { title: "Career fair", kind: "event you're going to", href: "/events/Career fair" },
         when: "Tue, 16 Feb 2027, 11:30–12:15",
       },
     ]);

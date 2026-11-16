@@ -548,6 +548,36 @@ test("a linked plan fills class times from the chosen section, and typed times s
     await expect(planned(page, "CMPS 240").getByText("Thu 14:00–15:15")).toBeVisible();
   });
 
+  await test.step("a lecture with a linked lab offers the lab, and typed times are refused once a course has sections", async () => {
+    await search(page, "CMPS 241");
+    await page.getByRole("button", { name: "Add CMPS 241 to this plan" }).click();
+    await expect(picker("CMPS 241")).toBeVisible({ timeout: 20_000 });
+
+    // A tab opened before the section is chosen still shows the typed-times form.
+    const stale = await page.context().newPage();
+    await stale.goto(new URL(page.url()).pathname);
+    await expect(planned(stale, "CMPS 241").getByText("Add a meeting for CMPS 241")).toBeVisible();
+
+    await picker("CMPS 241").getByLabel(/^Section L1 · CRN 90031 · Lecture/).check();
+    const lab = picker("CMPS 241").getByRole("group", { name: "Section L1's lab, CRN 90032, is linked to it. Add it too?" });
+    await expect(lab.getByRole("checkbox")).toBeChecked();
+    await picker("CMPS 241").getByRole("button", { name: "Use this section" }).click();
+    await expect(page).toHaveURL(/\?done=[0-9a-f-]{36}&what=picked#course-/, { timeout: 20_000 });
+    const course = planned(page, "CMPS 241");
+    await expect(course.getByText("Section B1 · CRN 90032")).toBeVisible({ timeout: 20_000 });
+    await expect(course.getByText("Fri 14:00–16:00")).toBeVisible();
+    await expect(course.getByText("Add a meeting for CMPS 241")).toHaveCount(0);
+
+    const form = planned(stale, "CMPS 241").locator("details");
+    await form.getByText("Add a meeting for CMPS 241").click();
+    await form.getByLabel("Day").selectOption("5");
+    await form.getByLabel("Starts").fill("09:00");
+    await form.getByLabel("Ends").fill("10:00");
+    await form.getByRole("button", { name: "Save meeting" }).click();
+    await expect(form.getByText("This course's times come from its AUB sections. Choose “Use typed times” first to type your own.")).toBeVisible();
+    await stale.close();
+  });
+
   await test.step("when a newer import moves a chosen section, the plan says so and updates on request", async () => {
     const course = planned(page, "CMPS 240");
     await expect(course.getByRole("note")).toHaveText(/AUB's schedule for CMPS 240 section 1 changed \(imported 8 Nov 2026\)\./);
@@ -570,6 +600,15 @@ test("a linked plan fills class times from the chosen section, and typed times s
     await expect(planned(page, "MATH 202").getByText("No times yet.")).toBeVisible();
     await expect(planned(page, "MATH 202").getByRole("link", { name: "Choose a section of MATH 202" })).toBeVisible();
     await expect(status(page)).not.toHaveText("1 conflict found");
+  });
+
+  await test.step("a section whose times aren't announced leaves the course unknown, never clear", async () => {
+    await search(page, "CMPS 101");
+    await page.getByRole("button", { name: "Add CMPS 101 to this plan" }).click();
+    const course = planned(page, "CMPS 101");
+    await expect(course.getByText("Times to be announced: AUB's schedule doesn't list them yet.")).toBeVisible({ timeout: 20_000 });
+    await expect(status(page)).not.toHaveText(/^No conflicts/);
+    await expect(page.getByText(/no times yet: .*CMPS 101/i)).toBeVisible();
   });
 
   await test.step("the picker works at phone width without sideways scrolling", async () => {
