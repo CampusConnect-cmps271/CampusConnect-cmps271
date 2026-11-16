@@ -50,7 +50,8 @@ async function search(page: Page, text: string) {
 async function addCourse(page: Page, query: string, code: string) {
   await search(page, query);
   await page.getByRole("button", { name: `Add ${code} to this plan` }).click();
-  await expect(planned(page, code)).toBeVisible();
+  // The save and the page's refresh can outlast 5s on a busy CI runner (the button stays disabled meanwhile).
+  await expect(planned(page, code)).toBeVisible({ timeout: 15_000 });
 }
 
 const planned = (page: Page, code: string) => page.getByRole("article", { name: new RegExp(`^${code} `) });
