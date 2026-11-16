@@ -4,6 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/modules/auth";
+import { PostedIn } from "@/modules/communities";
 import { MessageButton } from "@/modules/messaging";
 import { getProfile, PinPostButton } from "@/modules/profiles";
 import { SkillSwapDetails } from "@/modules/skillswap";
@@ -123,6 +124,8 @@ export default async function PostPage({
             Posted{" "}
             {new Date(post.created_at).toLocaleString("en-US", { timeZone: "Asia/Beirut" })}
           </time>
+
+          <PostedIn postId={post.id} />
         </div>
 
         <h1 className="mb-4 text-3xl font-bold">
