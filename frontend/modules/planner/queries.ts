@@ -3,7 +3,9 @@ import { requireUser } from "@/modules/auth";
 import { log } from "@/modules/logging";
 import { createClient } from "@/lib/supabase/server";
 import { addDays, ITEM_WINDOW_DAYS, itemWindow, parseCalendarDate } from "./calendar";
-import { calendarEntries, type CalendarDataEntry, type SavedCalendarEvent } from "./calendar-data";
+import { calendarEntries, type SavedCalendarEvent } from "./calendar-data";
+import { buildCalendarView, calendarRangeFor, type CalendarData, type CalendarViewMode, type CalendarViewModel } from "./calendar-view";
+import { beirutToday } from "./terms";
 import { detectConflicts, type ConflictReport } from "./conflicts";
 import { PLANNER_LIMITS, plannerIdSchema } from "./schema";
 import { courseSearchFilter } from "./search";
@@ -331,21 +333,77 @@ type CalendarEventRow = {
 };
 
 /**
+ * The chosen sections of these plans as the active snapshot of each linked
+ * semester lists them, by CRN: where a section class's type and room come
+ * from. Empty when there are none or they can't be read (classes then show
+ * without them).
+ */
+async function chosenSectionDetails(plans: readonly PlanDetails[], userId: string): Promise<Map<string, ResisSection>> {
+  const details = new Map<string, ResisSection>();
+  const bySemester = new Map<string, Set<string>>();
+  for (const plan of plans) {
+    if (!plan.semester) continue;
+    const courses = plan.courses.filter((planned) => planned.sections?.length).map((planned) => planned.course_id);
+    if (!courses.length) continue;
+    const set = bySemester.get(plan.semester.id) ?? new Set<string>();
+    for (const course of courses) set.add(course);
+    bySemester.set(plan.semester.id, set);
+  }
+  if (!bySemester.size) return details;
+
+  const supabase = await createClient();
+  const { data: semesters, error } = await supabase
+    .from("resis_semesters")
+    .select("id, active_import_id")
+    .in("id", [...bySemester.keys()])
+    .returns<{ id: string; active_import_id: string | null }[]>();
+  if (error) {
+    log.warn("planner.calendar.sections_read_failure", { code: error.code ?? null }, { userId });
+    return details;
+  }
+
+  const wanted = new Set(plans.flatMap((plan) => plan.courses.flatMap((planned) => (planned.sections ?? []).map((section) => section.crn))));
+  await Promise.all(
+    (semesters ?? []).map(async (semester) => {
+      if (!semester.active_import_id) return;
+      const { data, error: offeringsError } = await supabase
+        .from("course_offerings")
+        .select("sections")
+        .eq("import_id", semester.active_import_id)
+        .in("course_id", [...(bySemester.get(semester.id) ?? [])])
+        .returns<{ sections: ResisSection[] }[]>();
+      if (offeringsError) {
+        log.warn("planner.calendar.sections_read_failure", { semesterId: semester.id, code: offeringsError.code ?? null }, { userId });
+        return;
+      }
+      for (const offering of data ?? []) {
+        for (const section of Array.isArray(offering.sections) ? offering.sections : []) {
+          if (wanted.has(section.crn)) details.set(section.crn, section);
+        }
+      }
+    }),
+  );
+  return details;
+}
+
+/**
  * Everything on the signed-in student's calendar from `from` to `to`
  * (Beirut dates, YYYY-MM-DD, inclusive, at most CALENDAR_MAX_DAYS): class
  * sessions of every plan whose term reaches the range, typed and from AUB's
- * schedule; the plans' own items; saved events with their going mark and
- * cancelled state (as far as RLS shows them); and event reminders. Null when
- * the range is invalid or the data couldn't be read. Logs ids and counts only.
+ * schedule (with their section, type and room); the plans' own items; saved
+ * events with their going mark and cancelled state (as far as RLS shows
+ * them); and event reminders. Also the plans it read and how many plans and
+ * saved events the student has at all. Null when the range is invalid or
+ * the data couldn't be read. Logs ids and counts only.
  */
-export async function getCalendarData({ from, to }: { from: string; to: string }): Promise<CalendarDataEntry[] | null> {
+export async function getCalendarData({ from, to }: { from: string; to: string }): Promise<CalendarData | null> {
   const user = await requireUser();
   const first = parseCalendarDate(from);
   const last = parseCalendarDate(to);
   if (!first || !last || last < first || addDays(first, CALENDAR_MAX_DAYS - 1) < last) return null;
 
   const supabase = await createClient();
-  const [plans, saved] = await Promise.all([
+  const [plans, saved, planCount, savedCount] = await Promise.all([
     // Items may sit up to 30 days outside their plan's classes.
     supabase
       .from("semester_plans")
@@ -364,6 +422,8 @@ export async function getCalendarData({ from, to }: { from: string; to: string }
       .lt("events.starts_at", `${addDays(last, 9)}T00:00:00Z`)
       .gt("events.ends_at", `${addDays(first, -1)}T00:00:00Z`)
       .returns<CalendarEventRow[]>(),
+    supabase.from("semester_plans").select("id", { count: "exact", head: true }),
+    supabase.from("saved_events").select("event_id", { count: "exact", head: true }),
   ]);
 
   if (plans.error || saved.error) {
@@ -394,13 +454,51 @@ export async function getCalendarData({ from, to }: { from: string; to: string }
     ];
   });
 
-  const entries = calendarEntries({ plans: (plans.data ?? []).map(toPlanDetails), events, from: first, to: last });
+  const planDetails = (plans.data ?? []).map(toPlanDetails);
+  const details = await chosenSectionDetails(planDetails, user.id);
+  const entries = calendarEntries({ plans: planDetails, events, from: first, to: last, details });
   log.info(
     "planner.calendar.read",
-    { days: Math.round((Date.parse(last) - Date.parse(first)) / 86_400_000) + 1, plans: plans.data?.length ?? 0, events: events.length, entries: entries.length },
+    { days: Math.round((Date.parse(last) - Date.parse(first)) / 86_400_000) + 1, plans: planDetails.length, events: events.length, entries: entries.length },
     { userId: user.id },
   );
-  return entries;
+  return {
+    entries,
+    plans: planDetails.map(({ id, term, starts_on, ends_on }) => ({ id, term, starts_on, ends_on })),
+    // A count that can't be read must not claim "no plans and no saved events".
+    totals: {
+      plans: planCount.error ? Math.max(1, planDetails.length) : (planCount.count ?? planDetails.length),
+      savedEvents: savedCount.error ? Math.max(1, events.length) : (savedCount.count ?? events.length),
+    },
+  };
+}
+
+/** The /calendar page's view of `date` (SCRUM-244/245), or null when the calendar can't be read. Logs counts only. */
+export async function loadCalendarView({
+  view,
+  date,
+  now = new Date(),
+}: {
+  view: CalendarViewMode;
+  date: string;
+  now?: Date;
+}): Promise<CalendarViewModel | null> {
+  const user = await requireUser();
+  const { from, to } = calendarRangeFor(view, date);
+  const data = await getCalendarData({ from, to });
+  if (!data) return null;
+
+  const model = buildCalendarView({ view, date, today: beirutToday(now), now, data });
+  const { counts } = model;
+  log.info(
+    "calendar.viewed",
+    { view, classes: counts.classes, items: counts.items, events: counts.events, reminders: counts.reminders, overlaps: counts.overlaps },
+    { userId: user.id },
+  );
+  if (counts.overlaps || counts.clashes) {
+    log.info("calendar.overlaps.found", { view, overlaps: counts.overlaps, clashes: counts.clashes }, { userId: user.id });
+  }
+  return model;
 }
 
 /**

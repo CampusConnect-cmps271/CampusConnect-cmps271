@@ -93,7 +93,11 @@ export function formatWeekRange(monday: string): string {
   return `${startDay}–${endDay} ${endMonth} ${endYear}`;
 }
 
-export type CalendarEntryKind = "class" | "item" | "event";
+/**
+ * What a week entry is. The plan page shows classes, items and events it's
+ * going to; /calendar also shows saved and cancelled events and reminders.
+ */
+export type CalendarEntryKind = "class" | "item" | "event" | "saved" | "cancelled" | "reminder";
 
 /** One thing on one day of the week view. */
 export type CalendarEntry = {

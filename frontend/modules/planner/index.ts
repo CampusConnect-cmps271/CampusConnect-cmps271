@@ -40,11 +40,31 @@ export {
   getPlanSectionState,
   getSectionPicker,
   listMyPlans,
+  loadCalendarView,
   listSavedEventsNear,
   searchCoursesForPlan,
   type PlanSectionState,
   type SectionPicker,
 } from "./queries";
+
+export {
+  beirutClock,
+  buildCalendarView,
+  calendarHref,
+  calendarOverlaps,
+  calendarRangeFor,
+  KIND_LABEL,
+  overlapWhen,
+  parseCalendarParams,
+  type CalendarData,
+  type CalendarDay,
+  type CalendarOverlap,
+  type CalendarViewMode,
+  type CalendarViewModel,
+  type OverlapLine,
+  type ViewEntry,
+  type ViewEntryKind,
+} from "./calendar-view";
 
 export {
   calendarEntries,
@@ -159,6 +179,7 @@ export type {
   Weekday,
 } from "./types";
 
+export { CalendarView } from "./components/CalendarView";
 export { EventGoingControl } from "./components/EventGoingControl";
 export { NewPlanForm } from "./components/NewPlanForm";
 export { PlanList } from "./components/PlanList";

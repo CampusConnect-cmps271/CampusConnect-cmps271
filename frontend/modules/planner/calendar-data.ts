@@ -1,5 +1,6 @@
 import { calendarOccurrences, type CalendarOccurrence, type CalendarSlot, type ConflictSide } from "./conflicts";
-import type { PlanDetails, PlannerEvent } from "./types";
+import { sessionMeetings, type ResisSection } from "./sections";
+import type { Meeting, PlanDetails, PlannerEvent } from "./types";
 
 /**
  * One list of everything on a student's calendar (SCRUM-243 / SP4-01):
@@ -39,12 +40,32 @@ export type CalendarDataEntry = {
   /** A class's times: typed by the student, or from AUB's schedule (Resis). */
   source?: "manual" | "resis";
   crn?: string | null;
+  /** A class from a chosen section: its number, and the session's type ("Lecture") from the snapshot. */
+  section?: string;
+  class_type?: string;
+  /** Where a class session (from the snapshot) or an event takes place. */
+  location?: string;
   /** An event's going mark and whether it was cancelled. */
   going?: boolean;
   cancelled?: boolean;
-  /** The event a reminder is for. */
+  /** The event a reminder is for, and when that event starts. */
   event_id?: string;
+  event_starts_at?: string;
 };
+
+/** Chosen sections as the active snapshot lists them, by CRN: where their sessions' types and rooms come from. */
+export type SectionDetails = ReadonlyMap<string, ResisSection>;
+
+/** The snapshot session a section meeting row came from, if the snapshot still lists it. */
+function sessionFor(section: ResisSection | undefined, meeting: Pick<Meeting, "weekday" | "start_minute" | "end_minute">) {
+  return section?.sessions?.find((session) =>
+    sessionMeetings(session).some(
+      (row) => row.weekday === meeting.weekday && row.start_minute === meeting.start_minute && row.end_minute === meeting.end_minute,
+    ),
+  );
+}
+
+const text = (value: string | null | undefined) => (value ?? "").replace(/\s+/g, " ").trim() || undefined;
 
 /** A saved event as getCalendarData reads it. */
 export type SavedCalendarEvent = PlannerEvent & {
@@ -56,16 +77,17 @@ export type SavedCalendarEvent = PlannerEvent & {
 const sideKey = (side: ConflictSide) =>
   side.kind === "meeting" ? `meeting-${side.meeting_id}` : side.kind === "item" ? `item-${side.item_id}` : `event-${side.event_id}`;
 
-type EventInfo = Pick<PlannerEvent, "id" | "title"> & Partial<Pick<SavedCalendarEvent, "going" | "cancelled">>;
+type EventInfo = Pick<PlannerEvent, "id" | "title"> & Partial<Pick<SavedCalendarEvent, "going" | "cancelled" | "location">>;
 
 /**
  * Turns timed occurrences into entries: classes and timed items of `plan`,
  * and events from `events`. Shared by getCalendarData and the week calendar,
- * so both name and link things alike.
+ * so both name and link things alike. `details` adds a section class's
+ * session type and room from the snapshot.
  */
 export function occurrenceEntries(
   occurrences: readonly CalendarOccurrence[],
-  { plan, events = [] }: { plan?: PlanDetails; events?: readonly EventInfo[] },
+  { plan, events = [], details }: { plan?: PlanDetails; events?: readonly EventInfo[]; details?: SectionDetails },
 ): CalendarDataEntry[] {
   const meetings = new Map(
     (plan?.courses ?? []).flatMap((planned) => planned.meetings.map((meeting) => [meeting.id, { planned, meeting }] as const)),
@@ -87,6 +109,10 @@ export function occurrenceEntries(
     };
     if (side.kind === "meeting") {
       const found = meetings.get(side.meeting_id);
+      const crn = found?.meeting.crn ?? null;
+      const chosen = crn ? found?.planned.sections?.find((section) => section.crn === crn) : undefined;
+      const detail = crn ? details?.get(crn) : undefined;
+      const session = found && detail ? sessionFor(detail, found.meeting) : undefined;
       return [
         {
           ...base,
@@ -97,7 +123,10 @@ export function occurrenceEntries(
           href: plan ? `/planner/${plan.id}#${anchor}` : "/planner",
           course_code: found?.planned.code,
           source: found?.meeting.source ?? "manual",
-          crn: found?.meeting.crn ?? null,
+          crn,
+          section: text(chosen?.section ?? detail?.section),
+          class_type: text(session?.type),
+          location: text(session?.location),
         },
       ];
     }
@@ -124,6 +153,7 @@ export function occurrenceEntries(
         title: event?.title ?? "An event",
         plan_id: null,
         href: `/events/${side.event_id}`,
+        location: text(event?.location),
         going: event?.going,
         cancelled: event?.cancelled,
       },
@@ -192,6 +222,7 @@ export function reminderEntry(event: SavedCalendarEvent): CalendarDataEntry | nu
     anchor: null,
     side: null,
     event_id: event.id,
+    event_starts_at: new Date(start).toISOString(),
   };
 }
 
@@ -222,16 +253,18 @@ export function calendarEntries({
   events,
   from,
   to,
+  details,
 }: {
   plans: readonly PlanDetails[];
   events: readonly SavedCalendarEvent[];
   from: string;
   to: string;
+  details?: SectionDetails;
 }): CalendarDataEntry[] {
   const entries: CalendarDataEntry[] = [];
 
   for (const plan of plans) {
-    entries.push(...occurrenceEntries(calendarOccurrences({ ...plan, events: [] }), { plan }));
+    entries.push(...occurrenceEntries(calendarOccurrences({ ...plan, events: [] }), { plan, details }));
     entries.push(...allDayItemEntries(plan));
   }
 
