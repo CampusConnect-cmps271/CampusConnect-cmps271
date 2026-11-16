@@ -31,6 +31,9 @@ export default async function AdminRolesPage() {
             <Link href="/admin/errors" className="font-semibold text-blue-700 hover:underline">
               View error dashboard
             </Link>
+            <Link href="/admin/health" className="font-semibold text-blue-700 hover:underline">
+              View system health
+            </Link>
             <Link href="/admin/availability" className="font-semibold text-blue-700 hover:underline">
               View availability dashboard
             </Link>

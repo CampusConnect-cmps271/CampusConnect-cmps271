@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { embedTexts, EMBEDDING_DIMENSIONS } from "../scripts/lib/gemini-embed.mjs";
-import { chunkEmbeddingText, courseEmbeddingText, pendingRows, runEmbedding } from "../scripts/embed-campus-content.mjs";
+import {
+  chunkEmbeddingText,
+  clubEmbeddingText,
+  courseEmbeddingText,
+  eventEmbeddingText,
+  pendingRows,
+  runEmbedding,
+} from "../scripts/embed-campus-content.mjs";
 
 const unit = (index) => Array.from({ length: EMBEDDING_DIMENSIONS }, (_, i) => (i === index ? 1 : 0));
 
@@ -104,21 +111,49 @@ describe("embedding text", () => {
   it("embeds a page chunk's text as it is", () => {
     assert.equal(chunkEmbeddingText({ text: "Libraries are open on weekdays." }), "Libraries are open on weekdays.");
   });
+
+  it("starts a club's text with its name, then its kind, and cuts it to 2000 characters", () => {
+    const text = clubEmbeddingText({ name: "Robotics Club", category: "Technology", description: "x".repeat(5000) });
+    assert.ok(text.startsWith("Robotics Club. Technology club."));
+    assert.equal(text.length, 2000);
+  });
+
+  it("starts an event's text with its title and organiser, names the place, and leaves the dates out", () => {
+    const text = eventEmbeddingText({
+      title: "Robot Demo Night",
+      club_name: "Robotics Club",
+      category: "Technology",
+      location: "Bliss Hall 204",
+      description: "Watch robots compete.",
+      starts_at: "2026-11-13T16:00:00Z",
+    });
+    assert.equal(text, "Robot Demo Night. Organised by Robotics Club. Technology event at Bliss Hall 204. Watch robots compete.");
+    assert.ok(!text.includes("2026"));
+  });
+
+  it("writes an event without an organiser cleanly and cuts it to 2000 characters", () => {
+    const base = { title: "Career Fair", club_name: null, category: "Careers", location: "Main Gate" };
+    assert.equal(eventEmbeddingText({ ...base, description: "Meet employers." }), "Career Fair. Careers event at Main Gate. Meet employers.");
+    assert.equal(eventEmbeddingText({ ...base, description: "x".repeat(5000) }).length, 2000);
+  });
 });
 
-/** Just enough of the supabase-js query builder: select/is/order/range reads, update/eq writes. */
+/** Just enough of the supabase-js query builder: select/eq/is/order/range reads, update/eq writes. */
 function fakeClient(tables) {
   const writes = [];
   const client = {
     writes,
     from(table) {
-      const state = { table, filterNull: false };
+      const state = { table, filterNull: false, equals: [] };
       const builder = {
         select() { return builder; },
+        eq(column, value) { state.equals.push([column, value]); return builder; },
         is(column, value) { state.filterNull = column === "embedding" && value === null; return builder; },
         order() { return builder; },
         range(from, to) {
-          const rows = tables[table].filter((row) => !state.filterNull || row.embedding == null);
+          const rows = (tables[table] ?? [])
+            .filter((row) => !state.filterNull || row.embedding == null)
+            .filter((row) => state.equals.every(([column, value]) => row[column] === value));
           return Promise.resolve({ data: rows.slice(from, to + 1), error: null });
         },
         update(values) {
@@ -135,6 +170,16 @@ describe("pendingRows and runEmbedding", () => {
   const tables = () => ({
     campus_source_chunks: [{ id: "a:0", text: "one", embedding: null }, { id: "a:1", text: "two", embedding: "[1]" }],
     courses: [{ code: "PSYC 201", name: "Social Psychology", department: "Psychology", description: "People.", embedding: null }],
+    clubs: [
+      { id: "c1", name: "Robotics Club", category: "Technology", description: "Robots.", verification_status: "verified", embedding: null },
+      { id: "c2", name: "Pending Club", category: "Arts", description: "Not yet verified.", verification_status: "pending", embedding: null },
+      { id: "c3", name: "Rejected Club", category: "Arts", description: "Turned down.", verification_status: "rejected", embedding: null },
+    ],
+    events: [
+      { id: "e1", title: "Robot Demo", description: "Demo.", location: "Bliss", category: "Technology", club_name: null, status: "published", embedding: null },
+      { id: "e2", title: "Secret Draft", description: "Draft.", location: "Bliss", category: "Technology", club_name: null, status: "draft", embedding: null },
+      { id: "e3", title: "Called Off", description: "Cancelled.", location: "Bliss", category: "Technology", club_name: null, status: "cancelled", embedding: null },
+    ],
   });
 
   it("reads only rows without an embedding unless asked for all", async () => {
@@ -148,13 +193,36 @@ describe("pendingRows and runEmbedding", () => {
     const embed = async (texts) => texts.map(() => unit(0));
     const counts = await runEmbedding(client, { dryRun: false, all: false, embed });
 
-    assert.deepEqual(counts, { chunks: 1, courses: 1 });
-    assert.equal(client.writes.length, 2);
+    assert.deepEqual(counts, { chunks: 1, courses: 1, clubs: 1, events: 1 });
+    assert.equal(client.writes.length, 4);
     assert.deepEqual(client.writes.map((write) => [write.table, write.column, write.value]), [
       ["campus_source_chunks", "id", "a:0"],
       ["courses", "code", "PSYC 201"],
+      ["clubs", "id", "c1"],
+      ["events", "id", "e1"],
     ]);
     assert.match(client.writes[0].values.embedding, /^\[1,0,/);
+  });
+
+  it("embeds only verified clubs and published events, so unpublished text never reaches the embedding service", async () => {
+    const client = fakeClient(tables());
+    const sent = [];
+    const embed = async (texts) => { sent.push(...texts); return texts.map(() => unit(0)); };
+    await runEmbedding(client, { dryRun: false, all: true, embed });
+
+    assert.deepEqual(
+      client.writes.filter((write) => write.table === "clubs" || write.table === "events").map((write) => write.value),
+      ["c1", "e1"],
+    );
+    for (const secret of ["Pending Club", "Rejected Club", "Secret Draft", "Called Off", "Not yet verified", "Draft."]) {
+      assert.ok(!sent.some((text) => text.includes(secret)), `${secret} must not be sent`);
+    }
+  });
+
+  it("filters clubs and events even when reading every row", async () => {
+    const client = fakeClient(tables());
+    assert.deepEqual((await pendingRows(client, "clubs", true)).map((row) => row.id), ["c1"]);
+    assert.deepEqual((await pendingRows(client, "events", true)).map((row) => row.id), ["e1"]);
   });
 
   it("saves each batch of 100 before embedding the next, so a failure keeps the progress", async () => {
@@ -176,7 +244,7 @@ describe("pendingRows and runEmbedding", () => {
     let embedCalls = 0;
     const counts = await runEmbedding(client, { dryRun: true, all: false, embed: async () => { embedCalls += 1; return []; } });
 
-    assert.deepEqual(counts, { chunks: 1, courses: 1 });
+    assert.deepEqual(counts, { chunks: 1, courses: 1, clubs: 1, events: 1 });
     assert.equal(client.writes.length, 0);
     assert.equal(embedCalls, 0);
   });
