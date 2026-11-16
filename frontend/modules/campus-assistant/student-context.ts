@@ -44,11 +44,18 @@ function clean(text: string | null | undefined, max = TEXT_MAX): string {
   return (text ?? "").replace(/[\p{Cc}\p{Cf}\s]+/gu, " ").trim().slice(0, max);
 }
 
+/** Names a meeting's zone when it is not Beirut, so its times are never read as Beirut times. */
+function zoneNote(timezone: string | null | undefined): string {
+  const zone = clean(timezone, 64);
+  return zone && zone !== "Asia/Beirut" ? ` (${zone} time)` : "";
+}
+
 function clock(minute: number): string {
   return `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
 }
 
-type Meeting = { weekday: number; start_minute: number; end_minute: number };
+/** A planned meeting. `timezone` is the IANA zone the student typed it in (Asia/Beirut unless they chose another). */
+type Meeting = { weekday: number; start_minute: number; end_minute: number; timezone?: string | null };
 type PlanRow = {
   id: string;
   term: string;
@@ -76,7 +83,7 @@ function planChunk(plan: PlanRow, now: Date, today: string): EvidenceChunk {
     .map((planned) => {
       const meetings = [...(planned.plan_meetings ?? [])]
         .sort((a, b) => a.weekday - b.weekday || a.start_minute - b.start_minute)
-        .map((meeting) => `${WEEKDAYS[meeting.weekday] ?? "?"} ${clock(meeting.start_minute)}-${clock(meeting.end_minute)}`);
+        .map((meeting) => `${WEEKDAYS[meeting.weekday] ?? "?"} ${clock(meeting.start_minute)}-${clock(meeting.end_minute)}${zoneNote(meeting.timezone)}`);
       const name = planned.courses ? `${clean(planned.courses.code, 20)} ${clean(planned.courses.name)}` : "Unavailable course";
       return `- ${name}: ${meetings.length > 0 ? meetings.join(", ") : "no meeting times entered"}`;
     });
@@ -164,7 +171,7 @@ export async function loadStudentContext(client: Client, userId: string, now: Da
         await client
           .from("semester_plans")
           .select(
-            "id, term, starts_on, ends_on, plan_courses(position, courses(code, name), plan_meetings(weekday, start_minute, end_minute)), plan_items(title, on_date, start_minute, end_minute)",
+            "id, term, starts_on, ends_on, plan_courses(position, courses(code, name), plan_meetings(weekday, start_minute, end_minute, timezone)), plan_items(title, on_date, start_minute, end_minute)",
           )
           .eq("student_id", userId)
           .gte("ends_on", today)

@@ -64,7 +64,10 @@ export function buildResisSnapshot(envelope, semesters) {
       const url = new URL(row.detailsURL);
       if (url.protocol === "https:" && url.hostname === "www-banner.aub.edu.lb" && !url.username && !url.password) detailsURL = url.href;
     }
-    const section = { crn: key, section: text(row.section, "section", 40), title: text(row.title, "title", 300),
+    const connected = strings(row.connected, "connected CRNs");
+    if (connected.some(crn => !/^\d+$/.test(crn))) throw new Error("Invalid connected CRN.");
+    const connectedLabels = connected.flatMap(crn => { const target=envelope.data[crn]; return target ? [`${target.subject} ${target.num} · Section ${target.section} · ${unique(target.sessions.map(s=>s.type).filter(Boolean)).join(" / ") || "Type unlisted"} · CRN ${crn}`] : []; });
+    const section = { connected_labels: connectedLabels, connected_crns: connected, crn: key, section: text(row.section, "section", 40), title: text(row.title, "title", 300),
       credits, instructors, attributes: strings(row.attributes, "attributes"),
       prerequisites: prerequisite(row.prerequisites), sessions, campus: typeof row.campus === "string" ? row.campus : "",
       details_url: detailsURL, source_updated_at: timestamp(row.lastUpdate),

@@ -188,3 +188,11 @@ describe("Resis semester import permissions and atomic publication", () => {
     });
   });
 });
+
+it("preserves explicit connected CRNs without guessing component types",()=>{
+ const envelope=fixture();envelope.data["20904"].connected=["20905"];
+ const snapshot=buildResisSnapshot(envelope,semester);
+ assert.deepEqual(snapshot.courses.find(c=>c.code==="CMPS 271").sections[0].connected_crns,["20905"]);
+ envelope.data["20904"].connected=["not a CRN"];
+ assert.throws(()=>buildResisSnapshot(envelope,semester),/Invalid connected CRN/);
+});

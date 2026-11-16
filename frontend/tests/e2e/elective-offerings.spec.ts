@@ -38,6 +38,13 @@ test("private semester and section choices persist, filter recommendations and c
   await expect(matches).toContainText("10:30–11:45");
   await expect(matches).not.toContainText("12:00–13:15");
   await expect(matches).not.toContainText("Fall Instructor");
+  const repeat=page.waitForResponse(r=>r.url().endsWith("/api/electives/recommendations")&&r.request().method()==="POST");
+  await page.getByRole("button",{name:"Get recommendations"}).click();
+  const cached=await repeat;
+  expect(cached.headers()["server-timing"]).toContain('catalogue_cache;desc="hit"');
+  expect(cached.headers()["server-timing"]).toContain("auth;dur=");
+  await expect(page.getByRole("status")).toHaveText("1 recommendation found.");
+
   await expect(page.getByRole("link", { name: "CMPS 240 · Operating Systems", exact: true })).toHaveAttribute("href", "/courses/CMPS-240?semester=202720");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: "/tmp/campusconnect-elective-offering-results.png", fullPage: true });
@@ -61,4 +68,31 @@ test("private semester and section choices persist, filter recommendations and c
   await page.getByRole("button", { name: "Get recommendations" }).click();
   await expect(page.getByRole("status")).toHaveText("1 recommendation found.");
   await expect(page.getByRole("region", { name: "Matching sections for CMPS 240" })).toHaveCount(0);
+});
+
+test("browse an attribute without placeholder interests, use day presets and reveal every course",async({page})=>{
+ test.setTimeout(60000);
+ await page.goto("/login");
+ await page.getByLabel("University email",{exact:true}).fill("recommendations-browse@mail.aub.edu");
+ await page.getByLabel("Password",{exact:true}).fill("test-verified-password");
+ await page.getByRole("button",{name:"Log in",exact:true}).click();await expect(page).toHaveURL(/\/home$/);
+ await page.goto("/electives/preferences");
+ await page.getByLabel("Semester",{exact:true}).selectOption("202720");
+ await page.getByLabel("Required course attributes",{exact:true}).fill("Culture and History");
+ await page.getByRole("button",{name:"MWF",exact:true}).click();await expect(page.getByLabel("Friday",{exact:true})).toBeChecked();
+ await page.getByRole("button",{name:"TR",exact:true}).click();await expect(page.getByLabel("Thursday",{exact:true})).toBeChecked();await expect(page.getByLabel("Friday",{exact:true})).not.toBeChecked();
+ await page.getByRole("button",{name:"MW",exact:true}).click();
+ await page.getByRole("button",{name:"Save preferences"}).click();await expect(page.getByRole("status")).toHaveText("Preferences saved.");
+ await page.reload();await expect(page.getByLabel("Interests",{exact:true})).toHaveValue("");await expect(page.getByLabel("Academic goals",{exact:true})).toHaveValue("");
+ await page.getByRole("link",{name:"View elective recommendations →"}).click();
+ const response=page.waitForResponse(r=>r.url().endsWith("/api/electives/recommendations") && r.request().method()==="POST");
+ await page.getByRole("button",{name:"Browse matching courses"}).click();expect((await response).status()).toBe(200);
+ await expect(page.getByRole("status")).toHaveText("53 matching courses found.");
+ await expect(page.locator("article")).toHaveCount(24);
+ await expect(page.locator("article").first()).toContainText("Study culture, history and societies.");
+ await expect(page.locator("article").first()).toContainText("75 min");await expect(page.locator("article").first()).toContainText("Linked CRNs: 29999");
+ await page.getByRole("button",{name:/Show more courses/}).click();await expect(page.locator("article")).toHaveCount(48);
+ await page.getByRole("button",{name:/Show more courses/}).click();await expect(page.locator("article")).toHaveCount(53);
+ await page.setViewportSize({width:375,height:812});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.locator("article").first().screenshot({path:"/tmp/campusconnect-attribute-browse.png"});
 });

@@ -1,0 +1,54 @@
+{
+  "date": "2026-11-14T09:27:01.561Z",
+  "sdk": "@upstash/redis 1.41.0",
+  "environment": "Local machine to Tokyo Upstash; actual network, synthetic candidate data, no Supabase or Resis calls",
+  "ttlMs": 29283,
+  "backgroundWriteMs": 462.023913,
+  "results": [
+    {
+      "scenario": "cold",
+      "elapsedMs": 894.3162159999999,
+      "loaderCalls": 1,
+      "diagnostics": {
+        "cache": "miss",
+        "dbRequests": 1,
+        "responseBytes": 100,
+        "queryMs": 0,
+        "cacheTier": "database",
+        "redisMs": 890.4697020000001,
+        "redisRead": "miss",
+        "redisWrite": "scheduled"
+      }
+    },
+    {
+      "scenario": "memory",
+      "elapsedMs": 0.8464640000001964,
+      "loaderCalls": 0,
+      "diagnostics": {
+        "cache": "hit",
+        "cacheTier": "memory",
+        "dbRequests": 0,
+        "responseBytes": 0,
+        "queryMs": 0,
+        "redisMs": 0,
+        "redisRead": "not_checked",
+        "redisWrite": "not_checked"
+      }
+    },
+    {
+      "scenario": "independent_instance",
+      "elapsedMs": 378.7636540000001,
+      "loaderCalls": 0,
+      "diagnostics": {
+        "cache": "hit",
+        "cacheTier": "redis",
+        "dbRequests": 0,
+        "responseBytes": 0,
+        "queryMs": 0,
+        "redisMs": 377.79411400000004,
+        "redisRead": "hit",
+        "redisWrite": "not_checked"
+      }
+    }
+  ]
+}

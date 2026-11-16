@@ -1,106 +1,42 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ user: vi.fn(), from: vi.fn() }));
-vi.mock("server-only", () => ({}));
-vi.mock("@/modules/auth", () => ({ requireUser: mocks.user }));
-vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ from: mocks.from }) }));
-import type { SemesterOffering } from "@/modules/courses/semesters";
+const m=vi.hoisted(()=>({user:vi.fn(),rpc:vi.fn()}));
+vi.mock("server-only",()=>({}));
+vi.mock("@/modules/auth",()=>({requireUser:m.user}));
+vi.mock("@/lib/supabase/server",()=>({createClient:async()=>({rpc:m.rpc})}));
 import { loadCandidates } from "./catalogue";
-
-const course = (index: number) => ({ id: `course-${index}`, code: `COURSE ${String(index).padStart(4, "0")}`, name: "Synthetic course", description: "", department: "Testing", prerequisites: "", credits: 3 });
-let rows: (ReturnType<typeof course> & Partial<SemesterOffering>)[];
-let ranges: number[][];
-let batches: string[][];
-let failRatings: "error" | "throw" | null;
-let active: number;
-let maximumActive: number;
-beforeEach(() => {
-  vi.clearAllMocks();
-  mocks.user.mockResolvedValue({ id: "owner" });
-  rows = Array.from({ length: 2381 }, (_, index) => course(index));
-  ranges = []; batches = []; failRatings = null; active = 0; maximumActive = 0;
-  mocks.from.mockImplementation((table: string) => ({ select: () => table === "courses" || table === "course_semester_catalogue" ? {
-    eq: (column: string, value: string) => {
-      expect(column).toBe("semester_id");
-      expect(value).toBe("202720");
-      return { order: () => ({ range: async (start: number, end: number) => ({ data: rows.filter(row => row.semester_id === value).slice(start, end + 1), error: null }) }) };
-    },
-    order: () => ({ range: async (start: number, end: number) => {
-      ranges.push([start, end]);
-      return { data: rows.slice(start, end + 1), error: null };
-    } }),
-  } : {
-    in: async (_column: string, ids: string[]) => {
-      batches.push(ids); active++; maximumActive = Math.max(maximumActive, active);
-      await new Promise(resolve => setTimeout(resolve, 0));
-      active--;
-      if (failRatings === "throw") throw new Error("Synthetic transport failure");
-      if (failRatings === "error") return { data: null, error: { code: "42501" } };
-      return { data: ids.map(id => ({ course_id: id, review_count: "3", average_workload: "2.5", average_overall: null })), error: null };
-    },
-  } }));
+import { candidateCache } from "./candidate-cache";
+const preferences={interests:["software security"],preferred_workload:"moderate" as const,academic_goals:"Learn",completed_course_codes:[]};
+const course=(i:number)=>({id:`course-${i}`,code:`CMPS ${i}`,name:"Software Security",description:"Security and software",department:"Computing",prerequisites:"CMPS 101",credits:3,review_count:3,average_workload:2.5,average_overall:4});
+beforeEach(()=>{vi.clearAllMocks();candidateCache.clear();m.user.mockResolvedValue({id:"owner"});m.rpc.mockResolvedValue({data:{catalogue_count:3380,candidate_count:1,courses:[course(200)]},error:null});});
+it("retrieves filtered candidates and ratings in one request while retaining the full scope count",async()=>{
+  const result=await loadCandidates(preferences);
+  expect(m.rpc).toHaveBeenCalledOnce();
+  expect(m.rpc).toHaveBeenCalledWith("elective_candidate_page",{p_groups:[["software","security"]],p_filters:{},p_offset:0,p_limit:1000});
+  expect(result).toMatchObject({catalogueCount:3380,truncated:false,courses:[{review_count:3,average_workload:2.5}],diagnostics:{cache:"miss",dbRequests:1}});
 });
-it("loads a realistic catalogue in three pages with bounded concurrent rating reads", async () => {
-  const result = await loadCandidates();
-  expect(ranges).toEqual([[0, 999], [1000, 1999], [2000, 2999]]);
-  expect(result.courses).toHaveLength(2381);
-  expect(result.truncated).toBe(false);
-  expect(maximumActive).toBe(4);
-  expect(batches.flat()).toEqual(rows.map(row => row.id));
-  expect(batches.every(batch => batch.length <= 100)).toBe(true);
-  expect(result.courses[2380]).toMatchObject({ review_count: 3, average_workload: 2.5, average_overall: null });
+it("pages through more than 5000 matching courses without a cutoff",async()=>{
+  const rows=Array.from({length:6001},(_,i)=>course(i));
+  m.rpc.mockImplementation(async(_name,args)=>({data:{catalogue_count:6001,candidate_count:6001,courses:rows.slice(args.p_offset,args.p_offset+1000)},error:null}));
+  expect((await loadCandidates()).courses).toHaveLength(6001);expect(m.rpc).toHaveBeenCalledTimes(7);
 });
-it.each(["error", "throw"] as const)("keeps unavailable rating data unknown on %s", async failure => {
-  rows = rows.slice(0, 2); failRatings = failure;
-  const result = await loadCandidates();
-  expect(result.courses).toHaveLength(2);
-  expect(result.courses[0]).toMatchObject({ review_count: null, average_workload: null, average_overall: null });
+it("rejects substring and partial-group false positives after the coarse database filter",async()=>{
+  m.rpc.mockResolvedValue({data:{catalogue_count:3380,candidate_count:2,courses:[{...course(200),name:"Software Security",description:""},{...course(201),name:"Softwares security",description:""}]},error:null});
+  expect((await loadCandidates(preferences)).courses.map(c=>c.code)).toEqual(["CMPS 200"]);
 });
-it("searches beyond 5,000 courses and includes departments late in the catalogue", async () => {
-  rows = Array.from({ length: 6001 }, (_, index) => course(index));
-  rows[6000] = { ...course(6000), code: "EECE 699", department: "Electrical and Computer Engineering" };
-  const result = await loadCandidates();
-  expect(result.courses).toHaveLength(6001);
-  expect(result.truncated).toBe(false);
-  expect(result.courses[6000].code).toBe("EECE 699");
-  expect(batches.flat()).toContain("course-6000");
+it("authenticates every cache hit and keeps students and choices isolated",async()=>{
+  expect((await loadCandidates(preferences)).diagnostics.cache).toBe("miss");
+  expect((await loadCandidates(preferences)).diagnostics).toMatchObject({cache:"hit",dbRequests:0,responseBytes:0});
+  expect(m.user).toHaveBeenCalledTimes(2);expect(m.rpc).toHaveBeenCalledOnce();
+  m.user.mockResolvedValue({id:"other"});await loadCandidates(preferences);expect(m.rpc).toHaveBeenCalledTimes(2);
+  await loadCandidates({...preferences,interests:["cryptography"]});expect(m.rpc).toHaveBeenCalledTimes(3);
+  m.user.mockRejectedValue(new Error("redirect"));await expect(loadCandidates(preferences)).rejects.toThrow("redirect");expect(m.rpc).toHaveBeenCalledTimes(3);
 });
-it("requires authentication before reading catalogue data", async () => {
-  mocks.user.mockRejectedValue(new Error("redirect"));
-  await expect(loadCandidates()).rejects.toThrow("redirect");
-  expect(mocks.from).not.toHaveBeenCalled();
+it("does not cache errors or leak private database error messages",async()=>{
+  m.rpc.mockResolvedValueOnce({data:null,error:{message:"private SQL details"}});
+  await expect(loadCandidates(preferences)).rejects.toThrow("The course catalogue is temporarily unavailable.");
+  expect((await loadCandidates(preferences)).courses).toHaveLength(1);expect(m.rpc).toHaveBeenCalledTimes(2);
 });
-it("only loads ratings for complete interest matches while searching every catalogue page", async () => {
-  rows[5] = { ...rows[5], name: "Software engineering", description: "Security testing" };
-  rows[8] = { ...rows[8], name: "Software engineering" };
-  rows[9] = { ...rows[9], code: "CMPS 243", name: "Software security" };
-  rows[2380] = { ...rows[2380], code: "EECE 699", name: "Cryptography" };
-  const result = await loadCandidates({ interests: ["software security", "cryptography"], completed_course_codes: ["CMPS 243"], preferred_workload: "moderate", academic_goals: "security" });
-  expect(ranges).toEqual([[0, 999], [1000, 1999], [2000, 2999]]);
-  expect(result.courses).toHaveLength(2381);
-  expect(batches).toEqual([["course-5", "course-2380"]]);
-  expect(result.courses[5].review_count).toBe(3);
-  expect(result.courses[2380].review_count).toBe(3);
-  expect(result.courses[8].review_count).toBeNull();
-  expect(result.courses[9].review_count).toBeNull();
-});
-it("skips rating requests entirely when no complete interest group matches", async () => {
-  const result = await loadCandidates({ interests: ["software security"], completed_course_codes: [], preferred_workload: "moderate", academic_goals: "security" });
-  expect(result.courses).toHaveLength(2381);
-  expect(batches).toEqual([]);
-  expect(mocks.from).toHaveBeenCalledTimes(3);
-});
-
-it("loads only the selected semester and carries the matching section facts into candidates", async () => {
-  const section = { crn: "20904", section: "1", title: "Robotics", credits: 3, instructors: ["Alice"], attributes: ["Science"],
-    prerequisites: "CMPS 101", campus: "Main", details_url: null, source_updated_at: null, restrictions: null,
-    sessions: [{ days: "MW", start: "09:00", end: "10:15", location: "Test Hall", instructor: "Alice", type: "Lecture" }] };
-  rows = [{ ...course(0), name: "Robotics", semester_id: "202720", semester_name: "Spring 2026-2027", synced_at: "2026-11-08T00:00:00Z", sections: [section] },
-    { ...course(1), name: "Robotics", semester_id: "202710", sections: [section] },
-    { ...course(2), name: "Robotics", semester_id: "202720", sections: [{ ...section, instructors: ["Bob"] }] }];
-  const result = await loadCandidates({ interests: ["robotics"], preferred_workload: "light", academic_goals: "Learn", completed_course_codes: [],
-    offering_preferences: { semester_id: "202720", instructors: ["Alice"], earliest_start: "09:00", latest_end: "10:15" } });
-  expect(result.courses.map(row => row.id)).toEqual(["course-0"]);
-  expect(result.courses[0].offering?.sections[0].crn).toBe("20904");
-  expect(batches).toEqual([["course-0"]]);
-  expect(mocks.from).toHaveBeenCalledWith("course_semester_catalogue");
+it("retains unknown ratings and handles zero candidates without a ratings round trip",async()=>{
+  m.rpc.mockResolvedValue({data:{catalogue_count:3380,candidate_count:0,courses:[]},error:null});
+  expect(await loadCandidates(preferences)).toMatchObject({courses:[],catalogueCount:3380});expect(m.rpc).toHaveBeenCalledOnce();
 });
