@@ -15,6 +15,7 @@ const students = {
   incomplete: "planner-incomplete@mail.aub.edu",
   zones: "planner-zones@mail.aub.edu",
   calendar: "planner-calendar@mail.aub.edu",
+  sections: "planner-sections@mail.aub.edu",
 };
 
 const PLAN_URL = /\/planner\/[0-9a-f-]{36}$/;
@@ -62,7 +63,7 @@ test("a fresh student plans a semester from /planner and it survives a reload", 
     await page.goto("/planner");
     await expect(page.getByRole("heading", { level: 1, name: "Semester planner" })).toBeVisible();
     await expect(page.getByText("You have no plans yet.")).toBeVisible();
-    await expect(page.getByText("Times in your plans are what you typed, not the official AUB schedule.")).toBeVisible();
+    await expect(page.getByText(/^Times you type are tentative\. A chosen section's times come from AUB's schedule/)).toBeVisible();
   });
 
   await test.step("a Spring 2027 plan uses the official calendar dates", async () => {
@@ -161,7 +162,7 @@ test("meetings can be added and edited, and invalid ones are refused inline", as
     await course.getByRole("button", { name: "Save meeting" }).click();
 
     await expect(course.getByText("Tue 09:30–10:45 (Asia/Beirut)")).toBeVisible();
-    await expect(course.getByText("Tentative, entered by you")).toHaveCount(0);
+    await expect(course.getByText("Tentative, entered by you")).toBeVisible();
     await expect(course.getByText("No times yet.")).toHaveCount(0);
   });
 
@@ -492,5 +493,82 @@ test("the calendar shows classes, own items and events you're going to, and flag
     await expect(page).toHaveURL(/\?week=2027-02-22#calendar$/);
     await expect(calendar(page).getByText("22–28 Feb 2027")).toBeVisible();
     await expect(calendar(page).getByText("Week 7 of classes")).toBeVisible();
+  });
+});
+
+// SCRUM-243: class times from sections of AUB's imported schedule. The mock's
+// sections are synthetic (mock-planner.mjs), not AUB's schedule.
+test("a linked plan fills class times from the chosen section, and typed times stay separate", async ({ page }) => {
+  await logIn(page, students.sections);
+  await createPlan(page, "Spring 2027");
+  const picker = (code: string) => page.getByRole("region", { name: `Choose a section of ${code}` });
+
+  await test.step("the new plan links itself to the imported Spring 2026-2027 schedule", async () => {
+    await expect(page.getByText(/^Class times from AUB's Spring 2026-2027 schedule, imported 8 Nov 2026 via Resis\./)).toBeVisible();
+    await expect(page.getByRole("link", { name: "Resis" })).toHaveAttribute("href", "https://resis.org/");
+  });
+
+  await test.step("search says which courses the imported schedule has", async () => {
+    await search(page, "MATH");
+    const results = page.getByRole("list", { name: "Courses matching MATH" });
+    await expect(results.getByRole("listitem").filter({ hasText: "MATH 202" })).toContainText("3 sections in Spring 2026-2027");
+    await expect(results.getByRole("listitem").filter({ hasText: "MATH 201" })).toContainText(
+      "Not in the imported Spring 2026-2027 schedule",
+    );
+  });
+
+  await test.step("adding an offered course opens its section picker, with the linked recitation offered", async () => {
+    await page.getByRole("button", { name: "Add MATH 202 to this plan" }).click();
+    await expect(page).toHaveURL(/\?sections=[0-9a-f-]{36}#course-/, { timeout: 20_000 });
+    await expect(picker("MATH 202")).toBeVisible();
+    await expect(picker("MATH 202").getByText("3 sections in AUB's Spring 2026-2027 schedule (from Resis).", { exact: false })).toBeVisible();
+    await picker("MATH 202").getByLabel(/^Section 2 · CRN 90012 · Lecture/).check();
+    const linked = picker("MATH 202").getByRole("group", { name: "Section 2's recitation, CRN 90013, is linked to it. Add it too?" });
+    await expect(linked.getByRole("checkbox")).toBeChecked();
+    await picker("MATH 202").getByRole("button", { name: "Use this section" }).click();
+  });
+
+  await test.step("its days and times fill in from the schedule, named as such", async () => {
+    await expect(page).toHaveURL(/\?chosen=[0-9a-f-]{36}#course-/, { timeout: 20_000 });
+    const course = planned(page, "MATH 202");
+    await expect(course.getByText("Section times added from AUB's schedule.")).toBeVisible();
+    await expect(course.getByText("From AUB's schedule (Resis)", { exact: false })).toBeVisible();
+    await expect(course.getByText("Section 2 · CRN 90012")).toBeVisible();
+    await expect(course.getByText("Section E1 · CRN 90013")).toBeVisible();
+    await expect(course.getByText("Tue 11:00–12:15")).toBeVisible();
+    await expect(course.getByText("Wed 16:00–16:50")).toBeVisible();
+    await expect(course.getByRole("button", { name: /^Edit meeting/ })).toHaveCount(0);
+  });
+
+  await test.step("a course with one section gets it straight away", async () => {
+    await search(page, "CMPS 240");
+    await page.getByRole("button", { name: "Add CMPS 240 to this plan" }).click();
+    await expect(page.getByText("Added. It has one section in AUB's schedule, so it was chosen: Section 1 (CRN 90021).")).toBeVisible();
+    await expect(planned(page, "CMPS 240").getByText("Thu 14:00–15:15")).toBeVisible();
+  });
+
+  await test.step("a course the schedule doesn't have takes typed times, and overlaps are still found", async () => {
+    await addCourse(page, "MATH 201", "MATH 201");
+    await addMeeting(page, "MATH 201", "2", "11:30", "12:30");
+    await expect(planned(page, "MATH 201").getByText("Tentative, entered by you", { exact: false })).toBeVisible();
+    await expect(status(page)).toHaveText("1 conflict found");
+    await expect(conflictLine(page, "MATH 202 and MATH 201 overlap on Tuesday 11:30–12:15 (Beirut time), every week.")).toBeVisible();
+  });
+
+  await test.step("switching a course back to typed times removes its section times", async () => {
+    await planned(page, "MATH 202").getByRole("button", { name: "Use typed times for MATH 202 instead of its sections" }).click();
+    await expect(planned(page, "MATH 202").getByText("No times yet.")).toBeVisible();
+    await expect(planned(page, "MATH 202").getByRole("link", { name: "Choose a section of MATH 202" })).toBeVisible();
+    await expect(status(page)).not.toHaveText("1 conflict found");
+  });
+
+  await test.step("the picker works at phone width without sideways scrolling", async () => {
+    await page.setViewportSize({ width: 375, height: 800 });
+    await planned(page, "MATH 202").getByRole("link", { name: "Choose a section of MATH 202" }).click();
+    await expect(picker("MATH 202")).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+    await picker("MATH 202").getByRole("link", { name: "Cancel" }).click();
+    await expect(picker("MATH 202")).toHaveCount(0);
   });
 });

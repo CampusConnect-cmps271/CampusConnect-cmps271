@@ -21,7 +21,54 @@ export const plannerTestAccounts = {
   "planner-zones@mail.aub.edu": "00000000-0000-4000-8000-00000000030a",
   // The calendar: own items and events the student is going to.
   "planner-calendar@mail.aub.edu": "00000000-0000-4000-8000-00000000030b",
+  // SCRUM-243: class times from sections of the imported schedule.
+  "planner-sections@mail.aub.edu": "00000000-0000-4000-8000-00000000030c",
 };
+
+// SCRUM-243. Only this student's new plans link themselves to an imported
+// semester, as the database's insert trigger would, so the other planner
+// tests keep their unlinked plans.
+const LINKING_STUDENT = plannerTestAccounts["planner-sections@mail.aub.edu"];
+const SEMESTERS = {
+  "202720": { id: "202720", name: "Spring 2026-2027", synced_at: "2026-11-08T00:00:00Z", import_id: "00000000-0000-4000-a000-000000202720" },
+};
+const TERM_SEMESTER = { "Spring 2027": "202720" };
+
+// Synthetic sections, NOT AUB's schedule: MATH 202 has two lectures sharing
+// one recitation, CMPS 240 has a single section, MATH 201 isn't offered.
+const lecture = (days, start, end) => ({ days, start, end, type: "Lecture", location: "Test Hall 101", instructor: "Test Instructor" });
+const OFFERINGS = {
+  "MATH 202": [
+    { crn: "90011", section: "1", sessions: [lecture("MWF", "09:00", "09:50")], instructors: ["Test Instructor"], connected_crns: ["90013"] },
+    { crn: "90012", section: "2", sessions: [lecture("TR", "11:00", "12:15")], instructors: ["Test Instructor"], connected_crns: ["90013"] },
+    {
+      crn: "90013",
+      section: "E1",
+      sessions: [{ days: "W", start: "16:00", end: "16:50", type: "Recitation", location: "Test Hall 102", instructor: "Test Assistant" }],
+      instructors: ["Test Assistant"],
+      connected_crns: ["90011", "90012"],
+    },
+  ],
+  "CMPS 240": [{ crn: "90021", section: "1", sessions: [lecture("TR", "14:00", "15:15")], instructors: ["Test Instructor"], connected_crns: [] }],
+};
+const offeringFor = (courseId) => {
+  const code = courses.find((course) => course.id === courseId)?.code;
+  return code ? OFFERINGS[code] : undefined;
+};
+
+/** public.planner_resis_session_rows, for the mock: one row per weekday letter, none for TBA. */
+function sessionRows(session) {
+  const days = (session.days ?? "").replace(/\s/g, "");
+  const time = (value) => /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value ?? "");
+  const start = time(session.start);
+  const end = time(session.end);
+  if (!/^[MTWRFSU]+$/.test(days) || !start || !end) return [];
+  const [startMinute, endMinute] = [Number(start[1]) * 60 + Number(start[2]), Number(end[1]) * 60 + Number(end[2])];
+  if (endMinute <= startMinute) return [];
+  return [...new Set(days)].map((letter) => ({ weekday: "MTWRFSU".indexOf(letter) + 1, start_minute: startMinute, end_minute: endMinute }));
+}
+
+const sectionLinks = [];
 
 // Synthetic published events that planner-calendar has saved. Not real AUB
 // events. Tue 16 Feb 2027 10:00-11:00 and Wed 17 Feb 2027 13:00-15:00 Beirut.
@@ -96,6 +143,7 @@ function removeWhere(rows, predicate) {
 function deletePlanCourses(predicate) {
   const removed = removeWhere(planCourses, predicate);
   removeWhere(meetings, (meeting) => removed.some((planned) => planned.id === meeting.plan_course_id));
+  removeWhere(sectionLinks, (link) => removed.some((planned) => planned.id === link.plan_course_id));
   // plan_items.plan_course_id is "on delete set null".
   for (const item of items) if (removed.some((planned) => planned.id === item.plan_course_id)) item.plan_course_id = null;
   return removed;
@@ -122,8 +170,11 @@ function itemProblem(item) {
 
 /** A plan with its courses, catalogue values and meetings embedded. */
 function planWithCourses(plan) {
+  const semester = plan.resis_semester_id ? SEMESTERS[plan.resis_semester_id] : null;
   return {
     ...plan,
+    resis_semester_id: plan.resis_semester_id ?? null,
+    resis_semesters: semester ? { id: semester.id, name: semester.name, synced_at: semester.synced_at } : null,
     plan_courses: planCourses
       .filter((planned) => planned.plan_id === plan.id)
       .map((planned) => {
@@ -134,6 +185,7 @@ function planWithCourses(plan) {
           position: planned.position,
           courses: course && { code: course.code, name: course.name, credits: course.credits },
           plan_meetings: meetings.filter((meeting) => meeting.plan_course_id === planned.id),
+          plan_course_sections: sectionLinks.filter((link) => link.plan_course_id === planned.id),
         };
       }),
     plan_items: items.filter((item) => item.plan_id === plan.id),
@@ -181,6 +233,10 @@ export async function handlePlanner(request, response, url, claims) {
     "/rest/v1/saved_events",
     "/rest/v1/going_events",
     "/rest/v1/rpc/reorder_plan_courses",
+    "/rest/v1/course_offerings",
+    "/rest/v1/rpc/planner_offered_sections",
+    "/rest/v1/rpc/planner_section_changes",
+    "/rest/v1/rpc/planner_choose_sections",
   ];
   if (!tables.includes(path)) return false;
 
@@ -206,9 +262,26 @@ export async function handlePlanner(request, response, url, claims) {
         return fail(response, 409, "23505", "duplicate key value violates unique constraint"), true;
       }
       if (mine.length >= 10) return fail(response, 400, "54000", "A student can keep at most 10 semester plans"), true;
-      const plan = { id: randomUUID(), student_id: userId, term: input.term, starts_on: input.starts_on, ends_on: input.ends_on };
+      const plan = {
+        id: randomUUID(),
+        student_id: userId,
+        term: input.term,
+        starts_on: input.starts_on,
+        ends_on: input.ends_on,
+        resis_semester_id: userId === LINKING_STUDENT ? (TERM_SEMESTER[input.term] ?? null) : null,
+      };
       plans.push(plan);
       return respond(request, response, 201, [plan]), true;
+    }
+    if (method === "PATCH") {
+      const plan = ownedPlan(eq(params, "id"), userId);
+      if (!plan) return respond(request, response, 200, []), true;
+      const { resis_semester_id: semesterId } = await readBody(request);
+      if (semesterId && !SEMESTERS[semesterId]) {
+        return fail(response, 403, "42501", "new row violates row-level security policy"), true;
+      }
+      plan.resis_semester_id = semesterId ?? null;
+      return respond(request, response, 200, [plan]), true;
     }
     if (method === "DELETE") {
       const removed = removeWhere(plans, (plan) => plan.id === eq(params, "id") && plan.student_id === userId);
@@ -248,7 +321,8 @@ export async function handlePlanner(request, response, url, claims) {
         position: Math.max(0, ...inPlan.map((row) => row.position)) + 1,
       };
       planCourses.push(planned);
-      return respond(request, response, 201, [planned]), true;
+      const plan = plans.find((row) => row.id === input.plan_id);
+      return respond(request, response, 201, [{ ...planned, semester_plans: { resis_semester_id: plan?.resis_semester_id ?? null } }]), true;
     }
     if (method === "DELETE") {
       const removed = deletePlanCourses(
@@ -264,10 +338,16 @@ export async function handlePlanner(request, response, url, claims) {
       if (!ownedPlanCourse(input.plan_course_id, userId)) {
         return fail(response, 403, "42501", "new row violates row-level security policy"), true;
       }
-      const meeting = { id: randomUUID(), timezone: "Asia/Beirut", source: "manual", ...input };
+      if (input.source && input.source !== "manual") {
+        return fail(response, 403, "42501", "new row violates row-level security policy"), true;
+      }
+      if (sectionLinks.some((link) => link.plan_course_id === input.plan_course_id)) {
+        return fail(response, 400, "55000", "This course takes its times from AUB sections"), true;
+      }
+      const meeting = { id: randomUUID(), timezone: "Asia/Beirut", source: "manual", crn: null, ...input };
       const problem = meetingProblem(meeting);
       if (problem) return fail(response, problem === "23505" ? 409 : 400, problem, "rejected meeting"), true;
-      if (meetings.filter((row) => row.plan_course_id === meeting.plan_course_id).length >= 7) {
+      if (meetings.filter((row) => row.plan_course_id === meeting.plan_course_id && row.source === "manual").length >= 7) {
         return fail(response, 400, "54000", "A planned course can have at most 7 meetings"), true;
       }
       meetings.push(meeting);
@@ -356,6 +436,60 @@ export async function handlePlanner(request, response, url, claims) {
       const removed = removeWhere(going, (mark) => mark.student_id === userId && mark.event_id === eq(params, "event_id"));
       return send(response, 200, removed), true;
     }
+  }
+
+  // SCRUM-243: the active snapshot's sections, readable by any signed-in student.
+  if (path === "/rest/v1/course_offerings" && method === "GET") {
+    const semester = Object.values(SEMESTERS).find((row) => row.import_id === eq(params, "import_id"));
+    const sections = semester ? offeringFor(eq(params, "course_id")) : undefined;
+    return respond(request, response, 200, sections ? [{ sections }] : []), true;
+  }
+
+  if (path === "/rest/v1/rpc/planner_offered_sections" && method === "POST") {
+    const { p_semester_id: semesterId, p_course_ids: courseIds = [] } = await readBody(request);
+    const rows = SEMESTERS[semesterId]
+      ? courseIds.flatMap((courseId) => (offeringFor(courseId) ? [{ course_id: courseId, section_count: offeringFor(courseId).length }] : []))
+      : [];
+    return send(response, 200, rows), true;
+  }
+
+  // Every chosen section here comes from the one active snapshot, so nothing changes.
+  if (path === "/rest/v1/rpc/planner_section_changes" && method === "POST") {
+    return send(response, 200, []), true;
+  }
+
+  // planner_choose_sections: its checks and the rows it writes, in miniature.
+  if (path === "/rest/v1/rpc/planner_choose_sections" && method === "POST") {
+    const { p_plan_course_id: planCourseId, p_crns: requested = [] } = await readBody(request);
+    const planned = ownedPlanCourse(planCourseId, userId);
+    if (!planned) return fail(response, 403, "42501", "That course is not in one of your plans"), true;
+    const crns = [...new Set(requested)];
+    if (crns.some((crn) => !/^\d{1,10}$/.test(crn))) return fail(response, 400, "22023", "A CRN is a number"), true;
+    if (crns.length > 4) return fail(response, 400, "54000", "Choose at most 4 sections"), true;
+    if (crns.length === 0) {
+      removeWhere(meetings, (meeting) => meeting.plan_course_id === planCourseId && meeting.source === "resis");
+      removeWhere(sectionLinks, (link) => link.plan_course_id === planCourseId);
+      return send(response, 200, 0), true;
+    }
+    const plan = plans.find((row) => row.id === planned.plan_id);
+    const semester = plan?.resis_semester_id ? SEMESTERS[plan.resis_semester_id] : null;
+    if (!semester) return fail(response, 400, "55000", "Link this plan to an imported semester first"), true;
+    const chosen = (offeringFor(planned.course_id) ?? []).filter((section) => crns.includes(section.crn));
+    if (chosen.length !== crns.length) return fail(response, 400, "22023", "Each CRN must be a section of this course"), true;
+
+    removeWhere(meetings, (meeting) => meeting.plan_course_id === planCourseId);
+    removeWhere(sectionLinks, (link) => link.plan_course_id === planCourseId);
+    const seen = new Set();
+    for (const section of [...chosen].sort((a, b) => a.crn.localeCompare(b.crn))) {
+      sectionLinks.push({ plan_course_id: planCourseId, crn: section.crn, section: section.section, semester_id: semester.id });
+      for (const row of section.sessions.flatMap(sessionRows)) {
+        const key = [row.weekday, row.start_minute, row.end_minute].join("|");
+        if (seen.has(key)) continue;
+        seen.add(key);
+        meetings.push({ id: randomUUID(), plan_course_id: planCourseId, ...row, timezone: "Asia/Beirut", source: "resis", crn: section.crn });
+      }
+    }
+    return send(response, 200, seen.size), true;
   }
 
   if (path === "/rest/v1/rpc/reorder_plan_courses" && method === "POST") {
