@@ -5,7 +5,7 @@ import { log } from "@/modules/logging";
 
 export type ImportedSemester = { id: string; name: string; synced_at: string };
 export type CourseSection = {
-  crn: string; section: string; title: string; credits: number;
+  connected_labels?: string[]; connected_crns?: string[]; crn: string; section: string; title: string; credits: number;
   instructors: string[]; attributes: string[]; prerequisites: string | null;
   sessions: { days: string; start: string; end: string; type: string; location: string; instructor: string }[];
   campus: string; details_url: string | null; source_updated_at: string | null;

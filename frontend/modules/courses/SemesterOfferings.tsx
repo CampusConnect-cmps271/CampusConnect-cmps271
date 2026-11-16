@@ -1,3 +1,4 @@
+import { SectionConnections, meetingDuration } from "./SectionConnections";
 import { getSemesterOfferings } from "./semesters";
 import styles from "./courses.module.css";
 
@@ -36,7 +37,7 @@ export async function SemesterOfferings({ courseId, semester }: { courseId: stri
                 {section.sessions.length ? section.sessions.map((session, index) => <span key={index} className={styles.meetingSlot}>
                   <span className={styles.meetingType}>{session.type || "Meeting"}</span>
                   <span className={styles.meetingDays}>{meetingDays(session.days)}</span>
-                  <span className={styles.meetingTime}>{session.start || "TBA"}–{session.end || "TBA"}</span>
+                  <span className={styles.meetingTime}>{session.start || "TBA"}–{session.end || "TBA"}{meetingDuration(session.start, session.end) && ` · ${meetingDuration(session.start, session.end)} min`}</span>
                   <span className={styles.meetingLocation}>{session.location || "Location TBA"}</span>
                   {session.instructor && <span className={styles.meetingLocation}><strong>Meeting instructor:</strong> {session.instructor}</span>}
                 </span>) : <span className={styles.meetingSlot}><span className={styles.meetingTime}>Time TBA</span><span className={styles.meetingLocation}>Meeting details have not been listed.</span></span>}
@@ -44,6 +45,7 @@ export async function SemesterOfferings({ courseId, semester }: { courseId: stri
               <span className={styles.sectionExpand}><span className={styles.collapsedLabel}>View section details +</span><span className={styles.expandedLabel}>Hide section details −</span></span>
             </summary>
             <div className={styles.sectionBody}>
+              <SectionConnections section={section} />
               <p><strong>Section title:</strong> {section.title}</p>
               <p><strong>Credits:</strong> {section.credits}</p>
               <p><strong>Registration prerequisites:</strong> {section.prerequisites || "No textual prerequisite rule was supplied by Resis. Verify requirements in AUB SIS."}</p>
