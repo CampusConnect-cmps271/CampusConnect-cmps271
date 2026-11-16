@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { courseSearchFilter, parsePlannerSearch } from "./search";
-import { availableTerms, beirutToday, formatTermDate, OFFICIAL_TERMS, openTerms, TERM_PATTERN } from "./terms";
+import { availableTerms, beirutToday, formatTermDate, OFFICIAL_TERMS, openTerms, resisSemesterName, TERM_PATTERN } from "./terms";
 import { formatMeeting, sortMeetings } from "./time";
 
 describe("official AUB terms", () => {
@@ -11,6 +11,21 @@ describe("official AUB terms", () => {
       expect(days).toBeGreaterThan(0);
       expect(days).toBeLessThanOrEqual(200);
     }
+  });
+
+  it("map to the imported Resis semester names, as planner_resis_semester_name does", () => {
+    // The same cases as tests/planner-sections.test.mjs gives the SQL function.
+    const cases: [string, string | null][] = [
+      ["Fall 2026", "Fall 2026-2027"],
+      ["Spring 2027", "Spring 2026-2027"],
+      ["Summer 2027", "Summer 2026-2027"],
+      ["Fall 2029", "Fall 2029-2030"],
+      ["Winter 2027", null],
+      ["Spring 27", null],
+    ];
+    for (const [term, name] of cases) expect(resisSemesterName(term)).toBe(name);
+    // Every official term has a name: its semester can be linked once imported.
+    for (const official of OFFICIAL_TERMS) expect(resisSemesterName(official.term)).toMatch(/^(Fall|Spring|Summer) \d{4}-\d{4}$/);
   });
 
   it("offer only terms whose classes haven't ended", () => {

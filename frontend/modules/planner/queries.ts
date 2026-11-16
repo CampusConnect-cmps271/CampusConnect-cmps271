@@ -2,17 +2,32 @@ import "server-only";
 import { requireUser } from "@/modules/auth";
 import { log } from "@/modules/logging";
 import { createClient } from "@/lib/supabase/server";
-import { addDays, itemWindow } from "./calendar";
+import { addDays, ITEM_WINDOW_DAYS, itemWindow, parseCalendarDate } from "./calendar";
+import { calendarEntries, type CalendarDataEntry, type SavedCalendarEvent } from "./calendar-data";
 import { detectConflicts, type ConflictReport } from "./conflicts";
 import { PLANNER_LIMITS, plannerIdSchema } from "./schema";
 import { courseSearchFilter } from "./search";
+import { sectionOptions, type ResisSection, type SectionOption } from "./sections";
 import { sortMeetings } from "./time";
-import type { CourseSearchResult, Meeting, PlanDetails, PlanItem, PlannerEvent, PlanSummary } from "./types";
+import type {
+  ChosenSection,
+  CourseSearchResult,
+  ImportedSemester,
+  Meeting,
+  PlanDetails,
+  PlanItem,
+  PlannedCourse,
+  PlannerEvent,
+  PlanSummary,
+  SectionChange,
+} from "./types";
 
-const PLAN_COLUMNS = "id, student_id, term, starts_on, ends_on";
-const MEETING_COLUMNS = "id, plan_course_id, weekday, start_minute, end_minute, timezone, source";
+const PLAN_COLUMNS = "id, student_id, term, starts_on, ends_on, resis_semester_id, resis_semesters(id, name, synced_at)";
+const MEETING_COLUMNS = "id, plan_course_id, weekday, start_minute, end_minute, timezone, source, crn";
 const COURSE_COLUMNS = "code, name, credits";
 const ITEM_COLUMNS = "id, plan_id, plan_course_id, title, on_date, start_minute, end_minute";
+/** A plan with its courses, their meetings and sections, and its items. */
+const PLAN_DETAIL_COLUMNS = `${PLAN_COLUMNS}, plan_courses(id, course_id, position, courses(${COURSE_COLUMNS}), plan_meetings(${MEETING_COLUMNS}), plan_course_sections(crn, section, semester_id)), plan_items(${ITEM_COLUMNS})`;
 
 type PlanCourseRow = {
   id: string;
@@ -20,6 +35,7 @@ type PlanCourseRow = {
   position: number;
   courses: { code: string; name: string; credits: number | string } | null;
   plan_meetings: Meeting[] | null;
+  plan_course_sections?: ChosenSection[] | null;
 };
 
 type PlanRow = {
@@ -28,6 +44,8 @@ type PlanRow = {
   term: string;
   starts_on: string;
   ends_on: string;
+  resis_semester_id?: string | null;
+  resis_semesters?: ImportedSemester | null;
   plan_courses: PlanCourseRow[] | null;
   plan_items: PlanItem[] | null;
 };
@@ -54,6 +72,9 @@ function toPlanDetails(row: PlanRow): PlanDetails {
       name: planned.courses?.name ?? "",
       credits: planned.courses?.credits ?? 0,
       meetings: sortMeetings(planned.plan_meetings ?? []),
+      sections: [...(planned.plan_course_sections ?? [])].sort(
+        (a, b) => a.section.localeCompare(b.section, "en", { numeric: true }) || a.crn.localeCompare(b.crn),
+      ),
     }));
   // By date, all-day items first, then by start time.
   const items = [...(row.plan_items ?? [])].sort(
@@ -69,6 +90,7 @@ function toPlanDetails(row: PlanRow): PlanDetails {
     course_ids: courses.map((planned) => planned.course_id),
     courses,
     items,
+    semester: row.resis_semester_id && row.resis_semesters ? row.resis_semesters : null,
   };
 }
 
@@ -110,9 +132,7 @@ export async function getMyPlan(planId: string): Promise<PlanDetails | null> {
 
   const { data, error } = await supabase
     .from("semester_plans")
-    .select(
-      `${PLAN_COLUMNS}, plan_courses(id, course_id, position, courses(${COURSE_COLUMNS}), plan_meetings(${MEETING_COLUMNS})), plan_items(${ITEM_COLUMNS})`,
-    )
+    .select(PLAN_DETAIL_COLUMNS)
     .eq("id", planId)
     .maybeSingle<PlanRow>();
 
@@ -126,9 +146,11 @@ export async function getMyPlan(planId: string): Promise<PlanDetails | null> {
 
 /**
  * Catalogue courses whose code or name contains the query, case-insensitive.
- * Empty for an empty query; null when the search failed.
+ * On a plan linked to an imported semester, each result also says how many
+ * sections that semester has (null: not offered). Empty for an empty query;
+ * null when the search failed.
  */
-export async function searchCoursesForPlan(query: string): Promise<CourseSearchResult[] | null> {
+export async function searchCoursesForPlan(query: string, semesterId?: string | null): Promise<CourseSearchResult[] | null> {
   if (!query) return [];
 
   const user = await requireUser();
@@ -147,7 +169,122 @@ export async function searchCoursesForPlan(query: string): Promise<CourseSearchR
     return null;
   }
 
-  return data ?? [];
+  const results = data ?? [];
+  if (!semesterId || results.length === 0) return results;
+
+  const offered = await offeredSections(semesterId, results.map((course) => course.id), user.id);
+  if (!offered) return results;
+  return results.map((course) => ({ ...course, section_count: offered.get(course.id) ?? null }));
+}
+
+/** Sections per course in a semester's active snapshot; null when it couldn't be read. */
+async function offeredSections(semesterId: string, courseIds: string[], userId: string): Promise<Map<string, number> | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("planner_offered_sections", { p_semester_id: semesterId, p_course_ids: courseIds });
+  if (error) {
+    log.warn("planner.offerings.read_failure", { semesterId, code: error.code ?? null }, { userId });
+    return null;
+  }
+  const rows = (data ?? []) as { course_id: string; section_count: number }[];
+  return new Map(rows.map((row) => [row.course_id, row.section_count]));
+}
+
+/** What the plan page shows about AUB's imported schedule for one plan. */
+export type PlanSectionState = {
+  /** Semesters with an active import: what the plan can link to. */
+  semesters: ImportedSemester[];
+  /** Chosen sections a newer snapshot changed or no longer has. */
+  changes: SectionChange[];
+  /** Sections per planned course in the linked semester; absent when not offered. */
+  offered: ReadonlyMap<string, number>;
+};
+
+/**
+ * The imported semesters, and on a linked plan its section changes and which
+ * of its courses the semester offers. A part that can't be read is left
+ * empty and logged, so the plan page still works.
+ */
+export async function getPlanSectionState(plan: PlanDetails): Promise<PlanSectionState> {
+  const supabase = await createClient();
+  const userId = plan.student_id;
+
+  const readSemesters = async () => {
+    const { data, error } = await supabase
+      .from("resis_semesters")
+      .select("id, name, synced_at")
+      .not("active_import_id", "is", null)
+      .order("id", { ascending: true })
+      .returns<ImportedSemester[]>();
+    if (error) log.warn("planner.semesters.read_failure", { planId: plan.id, code: error.code ?? null }, { userId });
+    return data ?? [];
+  };
+  const readChanges = async (): Promise<SectionChange[]> => {
+    if (!plan.semester) return [];
+    const { data, error } = await supabase.rpc("planner_section_changes", { p_plan_id: plan.id });
+    if (error) log.warn("planner.section_changes.read_failure", { planId: plan.id, code: error.code ?? null }, { userId });
+    return (data ?? []) as SectionChange[];
+  };
+  const readOffered = async () => {
+    if (!plan.semester || plan.course_ids.length === 0) return new Map<string, number>();
+    return (await offeredSections(plan.semester.id, plan.course_ids, userId)) ?? new Map<string, number>();
+  };
+
+  const [semesters, changes, offered] = await Promise.all([readSemesters(), readChanges(), readOffered()]);
+  if (changes.length) log.info("planner.section_changes.found", { planId: plan.id, changes: changes.length }, { userId });
+  return { semesters, changes, offered };
+}
+
+/** The section picker for one planned course: the linked semester's sections of it. */
+export type SectionPicker = {
+  planned: Pick<PlannedCourse, "plan_course_id" | "code" | "name">;
+  semester: ImportedSemester;
+  options: SectionOption[];
+  /** CRNs chosen now, preselected. */
+  chosen: string[];
+  /** Typed meetings that choosing a section would replace. */
+  typedMeetings: number;
+};
+
+/**
+ * The picker for a course in a linked plan, or null when the plan isn't
+ * linked, the course isn't in it, or the semester doesn't offer it. Only
+ * this course's sections reach the browser.
+ */
+export async function getSectionPicker(plan: PlanDetails, planCourseId: string): Promise<SectionPicker | null> {
+  const planned = plan.courses.find((course) => course.plan_course_id === planCourseId);
+  if (!plan.semester || !planned) return null;
+
+  const sections = await readCourseSections(plan.semester.id, planned.course_id, plan.student_id);
+  if (!sections) return null;
+
+  return {
+    planned: { plan_course_id: planned.plan_course_id, code: planned.code, name: planned.name },
+    semester: plan.semester,
+    options: sectionOptions(sections),
+    chosen: (planned.sections ?? []).map((section) => section.crn),
+    typedMeetings: planned.meetings.filter((meeting) => meeting.source === "manual").length,
+  };
+}
+
+/** One course's sections in a semester's active snapshot; null when not offered or unreadable. */
+export async function readCourseSections(semesterId: string, courseId: string, userId: string): Promise<ResisSection[] | null> {
+  const supabase = await createClient();
+  const { data: semester, error: semesterError } = await supabase
+    .from("resis_semesters")
+    .select("active_import_id")
+    .eq("id", semesterId)
+    .maybeSingle<{ active_import_id: string | null }>();
+  if (semesterError) log.warn("planner.sections.read_failure", { semesterId, code: semesterError.code ?? null }, { userId });
+  if (!semester?.active_import_id) return null;
+
+  const { data, error } = await supabase
+    .from("course_offerings")
+    .select("sections")
+    .eq("import_id", semester.active_import_id)
+    .eq("course_id", courseId)
+    .maybeSingle<{ sections: ResisSection[] }>();
+  if (error) log.warn("planner.sections.read_failure", { semesterId, courseId, code: error.code ?? null }, { userId });
+  return data && Array.isArray(data.sections) ? data.sections : null;
 }
 
 /**
@@ -180,6 +317,90 @@ export async function listSavedEventsNear(plan: PlanDetails): Promise<PlannerEve
       return [{ id, title, starts_at, ends_at, location, going }];
     })
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+}
+
+/** The longest range getCalendarData reads at once. */
+export const CALENDAR_MAX_DAYS = 62;
+
+type CalendarEventRow = {
+  event_id: string;
+  reminder_enabled: boolean;
+  reminder_minutes_before: number;
+  events: { id: string; title: string; starts_at: string; ends_at: string; location: string; status: string } | null;
+  going_events: { event_id: string } | { event_id: string }[] | null;
+};
+
+/**
+ * Everything on the signed-in student's calendar from `from` to `to`
+ * (Beirut dates, YYYY-MM-DD, inclusive, at most CALENDAR_MAX_DAYS): class
+ * sessions of every plan whose term reaches the range, typed and from AUB's
+ * schedule; the plans' own items; saved events with their going mark and
+ * cancelled state (as far as RLS shows them); and event reminders. Null when
+ * the range is invalid or the data couldn't be read. Logs ids and counts only.
+ */
+export async function getCalendarData({ from, to }: { from: string; to: string }): Promise<CalendarDataEntry[] | null> {
+  const user = await requireUser();
+  const first = parseCalendarDate(from);
+  const last = parseCalendarDate(to);
+  if (!first || !last || last < first || addDays(first, CALENDAR_MAX_DAYS - 1) < last) return null;
+
+  const supabase = await createClient();
+  const [plans, saved] = await Promise.all([
+    // Items may sit up to 30 days outside their plan's classes.
+    supabase
+      .from("semester_plans")
+      .select(PLAN_DETAIL_COLUMNS)
+      .lte("starts_on", addDays(last, ITEM_WINDOW_DAYS))
+      .gte("ends_on", addDays(first, -ITEM_WINDOW_DAYS))
+      .order("starts_on", { ascending: true })
+      .returns<PlanRow[]>(),
+    // A day either side for Beirut's offset; a week later for reminders set up to 7 days before.
+    supabase
+      .from("saved_events")
+      .select(
+        "event_id, reminder_enabled, reminder_minutes_before, events!inner(id, title, starts_at, ends_at, location, status), going_events(event_id)",
+      )
+      .in("events.status", ["published", "cancelled"])
+      .lt("events.starts_at", `${addDays(last, 9)}T00:00:00Z`)
+      .gt("events.ends_at", `${addDays(first, -1)}T00:00:00Z`)
+      .returns<CalendarEventRow[]>(),
+  ]);
+
+  if (plans.error || saved.error) {
+    log.error(
+      "planner.calendar.read_failure",
+      { plans: plans.error?.code ?? null, events: saved.error?.code ?? null },
+      { userId: user.id },
+    );
+    return null;
+  }
+
+  const events: SavedCalendarEvent[] = (saved.data ?? []).flatMap((row) => {
+    if (!row.events) return [];
+    const going = Array.isArray(row.going_events) ? row.going_events.length > 0 : Boolean(row.going_events);
+    const { id, title, starts_at, ends_at, location, status } = row.events;
+    return [
+      {
+        id,
+        title,
+        starts_at,
+        ends_at,
+        location,
+        going,
+        cancelled: status === "cancelled",
+        reminder_enabled: row.reminder_enabled,
+        reminder_minutes_before: row.reminder_minutes_before,
+      },
+    ];
+  });
+
+  const entries = calendarEntries({ plans: (plans.data ?? []).map(toPlanDetails), events, from: first, to: last });
+  log.info(
+    "planner.calendar.read",
+    { days: Math.round((Date.parse(last) - Date.parse(first)) / 86_400_000) + 1, plans: plans.data?.length ?? 0, events: events.length, entries: entries.length },
+    { userId: user.id },
+  );
+  return entries;
 }
 
 /**

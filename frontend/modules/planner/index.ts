@@ -21,6 +21,10 @@ export {
   unmarkGoing,
   updateItem,
   updateMeeting,
+  linkSemester,
+  chooseSections,
+  updateSectionTimes,
+  switchToTypedTimes,
   type ItemActionState,
   type MeetingActionState,
   type NewPlanState,
@@ -28,13 +32,44 @@ export {
 } from "./actions";
 
 export {
+  CALENDAR_MAX_DAYS,
   checkPlanConflicts,
+  getCalendarData,
   getEventPlannerState,
   getMyPlan,
+  getPlanSectionState,
+  getSectionPicker,
   listMyPlans,
   listSavedEventsNear,
   searchCoursesForPlan,
+  type PlanSectionState,
+  type SectionPicker,
 } from "./queries";
+
+export {
+  calendarEntries,
+  reminderEntry,
+  type CalendarDataEntry,
+  type CalendarDataKind,
+  type DaySlice,
+  type SavedCalendarEvent,
+} from "./calendar-data";
+
+export {
+  chosenCrns,
+  linkedPrompt,
+  MAX_SECTIONS_PER_COURSE,
+  sectionCountLabel,
+  sectionOptions,
+  sessionMeetings,
+  sessionWhen,
+  type LinkedGroup,
+  type LinkedOption,
+  type ResisSection,
+  type ResisSession,
+  type SectionOption,
+  type SessionMeeting,
+} from "./sections";
 
 export {
   addDays,
@@ -90,6 +125,7 @@ export {
   OFFICIAL_TERMS,
   officialTerm,
   openTerms,
+  resisSemesterName,
   TERM_PATTERN,
   type OfficialTerm,
 } from "./terms";
@@ -105,13 +141,16 @@ export {
 } from "./time";
 
 export type {
+  ChosenSection,
   CourseSearchResult,
+  ImportedSemester,
   Meeting,
   PlanDetails,
   PlanItem,
   PlannedCourse,
   PlannerEvent,
   PlanSummary,
+  SectionChange,
   SemesterPlan,
   Weekday,
 } from "./types";
@@ -123,6 +162,7 @@ export { PlannerNotice } from "./components/PlannerNotice";
 export { PlanView } from "./components/PlanView";
 
 export {
+  calendarOccurrences,
   calendarSlots,
   detectConflicts,
   DISPLAY_TIMEZONE,

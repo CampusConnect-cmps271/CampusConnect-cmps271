@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PLAN_NOT_FOUND, plannerErrorMessage } from "./errors";
+import { PLAN_NOT_FOUND, plannerErrorMessage, SECTIONS_SET } from "./errors";
 
 describe("plannerErrorMessage", () => {
   it("explains duplicates, unknown courses, caps and other students' plans when adding a course", () => {
@@ -25,6 +25,16 @@ describe("plannerErrorMessage", () => {
     expect(plannerErrorMessage("saveMeeting", "23514")).toMatch(/must end after it starts/);
     expect(plannerErrorMessage("saveMeeting", "22023")).toBe("That time zone isn't recognised. Use an IANA name such as Asia/Beirut.");
     expect(plannerErrorMessage("saveMeeting", "42501")).toBe("That course isn't in one of your plans.");
+    expect(plannerErrorMessage("saveMeeting", "55000")).toBe(SECTIONS_SET);
+  });
+
+  it("explains refused sections and semester links (SCRUM-243)", () => {
+    expect(plannerErrorMessage("chooseSections", "22023")).toMatch(/aren't in AUB's current schedule/);
+    expect(plannerErrorMessage("chooseSections", "54000")).toMatch(/too many sections/);
+    expect(plannerErrorMessage("chooseSections", "55000")).toBe("Link this plan to AUB's imported schedule first.");
+    expect(plannerErrorMessage("chooseSections", "42501")).toBe("That course isn't in one of your plans.");
+    expect(plannerErrorMessage("linkSemester", "42501")).toMatch(/isn't imported/);
+    expect(plannerErrorMessage("chooseSections", "XX000")).toBe("We couldn't save the sections. Please try again.");
   });
 
   it("falls back to a retry message without database details", () => {

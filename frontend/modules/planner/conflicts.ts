@@ -331,17 +331,30 @@ export type CalendarSlot = {
   end_minute: number;
 };
 
+/** One occurrence of something with a time: its instants, and its stretches on Beirut days. */
+export type CalendarOccurrence = {
+  side: ConflictSide;
+  /** ISO instants. */
+  starts_at: string;
+  ends_at: string;
+  /** In time order; more than one when it runs past Beirut midnight. */
+  slots: CalendarSlot[];
+};
+
 /**
- * Where everything with a time falls in Beirut, day by day: what the
- * calendar draws. Things running past midnight are split at it.
+ * Every occurrence of everything with a time, placed as the conflict check
+ * places it: meetings on each matching date of the term in their own zone,
+ * across daylight-saving changes; items once, in Beirut; events at their
+ * instants. The unified calendar data (SCRUM-243) is built on this.
  */
-export function calendarSlots(input: ConflictInput): CalendarSlot[] {
+export function calendarOccurrences(input: ConflictInput): CalendarOccurrence[] {
   const display = wallClock(DISPLAY_TIMEZONE);
   if (!display) return [];
 
-  const slots: CalendarSlot[] = [];
+  const result: CalendarOccurrence[] = [];
   for (const { side, occurrences } of placeAll(input).placed) {
     for (const occurrence of occurrences) {
+      const slots: CalendarSlot[] = [];
       const startWall = wallAt(display, occurrence.start);
       const endWall = wallAt(display, occurrence.end);
       for (let day = startWall - (startWall % DAY); day < endWall; day += DAY) {
@@ -351,7 +364,18 @@ export function calendarSlots(input: ConflictInput): CalendarSlot[] {
           slots.push({ side, date: isoDate(day), start_minute: (from - day) / MINUTE, end_minute: (to - day) / MINUTE });
         }
       }
+      result.push({ side, starts_at: new Date(occurrence.start).toISOString(), ends_at: new Date(occurrence.end).toISOString(), slots });
     }
   }
-  return slots.sort((a, b) => a.date.localeCompare(b.date) || a.start_minute - b.start_minute || a.end_minute - b.end_minute);
+  return result.sort((a, b) => a.starts_at.localeCompare(b.starts_at) || a.ends_at.localeCompare(b.ends_at));
+}
+
+/**
+ * Where everything with a time falls in Beirut, day by day: what the
+ * calendar draws. Things running past midnight are split at it.
+ */
+export function calendarSlots(input: ConflictInput): CalendarSlot[] {
+  return calendarOccurrences(input)
+    .flatMap((occurrence) => occurrence.slots)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.start_minute - b.start_minute || a.end_minute - b.end_minute);
 }

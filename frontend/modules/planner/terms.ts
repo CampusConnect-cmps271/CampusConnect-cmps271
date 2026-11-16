@@ -30,6 +30,20 @@ export function officialTerm(term: string): OfficialTerm | undefined {
   return OFFICIAL_TERMS.find((official) => official.term === term);
 }
 
+/**
+ * Resis's name for the semester a planner term is in (SCRUM-243). AUB's
+ * academic year runs Fall to Summer, so "Fall 2026" is "Fall 2026-2027" and
+ * "Spring 2027" is "Spring 2026-2027", as the imported semesters are named.
+ * Null for anything that isn't a planner term. Mirrors
+ * public.planner_resis_semester_name, which links new plans.
+ */
+export function resisSemesterName(term: string): string | null {
+  const match = /^(Fall|Spring|Summer) (20\d{2})$/.exec(term);
+  if (!match) return null;
+  const year = Number(match[2]);
+  return match[1] === "Fall" ? `Fall ${year}-${year + 1}` : `${match[1]} ${year - 1}-${year}`;
+}
+
 /** Today's date in Beirut, YYYY-MM-DD. */
 export function beirutToday(now: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", {

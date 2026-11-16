@@ -19,6 +19,8 @@ import {
   type MeetingFieldErrors,
   type MeetingFormValues,
 } from "./schema";
+import { readCourseSections } from "./queries";
+import { chosenCrns, MAX_SECTIONS_PER_COURSE } from "./sections";
 import { officialTerm } from "./terms";
 
 /** The result of a planner button: a message for its aria-live region. */
@@ -105,7 +107,11 @@ export async function deletePlan(_previous: PlannerActionState, formData: FormDa
   redirect("/planner");
 }
 
-/** Adds a catalogue course at the end of the plan. */
+/**
+ * Adds a catalogue course at the end of the plan. On a plan linked to an
+ * imported semester that offers the course, a single section is chosen
+ * straight away; with more, the plan opens the course's section picker.
+ */
 export async function addCourse(_previous: PlannerActionState, formData: FormData): Promise<PlannerActionState> {
   const user = await requireUser();
   const planId = idField(formData, "planId");
@@ -117,8 +123,8 @@ export async function addCourse(_previous: PlannerActionState, formData: FormDat
   const { data, error } = await supabase
     .from("plan_courses")
     .insert({ plan_id: planId, course_id: courseId })
-    .select("id")
-    .single<{ id: string }>();
+    .select("id, semester_plans(resis_semester_id)")
+    .single<{ id: string; semester_plans: { resis_semester_id: string | null } | null }>();
 
   if (error || !data) {
     log.warn("planner.course.add_rejected", { planId, courseId, code: error?.code ?? "no_id" }, { userId: user.id });
@@ -127,7 +133,23 @@ export async function addCourse(_previous: PlannerActionState, formData: FormDat
 
   log.info("planner.course.added", { planId, planCourseId: data.id, courseId }, { userId: user.id });
   refreshPlan(planId);
-  return { ok: true, message: "Added to your plan." };
+
+  const semesterId = data.semester_plans?.resis_semester_id;
+  const sections = semesterId ? await readCourseSections(semesterId, courseId, user.id) : null;
+  if (!sections?.length) return { ok: true, message: "Added to your plan." };
+
+  // The search result's button turns into "In this plan", so the course's card says what happened.
+  if (sections.length === 1) {
+    const { error: chooseError } = await supabase.rpc("planner_choose_sections", { p_plan_course_id: data.id, p_crns: [sections[0].crn] });
+    if (chooseError) {
+      log.warn("planner.sections.choose_rejected", { planId, planCourseId: data.id, code: chooseError.code ?? null }, { userId: user.id });
+      return { ok: true, message: "Added to your plan." };
+    }
+    log.info("planner.sections.chosen", { planId, planCourseId: data.id, count: 1, automatic: true }, { userId: user.id });
+    redirect(`/planner/${planId}?chosen=${data.id}&only=1#course-${data.id}`);
+  }
+
+  redirect(`/planner/${planId}?sections=${data.id}#course-${data.id}`);
 }
 
 /** Removes a course, and its meetings, from the plan. */
@@ -398,6 +420,101 @@ export async function removeItem(_previous: PlannerActionState, formData: FormDa
   log.info("planner.item.removed", { planId, itemId }, { userId: user.id });
   refreshPlan(planId);
   return { ok: true, message: "Item removed." };
+}
+
+/**
+ * Links the plan to an imported semester, or clears the link when none is
+ * chosen. The database allows only semesters with an active import.
+ */
+export async function linkSemester(_previous: PlannerActionState, formData: FormData): Promise<PlannerActionState> {
+  const user = await requireUser();
+  const planId = idField(formData, "planId");
+  if (!planId) return { ok: false, message: PLAN_NOT_FOUND };
+  const semesterId = text(formData, "semesterId");
+  if (semesterId && !/^\d{6}$/.test(semesterId)) return { ok: false, message: plannerErrorMessage("linkSemester", "23503") };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("semester_plans")
+    .update({ resis_semester_id: semesterId || null })
+    .eq("id", planId)
+    .select("id");
+
+  if (error) {
+    log.warn("planner.semester.link_rejected", { planId, semesterId: semesterId || null, code: error.code ?? null }, { userId: user.id });
+    return { ok: false, message: plannerErrorMessage("linkSemester", error.code) };
+  }
+  if (!data?.length) return { ok: false, message: PLAN_NOT_FOUND };
+
+  log.info("planner.semester.linked", { planId, semesterId: semesterId || null }, { userId: user.id });
+  refreshPlan(planId);
+  return {
+    ok: true,
+    message: semesterId ? "Linked. Choose sections to fill in class times." : "Unlinked. Your chosen sections stay until you change them.",
+  };
+}
+
+/** Calls planner_choose_sections; the database checks every CRN against the snapshot. */
+async function saveSections(planId: string, planCourseId: string, crns: string[], userId: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("planner_choose_sections", { p_plan_course_id: planCourseId, p_crns: crns });
+  if (error) {
+    log.warn("planner.sections.choose_rejected", { planId, planCourseId, count: crns.length, code: error.code ?? null }, { userId });
+    return { ok: false as const, message: plannerErrorMessage("chooseSections", error.code) };
+  }
+  log.info("planner.sections.chosen", { planId, planCourseId, count: crns.length, meetings: Number(data) || 0 }, { userId });
+  refreshPlan(planId);
+  return { ok: true as const };
+}
+
+/**
+ * Saves the picker's choice: a section (crn) and, for that section only, the
+ * linked sections chosen under it (fields linked-<crn>-<group>). Closes the
+ * picker.
+ */
+export async function chooseSections(_previous: PlannerActionState, formData: FormData): Promise<PlannerActionState> {
+  const user = await requireUser();
+  const planId = idField(formData, "planId");
+  const planCourseId = idField(formData, "planCourseId");
+  if (!planId || !planCourseId) return { ok: false, message: PLAN_NOT_FOUND };
+
+  const primary = text(formData, "crn");
+  if (!/^\d{1,10}$/.test(primary)) return { ok: false, message: "Choose a section." };
+  const prefix = `linked-${primary}-`;
+  const linked = [...formData.entries()].flatMap(([name, value]) =>
+    name.startsWith(prefix) && typeof value === "string" ? [value] : [],
+  );
+  const crns = chosenCrns(primary, linked);
+  if (crns.length === 0) return { ok: false, message: "Choose a section." };
+  if (crns.length > MAX_SECTIONS_PER_COURSE) return { ok: false, message: plannerErrorMessage("chooseSections", "54000") };
+
+  const saved = await saveSections(planId, planCourseId, crns, user.id);
+  if (!saved.ok) return saved;
+  redirect(`/planner/${planId}?chosen=${planCourseId}#course-${planCourseId}`);
+}
+
+/** "Update times": the same sections again, from the newest snapshot. */
+export async function updateSectionTimes(_previous: PlannerActionState, formData: FormData): Promise<PlannerActionState> {
+  const user = await requireUser();
+  const planId = idField(formData, "planId");
+  const planCourseId = idField(formData, "planCourseId");
+  if (!planId || !planCourseId) return { ok: false, message: PLAN_NOT_FOUND };
+  const crns = chosenCrns("", text(formData, "crns").split(","));
+  if (crns.length === 0 || crns.length > MAX_SECTIONS_PER_COURSE) return { ok: false, message: plannerErrorMessage("chooseSections", "22023") };
+
+  const saved = await saveSections(planId, planCourseId, crns, user.id);
+  return saved.ok ? { ok: true, message: "Times updated from AUB's schedule." } : saved;
+}
+
+/** "Use typed times": removes the course's sections and their times. */
+export async function switchToTypedTimes(_previous: PlannerActionState, formData: FormData): Promise<PlannerActionState> {
+  const user = await requireUser();
+  const planId = idField(formData, "planId");
+  const planCourseId = idField(formData, "planCourseId");
+  if (!planId || !planCourseId) return { ok: false, message: PLAN_NOT_FOUND };
+
+  const saved = await saveSections(planId, planCourseId, [], user.id);
+  return saved.ok ? { ok: true, message: "Section times removed. Add your own times." } : saved;
 }
 
 /** Every plan page and the event's own page show the going mark. */
