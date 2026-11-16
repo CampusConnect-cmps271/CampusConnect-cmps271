@@ -2,8 +2,9 @@
  * Creates (or resets) the demo accounts for the sprint review (SCRUM-182):
  * a student, a moderator and an administrator, with filled-in profiles,
  * their roles, a handful of sample posts across the categories, two
- * SkillSwap posts that match each other, and a Spring 2027 semester plan for
- * the student with demo meeting times (SCRUM-67).
+ * SkillSwap posts that match each other, a Spring 2027 semester plan for
+ * the student with demo meeting times (SCRUM-67), and a Fall 2026 plan with
+ * real sections and an overlapping item this week for /calendar (SCRUM-244).
  *
  * Usage:
  *   npm run seed:demo                local Supabase, from .env.local
@@ -512,8 +513,187 @@ function demoSectionChoice(sections) {
   return { section: primary.section, crns };
 }
 
+// SCRUM-244: a Fall 2026 plan linked to the Fall 2026-2027 import, with real
+// sections of three courses looked up by course code at seed time. An item of
+// the student's own this week overlaps one of those classes, so /calendar
+// shows an overlap during the demo. Skipped when the section tables, the Fall
+// import or the courses are missing.
+const FALL_DEMO = {
+  // The official Fall 2026-27 dates, as in modules/planner/terms.ts.
+  term: "Fall 2026",
+  starts_on: "2026-08-31",
+  ends_on: "2026-12-04",
+  requireImport: true,
+  courses: [
+    { code: "CMPS 201", sections: true, meetings: [] },
+    { code: "CMPS 211", sections: true, meetings: [] },
+    { code: "MATH 201", sections: true, meetings: [] },
+  ],
+};
+const DEMO_ITEM_TITLE = "Study group (demo)";
+
+const minutesOf = (time) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
+
+/** Today's date in Beirut, YYYY-MM-DD, as the planner reads "today". */
+function beirutToday() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Beirut", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+
+const addDays = (date, days) => new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+const isoWeekday = (date) => ((new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7) + 1;
+
+/**
+ * Finds or creates one demo plan as the student, links it to its imported
+ * semester when there is one, adds its courses, chooses real sections for the
+ * courses that take them and types the rest. Returns the plan and its section
+ * meetings, or null when it was skipped (the reason is in the summary).
+ */
+async function seedDemoPlan(asStudent, demo) {
+  const { data: found, error: lookupError } = await supabase
+    .from("courses")
+    .select("id, code")
+    .in("code", demo.courses.map((course) => course.code));
+  if (lookupError) fail(`could not look up the ${demo.term} demo plan's courses: ${lookupError.message}`);
+  const courseIds = new Map(found.map((row) => [row.code, row.id]));
+  const present = demo.courses.filter((course) => courseIds.has(course.code));
+  if (present.length < 2) {
+    summary.push(`skipped   ${demo.term} plan (${present.length} of ${demo.courses.length} demo courses in the catalogue; import it first)`);
+    return null;
+  }
+
+  // SCRUM-243: the imported semester for the term, when the section tables exist.
+  const { error: sectionsProbe } = await asStudent.from("plan_course_sections").select("crn").limit(0);
+  const { data: matching } = sectionsProbe
+    ? { data: null }
+    : await asStudent.rpc("planner_matching_resis_semester", { p_term: demo.term });
+  if (demo.requireImport && !matching) {
+    summary.push(`skipped   ${demo.term} plan (no section tables or active ${demo.term} import)`);
+    return null;
+  }
+
+  let { data: plan, error: planError } = await asStudent.from("semester_plans").select("id").eq("term", demo.term).maybeSingle();
+  if (planError) fail(`could not look up the ${demo.term} demo plan: ${planError.message}`);
+  if (!plan) {
+    ({ data: plan, error: planError } = await asStudent
+      .from("semester_plans")
+      .insert({ term: demo.term, starts_on: demo.starts_on, ends_on: demo.ends_on })
+      .select("id")
+      .single());
+    if (planError) fail(`could not create the ${demo.term} demo plan: ${planError.message}`);
+  }
+
+  let activeImportId = null;
+  let semesterName = null;
+  if (!sectionsProbe) {
+    const { data: linkRow, error: linkError } = await asStudent.from("semester_plans").select("resis_semester_id").eq("id", plan.id).single();
+    if (linkError) fail(`could not read the ${demo.term} demo plan's link: ${linkError.message}`);
+    let semesterId = linkRow.resis_semester_id;
+    if (!semesterId && matching) {
+      const { error } = await asStudent.from("semester_plans").update({ resis_semester_id: matching }).eq("id", plan.id);
+      if (error) fail(`could not link the ${demo.term} demo plan to semester ${matching}: ${error.message}`);
+      semesterId = matching;
+    }
+    if (semesterId) {
+      const { data: semester } = await asStudent.from("resis_semesters").select("name, active_import_id").eq("id", semesterId).maybeSingle();
+      activeImportId = semester?.active_import_id ?? null;
+      semesterName = semester?.name ?? null;
+    }
+  }
+
+  const { data: existing, error: listError } = await asStudent
+    .from("plan_courses")
+    .select(
+      activeImportId
+        ? "id, course_id, plan_meetings(weekday, start_minute, end_minute, source), plan_course_sections(crn)"
+        : "id, course_id, plan_meetings(weekday, start_minute, end_minute)",
+    )
+    .eq("plan_id", plan.id);
+  if (listError) fail(`could not read the ${demo.term} demo plan: ${listError.message}`);
+
+  let coursesAdded = 0;
+  let meetingsAdded = 0;
+  const chosenSections = [];
+  /** Every section meeting, and the first one of each course, for typed overlaps and the demo item. */
+  const sectionMeetings = [];
+  const firstSectionMeeting = new Map();
+  for (const course of present) {
+    let planned = existing.find((row) => row.course_id === courseIds.get(course.code));
+    if (!planned) {
+      const { data, error } = await asStudent
+        .from("plan_courses")
+        .insert({ plan_id: plan.id, course_id: courseIds.get(course.code) })
+        .select("id")
+        .single();
+      if (error) fail(`could not add ${course.code} to the ${demo.term} demo plan: ${error.message}`);
+      planned = { id: data.id, plan_meetings: [], plan_course_sections: [] };
+      coursesAdded += 1;
+    }
+
+    if (activeImportId && course.sections) {
+      if (!planned.plan_course_sections?.length) {
+        const { data: offering, error } = await asStudent
+          .from("course_offerings")
+          .select("sections")
+          .eq("import_id", activeImportId)
+          .eq("course_id", courseIds.get(course.code))
+          .maybeSingle();
+        if (error) fail(`could not read ${course.code}'s sections: ${error.message}`);
+        const choice = offering ? demoSectionChoice(offering.sections) : null;
+        if (choice) {
+          const { error: chooseError } = await asStudent.rpc("planner_choose_sections", { p_plan_course_id: planned.id, p_crns: choice.crns });
+          if (chooseError) fail(`could not choose ${course.code}'s sections: ${chooseError.message}`);
+          chosenSections.push(`${course.code} section ${choice.section}`);
+        }
+      }
+      const { data: rows } = await asStudent
+        .from("plan_meetings")
+        .select("weekday, start_minute, end_minute")
+        .eq("plan_course_id", planned.id)
+        .eq("source", "resis")
+        .order("weekday")
+        .order("start_minute");
+      if (rows?.length) {
+        sectionMeetings.push(...rows.map((row) => ({ ...row, code: course.code })));
+        firstSectionMeeting.set(course.code, rows[0]);
+        continue;
+      }
+      // Not offered, or no listed times: typed demo times instead.
+    }
+
+    // A typed course set to overlap another's chosen section: 15 minutes after it starts.
+    const anchor = course.overlaps ? firstSectionMeeting.get(course.overlaps) : undefined;
+    const meetings = anchor
+      ? [[anchor.weekday, anchor.start_minute + 15, Math.min(anchor.start_minute + 90, 1440)]]
+      : course.meetings.map(([weekday, start, end]) => [weekday, minutesOf(start), minutesOf(end)]);
+    for (const [weekday, startMinute, endMinute] of meetings) {
+      const known = planned.plan_meetings.some(
+        (meeting) => meeting.weekday === weekday && meeting.start_minute === startMinute && meeting.end_minute === endMinute,
+      );
+      if (known) continue;
+      const { error } = await asStudent.from("plan_meetings").insert({
+        plan_course_id: planned.id,
+        weekday,
+        start_minute: startMinute,
+        end_minute: endMinute,
+        timezone: "Asia/Beirut",
+      });
+      if (error) fail(`could not add a demo meeting for ${course.code}: ${error.message}`);
+      meetingsAdded += 1;
+    }
+  }
+  summary.push(
+    `planner   ${demo.term}: ${coursesAdded} courses and ${meetingsAdded} typed demo meetings added ` +
+      `(${present.length} of ${demo.courses.length} courses in the catalogue)`,
+  );
+  summary.push(
+    activeImportId
+      ? `planner   ${demo.term} linked to ${semesterName}; ${chosenSections.length ? `sections chosen: ${chosenSections.join(", ")}` : "sections already chosen"}`
+      : `skipped   SCRUM-243 sections for ${demo.term} (no section tables or active import)`,
+  );
+  return { id: plan.id, sectionMeetings };
+}
+
 {
-  const minutesOf = (time) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
   const student = ACCOUNTS.find((account) => account.key === "student");
   const publishableKey = (
     HOSTED ? process.env.HOSTED_SUPABASE_PUBLISHABLE_KEY : process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
@@ -538,155 +718,63 @@ function demoSectionChoice(sections) {
       );
     }
 
-    const { data: found, error: lookupError } = await supabase
-      .from("courses")
-      .select("id, code")
-      .in("code", PLANNER_DEMO.courses.map((course) => course.code));
-    if (lookupError) fail(`could not look up the demo plan's courses: ${lookupError.message}`);
-    const courseIds = new Map(found.map((row) => [row.code, row.id]));
-    const present = PLANNER_DEMO.courses.filter((course) => courseIds.has(course.code));
+    await seedDemoPlan(asStudent, PLANNER_DEMO);
+    const fall = await seedDemoPlan(asStudent, FALL_DEMO);
 
-    if (present.length < 2) {
-      summary.push(
-        `skipped   SCRUM-67 planner (${present.length} of ${PLANNER_DEMO.courses.length} demo courses in the catalogue; import it first)`,
+    // The demo item: this week (Monday to Sunday in Beirut), on the first day
+    // from today that one of the Fall classes meets, starting 15 minutes into it.
+    if (fall) {
+      const today = beirutToday();
+      const monday = addDays(today, -(isoWeekday(today) - 1));
+      const week = Array.from({ length: 7 }, (_, index) => addDays(monday, index));
+      const { data: items, error: itemsError } = await asStudent
+        .from("plan_items")
+        .select("on_date")
+        .eq("plan_id", fall.id)
+        .eq("title", DEMO_ITEM_TITLE);
+      if (itemsError) fail(`could not read the Fall plan's items: ${itemsError.message}`);
+      const days = [...week.filter((date) => date >= today), ...week.filter((date) => date < today)].filter(
+        (date) => date >= FALL_DEMO.starts_on && date <= FALL_DEMO.ends_on,
       );
+      const slot = days.flatMap((date) => fall.sectionMeetings.filter((row) => row.weekday === isoWeekday(date)).map((row) => ({ date, row })))[0];
+      if (items.some((item) => week.includes(item.on_date))) {
+        summary.push(`calendar  "${DEMO_ITEM_TITLE}" already on this week's calendar`);
+      } else if (!slot) {
+        summary.push(`skipped   calendar demo item (no Fall class meets this week, ${monday} to ${week[6]})`);
+      } else {
+        const { error } = await asStudent.from("plan_items").insert({
+          plan_id: fall.id,
+          title: DEMO_ITEM_TITLE,
+          on_date: slot.date,
+          start_minute: slot.row.start_minute + 15,
+          end_minute: Math.min(slot.row.start_minute + 75, 1440),
+        });
+        if (error) fail(`could not add the demo item: ${error.message}`);
+        summary.push(`calendar  "${DEMO_ITEM_TITLE}" on ${slot.date}, overlapping ${slot.row.code}`);
+      }
+    }
+
+    // An upcoming published event, saved and marked as going, when there is one.
+    const { data: upcoming, error: eventsError } = await supabase
+      .from("events")
+      .select("id, title")
+      .eq("status", "published")
+      .gt("starts_at", new Date().toISOString())
+      .order("starts_at", { ascending: true })
+      .limit(1);
+    if (eventsError?.code === "PGRST205" || eventsError?.code === "42P01") {
+      summary.push("skipped   calendar event (events table missing)");
+    } else if (eventsError) {
+      fail(`could not look up upcoming events: ${eventsError.message}`);
+    } else if (!upcoming.length) {
+      summary.push("skipped   calendar event (no upcoming published event to save)");
     } else {
-      let { data: plan, error: planError } = await asStudent
-        .from("semester_plans")
-        .select("id")
-        .eq("term", PLANNER_DEMO.term)
-        .maybeSingle();
-      if (planError) fail(`could not look up the demo plan: ${planError.message}`);
-      if (!plan) {
-        ({ data: plan, error: planError } = await asStudent
-          .from("semester_plans")
-          .insert({ term: PLANNER_DEMO.term, starts_on: PLANNER_DEMO.starts_on, ends_on: PLANNER_DEMO.ends_on })
-          .select("id")
-          .single());
-        if (planError) fail(`could not create the demo plan: ${planError.message}`);
-      }
-
-      // SCRUM-243: link the plan to the imported semester when there is one.
-      // Every lookup is skipped quietly when its table or function is missing.
-      let activeImportId = null;
-      let semesterName = null;
-      {
-        const { error: sectionsProbe } = await asStudent.from("plan_course_sections").select("crn").limit(0);
-        const { data: linkRow, error: linkError } = sectionsProbe
-          ? { data: null, error: sectionsProbe }
-          : await asStudent.from("semester_plans").select("resis_semester_id").eq("id", plan.id).single();
-        let semesterId = linkError ? null : linkRow.resis_semester_id;
-        if (!linkError && !semesterId) {
-          const { data: match } = await asStudent.rpc("planner_matching_resis_semester", { p_term: PLANNER_DEMO.term });
-          if (match) {
-            const { error } = await asStudent.from("semester_plans").update({ resis_semester_id: match }).eq("id", plan.id);
-            if (error) fail(`could not link the demo plan to semester ${match}: ${error.message}`);
-            semesterId = match;
-          }
-        }
-        if (semesterId) {
-          const { data: semester } = await asStudent
-            .from("resis_semesters")
-            .select("name, active_import_id")
-            .eq("id", semesterId)
-            .maybeSingle();
-          activeImportId = semester?.active_import_id ?? null;
-          semesterName = semester?.name ?? null;
-        }
-      }
-
-      const { data: existing, error: listError } = await asStudent
-        .from("plan_courses")
-        .select(
-          activeImportId
-            ? "id, course_id, plan_meetings(weekday, start_minute, end_minute, source), plan_course_sections(crn)"
-            : "id, course_id, plan_meetings(weekday, start_minute, end_minute)",
-        )
-        .eq("plan_id", plan.id);
-      if (listError) fail(`could not read the demo plan: ${listError.message}`);
-
-      let coursesAdded = 0;
-      let meetingsAdded = 0;
-      const chosenSections = [];
-      /** The first section meeting of each course given real sections, for MATH 201's overlap. */
-      const sectionMeeting = new Map();
-      for (const course of present) {
-        let planned = existing.find((row) => row.course_id === courseIds.get(course.code));
-        if (!planned) {
-          const { data, error } = await asStudent
-            .from("plan_courses")
-            .insert({ plan_id: plan.id, course_id: courseIds.get(course.code) })
-            .select("id")
-            .single();
-          if (error) fail(`could not add ${course.code} to the demo plan: ${error.message}`);
-          planned = { id: data.id, plan_meetings: [], plan_course_sections: [] };
-          coursesAdded += 1;
-        }
-
-        if (activeImportId && course.sections) {
-          if (!planned.plan_course_sections?.length) {
-            const { data: offering, error } = await asStudent
-              .from("course_offerings")
-              .select("sections")
-              .eq("import_id", activeImportId)
-              .eq("course_id", courseIds.get(course.code))
-              .maybeSingle();
-            if (error) fail(`could not read ${course.code}'s sections: ${error.message}`);
-            const choice = offering ? demoSectionChoice(offering.sections) : null;
-            if (choice) {
-              const { error: chooseError } = await asStudent.rpc("planner_choose_sections", {
-                p_plan_course_id: planned.id,
-                p_crns: choice.crns,
-              });
-              if (chooseError) fail(`could not choose ${course.code}'s sections: ${chooseError.message}`);
-              chosenSections.push(`${course.code} section ${choice.section}`);
-            }
-          }
-          const { data: rows } = await asStudent
-            .from("plan_meetings")
-            .select("weekday, start_minute, end_minute")
-            .eq("plan_course_id", planned.id)
-            .eq("source", "resis")
-            .order("weekday")
-            .order("start_minute")
-            .limit(1);
-          if (rows?.length) {
-            sectionMeeting.set(course.code, rows[0]);
-            continue;
-          }
-          // Not offered, or no listed times: typed demo times instead.
-        }
-
-        // MATH 201 overlaps the chosen CMPS 202 section: 15 minutes after it starts.
-        const anchor = course.overlaps ? sectionMeeting.get(course.overlaps) : undefined;
-        const meetings = anchor
-          ? [[anchor.weekday, anchor.start_minute + 15, Math.min(anchor.start_minute + 90, 1440)]]
-          : course.meetings.map(([weekday, start, end]) => [weekday, minutesOf(start), minutesOf(end)]);
-        for (const [weekday, startMinute, endMinute] of meetings) {
-          const known = planned.plan_meetings.some(
-            (meeting) => meeting.weekday === weekday && meeting.start_minute === startMinute && meeting.end_minute === endMinute,
-          );
-          if (known) continue;
-          const { error } = await asStudent.from("plan_meetings").insert({
-            plan_course_id: planned.id,
-            weekday,
-            start_minute: startMinute,
-            end_minute: endMinute,
-            timezone: "Asia/Beirut",
-          });
-          if (error) fail(`could not add a demo meeting for ${course.code}: ${error.message}`);
-          meetingsAdded += 1;
-        }
-      }
-      summary.push(
-        `planner   ${PLANNER_DEMO.term}: ${coursesAdded} courses and ${meetingsAdded} typed demo meetings added ` +
-          `(${present.length} of ${PLANNER_DEMO.courses.length} courses in the catalogue)`,
-      );
-      summary.push(
-        activeImportId
-          ? `planner   linked to ${semesterName}; ${chosenSections.length ? `sections chosen: ${chosenSections.join(", ")}` : "sections already chosen"}`
-          : "skipped   SCRUM-243 sections (no section tables or active Spring import)",
-      );
+      const [event] = upcoming;
+      const saved = await asStudent.from("saved_events").insert({ student_id: student.id, event_id: event.id });
+      if (saved.error && saved.error.code !== "23505") fail(`could not save the demo event: ${saved.error.message}`);
+      const going = await asStudent.from("going_events").insert({ event_id: event.id });
+      if (going.error && going.error.code !== "23505") fail(`could not mark the demo event as going: ${going.error.message}`);
+      summary.push(`calendar  saved and going to "${event.title}"`);
     }
   }
   await asStudent.auth.signOut();
