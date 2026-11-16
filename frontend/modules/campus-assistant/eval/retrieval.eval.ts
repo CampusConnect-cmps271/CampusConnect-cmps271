@@ -10,7 +10,7 @@ import { createClient } from "@supabase/supabase-js";
 import { describe, it } from "vitest";
 import { createGeminiQueryEmbedder, DEFAULT_EMBEDDING_MODEL } from "../embeddings";
 import { retrieveEvidence } from "../retrieval";
-import { MAX_COURSE_EVIDENCE, MAX_PAGE_EVIDENCE } from "../schema";
+import { MAX_CLUB_EVIDENCE, MAX_COURSE_EVIDENCE, MAX_EVENT_EVIDENCE, MAX_PAGE_EVIDENCE } from "../schema";
 import questions from "./questions.json";
 import { recallAtK } from "./recall";
 
@@ -23,8 +23,12 @@ for (const file of [".env.local", ".env"]) {
   }
 }
 
-/** The evidence the model is sent holds at most this many items. */
-const K = MAX_PAGE_EVIDENCE + MAX_COURSE_EVIDENCE;
+/**
+ * The evidence the model is sent holds at most this many shared items: pages,
+ * courses, clubs and events. (A student's own private context is not evaluated
+ * here; it is covered by the privacy tests, not by recall.)
+ */
+const K = MAX_PAGE_EVIDENCE + MAX_COURSE_EVIDENCE + MAX_CLUB_EVIDENCE + MAX_EVENT_EVIDENCE;
 
 const average = (values: number[]) => (values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length);
 
@@ -53,7 +57,8 @@ describe("retrieval evaluation", () => {
     }
 
     const lines = ["", `Recall in the evidence sent to the model (up to ${K} items); 1.00 is best.`, "kind        questions  keyword  hybrid"];
-    for (const kind of ["page", "course", "interest", "unrelated"]) {
+    // Every kind present in questions.json, in the order it first appears, so a new kind (club, event) needs no change here.
+    for (const kind of [...new Set(results.map((result) => result.kind))]) {
       const ofKind = results.filter((result) => result.kind === kind);
       lines.push(
         `${kind.padEnd(11)} ${String(ofKind.length).padStart(9)}  ${average(ofKind.map((r) => r.keywordRecall)).toFixed(2).padStart(7)}  ${average(ofKind.map((r) => r.hybridRecall)).toFixed(2).padStart(6)}`,
