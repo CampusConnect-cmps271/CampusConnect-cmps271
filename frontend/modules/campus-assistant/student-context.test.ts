@@ -110,6 +110,21 @@ describe("loadStudentContext", () => {
       expect(text.indexOf("CMPS 271")).toBeLessThan(text.indexOf("MATH 201"));
     });
 
+    it("names a meeting's time zone when it is not Beirut, and only then", async () => {
+      const zoned = {
+        ...plan,
+        plan_courses: [
+          { position: 1, courses: { code: "CMPS 271", name: "Software Engineering" }, plan_meetings: [{ weekday: 1, start_minute: 540, end_minute: 615, timezone: "Asia/Beirut" }] },
+          { position: 2, courses: { code: "MATH 201", name: "Calculus III" }, plan_meetings: [{ weekday: 2, start_minute: 600, end_minute: 675, timezone: "America/New_York" }] },
+        ],
+      };
+      const { chunks } = await load(fakeClient({ semester_plans: { data: [zoned] } }));
+      const text = chunks[0]?.text ?? "";
+      expect(text).toContain("CMPS 271 Software Engineering: Mon 09:00-10:15" + "
+");
+      expect(text).toContain("MATH 201 Calculus III: Tue 10:00-11:15 (America/New_York time)");
+    });
+
     it("lists only upcoming items, soonest first, and says when an item is all day", async () => {
       const text = (await chunkOf())?.text ?? "";
       expect(text).toContain("2026-11-14 Study group 15:00-16:00");
