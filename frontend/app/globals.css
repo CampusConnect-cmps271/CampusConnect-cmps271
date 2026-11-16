@@ -755,11 +755,6 @@ html {
   box-shadow: var(--shadow-md);
 }
 
-.auth-top-wide,
-.auth-card-wide {
-  max-width: 760px;
-}
-
 .auth-card h1 {
   font-size: 24px;
   font-weight: 700;
@@ -850,27 +845,6 @@ html {
 
 .auth-card form > .btn-block {
   margin-top: 4px;
-}
-
-/* Sign-up: two fields per row on wide screens, one column on a phone. */
-.auth-form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 20px;
-  align-items: start;
-}
-
-.auth-form-grid > .alert,
-.auth-form-grid > .btn-block,
-.auth-form-grid > .auth-footer,
-.auth-form-grid > .sr-only {
-  grid-column: 1 / -1;
-}
-
-@media (max-width: 640px) {
-  .auth-form-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 .password-rules {

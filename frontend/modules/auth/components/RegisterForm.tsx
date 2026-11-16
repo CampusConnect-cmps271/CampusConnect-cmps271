@@ -65,7 +65,7 @@ export function RegisterForm() {
   }
 
   return (
-    <form action={formAction} noValidate className="auth-form-grid">
+    <form action={formAction} noValidate>
       <p aria-live="polite" role="status" className="sr-only">
         {pending ? "Creating your account" : ""}
       </p>
