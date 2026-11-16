@@ -133,10 +133,57 @@ describe("loadStudentContext", () => {
       expect(text).not.toContain("Old quiz");
     });
 
-    it("tells the model today's date in Beirut and that meeting times are tentative", async () => {
+    it("tells the model today's date in Beirut and that typed meeting times are tentative", async () => {
       const text = (await chunkOf())?.text ?? "";
       expect(text).toContain("Today is Friday, 13 November 2026");
       expect(text).toMatch(/tentative/i);
+      expect(text).toContain("CMPS 271 Software Engineering: Mon 09:00-10:15, Wed 09:00-10:15 (typed by the student, tentative)");
+    });
+
+    it("says which times come from AUB's schedule via Resis, with the section, and which were typed (SCRUM-243)", async () => {
+      // Synthetic sections and CRNs, not AUB's schedule.
+      const mixed = {
+        ...plan,
+        plan_courses: [
+          {
+            position: 1,
+            courses: { code: "CMPS 211", name: "Discrete Structures" },
+            plan_course_sections: [
+              { crn: "30071", section: "L2" },
+              { crn: "30067", section: "E1" },
+            ],
+            plan_meetings: [
+              { weekday: 3, start_minute: 840, end_minute: 890, timezone: "Asia/Beirut", source: "resis", crn: "30071" },
+              { weekday: 1, start_minute: 840, end_minute: 890, timezone: "Asia/Beirut", source: "resis", crn: "30071" },
+              { weekday: 5, start_minute: 660, end_minute: 735, timezone: "Asia/Beirut", source: "resis", crn: "30067" },
+            ],
+          },
+          {
+            position: 2,
+            courses: { code: "MATH 201", name: "Calculus III" },
+            plan_meetings: [{ weekday: 2, start_minute: 600, end_minute: 675, timezone: "Asia/Beirut", source: "manual", crn: null }],
+          },
+          { position: 3, courses: { code: "ENGL 203", name: "Academic English" }, plan_course_sections: [{ crn: "30090", section: "4" }], plan_meetings: [] },
+          { position: 4, courses: { code: "CMPS 240", name: "Operating Systems" }, plan_meetings: [] },
+        ],
+      };
+      const { chunks } = await load(fakeClient({ semester_plans: { data: [mixed] } }));
+      const text = chunks[0]?.text ?? "";
+      expect(text).toContain(
+        "CMPS 211 Discrete Structures: Fri 11:00-12:15 (section E1, CRN 30067); Mon 14:00-14:50, Wed 14:00-14:50 (section L2, CRN 30071), from AUB's schedule via Resis",
+      );
+      expect(text).toContain("MATH 201 Calculus III: Tue 10:00-11:15 (typed by the student, tentative)");
+      expect(text).toContain("ENGL 203 Academic English: section 4, CRN 30090: times not announced, from AUB's schedule via Resis");
+      expect(text).toContain("CMPS 240 Operating Systems: no meeting times entered");
+      expect(text).toContain(`Times "typed by the student" are tentative; times "from AUB's schedule via Resis" come from the chosen section`);
+    });
+
+    it("reads each meeting's source and CRN, and the chosen sections", async () => {
+      const client = fakeClient({ semester_plans: { data: [plan] } });
+      await load(client);
+      const select = client.calls.find((entry) => entry.table === "semester_plans")?.select ?? "";
+      expect(select).toContain("plan_meetings(weekday, start_minute, end_minute, timezone, source, crn)");
+      expect(select).toContain("plan_course_sections(crn, section)");
     });
 
     it("asks only for this student's plans that have not ended", async () => {
