@@ -10,6 +10,7 @@ import { handlePostSearch, postSearchFixtures } from "./mock-post-search.mjs";
 import { clubTestAccounts, handleClubs } from "./mock-clubs.mjs";
 import { electiveAccounts, handleElectives } from "./mock-electives.mjs";
 import { handlePlanner, plannerTestAccounts } from "./mock-planner.mjs";
+import { communitiesTestAccounts, handleCommunities } from "./mock-communities.mjs";
 import { electivePreferenceAccounts, handleElectivePreferences } from "./mock-elective-preferences.mjs";
 
 const user = {
@@ -53,6 +54,7 @@ const profileAccounts = {
   "clubs-representative@mail.aub.edu": clubTestAccounts.REP_ID,
   "clubs-admin@mail.aub.edu": clubTestAccounts.ADMIN_ID,
   ...plannerTestAccounts,
+  ...communitiesTestAccounts,
   ...electivePreferenceAccounts,
 };
 // Another student whose public profile the tests visit.
@@ -287,6 +289,7 @@ createServer(async (request, response) => {
   if (await handleSkillSwap(request, response, url, { userId: caller })) return;
   if (await handleClubs(request, response, url, bearerClaims(request))) return;
   if (await handlePlanner(request, response, url, bearerClaims(request))) return;
+  if (await handleCommunities(request, response, url, bearerClaims(request))) return;
   if (path === "/rest/v1/user_roles") {
     roleLookups++;
     const email = bearerEmail(request);
