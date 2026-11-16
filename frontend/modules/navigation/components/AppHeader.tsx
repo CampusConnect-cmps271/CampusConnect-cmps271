@@ -17,7 +17,14 @@ export async function AppHeader() {
   ]);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-white/90 text-[var(--ink)] backdrop-blur-md supports-[backdrop-filter]:bg-white/75">
+    <header className="sticky top-0 z-30 border-b border-[var(--border)] text-[var(--ink)]">
+      {/* The frosted background is its own layer: a backdrop-filter on the
+          header itself would make the header the containing block for the
+          fixed side bar inside it, shrinking the side bar to the header. */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 -z-10 bg-white/90 backdrop-blur-md supports-[backdrop-filter]:bg-white/75"
+      />
       <nav
         aria-label="Main"
         className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-2.5 sm:px-8 lg:px-12"
