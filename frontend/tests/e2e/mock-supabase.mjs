@@ -249,7 +249,11 @@ createServer(async (request, response) => {
     return response.end("{}");
   }
   if (path === "/rest/v1/app_logs" && request.method === "GET") {
-    return response.end("[]");
+    if (bearerEmail(request) !== "clubs-admin@mail.aub.edu") return response.end("[]");
+    return response.end(JSON.stringify([
+      { event: "api.request.completed", context: { endpoint: "/api/electives/recommendations", method: "POST", status: 200, duration_ms: 1200, slow: true, database: { calls: 2, duration_ms: 400, slow_queries: [{ operation: "rpc/elective_candidate_page", method: "POST", status: 200, duration_ms: 350 }] } } },
+      { event: "api.request.completed", context: { endpoint: "/api/electives/recommendations", method: "POST", status: 503, duration_ms: 2000, slow: true } },
+    ]));
   }
   if (path === "/rest/v1/rpc/current_suspension" && request.method === "POST") {
     // Verified browser-test users are active. Keep this explicit because the

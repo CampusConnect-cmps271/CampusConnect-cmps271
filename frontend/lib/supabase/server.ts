@@ -1,6 +1,7 @@
 import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { trackedDatabaseFetch } from "@/modules/performance/tracking";
 import { requireSupabaseConfig } from "./config";
 
 /**
@@ -12,6 +13,7 @@ export async function createClient() {
   const cookieStore = await cookies();
 
   return createServerClient(url, publishableKey, {
+    global: { fetch: trackedDatabaseFetch(url) },
     cookies: {
       getAll() {
         return cookieStore.getAll();

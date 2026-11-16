@@ -95,3 +95,14 @@ describe("API request metrics", () => {
     );
   });
 });
+
+it("correlates database attempts with the enclosing API metric", async () => {
+  const { trackedDatabaseFetch } = await import("@/modules/performance/tracking");
+  const tracked = trackedDatabaseFetch("https://project.example", async () => new Response("[]", { status: 503 }));
+  const handler = trackApiRequest("/api/notifications", "GET", async () => {
+    await tracked("https://project.example/rest/v1/notifications?recipient_id=private");
+    return new Response("ok");
+  });
+  await handler();
+  expect(log.info).toHaveBeenLastCalledWith("api.request.completed", expect.objectContaining({ database: expect.objectContaining({ calls: 1, failures: 1, slow_queries: [expect.objectContaining({ operation: "notifications", status: 503 })] }) }));
+});
