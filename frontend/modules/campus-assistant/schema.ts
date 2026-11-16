@@ -73,12 +73,34 @@ export const providerAnswerSchema = z.object({
   insufficient_evidence: z.boolean(),
 });
 
+/** Where each of the app's own kinds of evidence comes from, in words a student recognises. */
+const SOURCE_LABELS: Record<string, string> = {
+  "course-catalogue": "AUB course catalogue",
+  "club-directory": "Student clubs",
+  "campus-events": "Campus events",
+  "student-plan": "Your semester plan",
+  "student-events": "Your saved events",
+  "student-posts": "Your posts",
+  "campus-feed": "Campus feed",
+};
+
+/**
+ * Names the source of a citation. The app's own sources have fixed labels; any
+ * other source is labelled by where its link points, so an https page is the AUB
+ * website and an app page is never passed off as it.
+ */
+export function sourceLabel(sourceId: string, url: string): string {
+  return SOURCE_LABELS[sourceId] ?? (url.startsWith("https://") ? "AUB website" : "CampusConnect");
+}
+
 export type Citation = {
   source_id: string;
   chunk_id: string;
   url: string;
   title: string;
   retrieved_at: string | null;
+  /** Built from the stored source, never from the model: "Student clubs", "Your semester plan", "AUB website"… */
+  source_label: string;
 };
 
 export type AssistantAnswer = {

@@ -3,6 +3,7 @@ import { searchTerms } from "./retrieval";
 import {
   isCitableUrl,
   providerAnswerSchema,
+  sourceLabel,
   type AssistantAnswer,
   type EvidenceChunk,
   type HistoryTurn,
@@ -64,7 +65,14 @@ export async function answerQuestion(
 
   return {
     answer: parsed.data.answer,
-    citations: cited.map(({ source_id, chunk_id, url, title, retrieved_at }) => ({ source_id, chunk_id, url, title, retrieved_at })),
+    citations: cited.map(({ source_id, chunk_id, url, title, retrieved_at }) => ({
+      source_id,
+      chunk_id,
+      url,
+      title,
+      retrieved_at,
+      source_label: sourceLabel(source_id, url),
+    })),
     insufficient_evidence: false,
   };
 }

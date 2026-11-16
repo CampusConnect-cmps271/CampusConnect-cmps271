@@ -47,7 +47,9 @@ describe('POST /api/campus-assistant', () => {
     expect(res.headers.get('cache-control')).toBe('no-store')
     const body = await res.json()
     expect(body.answer).toBe('The Registrar issues transcripts.')
-    expect(body.citations).toEqual([expect.objectContaining({ chunk_id: 'registrar:0', url: REGISTRAR_CHUNK.url })])
+    expect(body.citations).toEqual([
+      expect.objectContaining({ chunk_id: 'registrar:0', url: REGISTRAR_CHUNK.url, source_label: 'AUB website' }),
+    ])
   })
 
   it('also searches by meaning when the question can be embedded', async () => {
@@ -209,7 +211,9 @@ describe('POST /api/campus-assistant with the student\'s private context', () =>
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.answer).toBe('You have CMPS 271 on Mondays.')
-    expect(body.citations).toEqual([expect.objectContaining({ chunk_id: `me:plan:${PLAN_ID}`, url: `/planner/${PLAN_ID}` })])
+    expect(body.citations).toEqual([
+      expect.objectContaining({ chunk_id: `me:plan:${PLAN_ID}`, url: `/planner/${PLAN_ID}`, source_label: 'Your semester plan' }),
+    ])
     expect(sentToModel()).toContain(`<chunk id="me:plan:${PLAN_ID}">`)
     expect(sentToModel()).toContain('CMPS 271 Software Engineering: Mon 09:00-10:15')
   })

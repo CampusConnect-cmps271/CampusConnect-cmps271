@@ -1,5 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { isCitableUrl } from "./schema";
+import { isCitableUrl, sourceLabel } from "./schema";
+
+describe("sourceLabel", () => {
+  it.each([
+    ["course-catalogue", "/courses/CMPS-271", "AUB course catalogue"],
+    ["club-directory", "/clubs/robotics-club", "Student clubs"],
+    ["campus-events", "/events/6f1c2a40-1b2c-4d3e-8f50-123456789abc", "Campus events"],
+    ["student-plan", "/planner/6f1c2a40-1b2c-4d3e-8f50-123456789abc", "Your semester plan"],
+    ["student-events", "/events", "Your saved events"],
+    ["student-posts", "/saved", "Your posts"],
+    ["campus-feed", "/home", "Campus feed"],
+  ])("names %s as %s", (sourceId, url, label) => {
+    expect(sourceLabel(sourceId, url)).toBe(label);
+  });
+
+  it("falls back on the link: https pages are the AUB website, anything else is the app", () => {
+    expect(sourceLabel("registrar", "https://www.aub.edu.lb/registrar")).toBe("AUB website");
+    expect(sourceLabel("new-thing", "/clubs/robotics-club")).toBe("CampusConnect");
+  });
+});
 
 describe("isCitableUrl", () => {
   it("accepts https AUB pages and the app's course, club and event pages", () => {
