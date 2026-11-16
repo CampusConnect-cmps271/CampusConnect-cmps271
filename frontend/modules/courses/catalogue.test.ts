@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   requireUser: vi.fn(), from: vi.fn(), logError: vi.fn(),
 }));
+vi.mock("./semesters", () => ({ getImportedSemesters: async () => [] }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/modules/auth", () => ({ requireUser: mocks.requireUser }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ from: mocks.from }) }));
@@ -26,6 +27,7 @@ beforeEach(() => {
       const call = { table, fields, head: options?.head ?? false, filters: [] as unknown[][], order: [] as string[], range: undefined as number[] | undefined };
       calls.push(call);
       const query = {
+        overrideTypes: () => query,
         eq: (column: string, value: string) => { call.filters.push([column, value]); return query; },
         or: (expression: string) => { call.filters.push([expression]); return query; },
         gte: (column: string, value: number) => { call.filters.push(["gte", column, value]); return query; },
@@ -69,6 +71,13 @@ describe("course request parsing", () => {
 });
 
 describe("course catalogue queries", () => {
+  it("scopes semester courses before rating predicates, counts and pagination", async () => {
+    await getCourseCatalogue(parseCourseFilters({ semester: "202720", difficultyMax: "3.3" }));
+    const queries = calls.filter((call) => call.fields !== "department");
+    expect(queries.map((call) => call.table)).toEqual(["course_semester_catalogue", "course_semester_catalogue"]);
+    expect(queries[0].filters).toEqual([["semester_id", "202720"], ["lte", "difficulty", 3.3]]);
+    expect(queries[0].filters).toEqual(queries[1].filters);
+  });
   it("applies all ranges in Postgres identically before counting and paginating", async () => {
     await getCourseCatalogue(parseCourseFilters({ q: "CMPS", department: "Computer Science",
       creditsMin: "0", creditsMax: "3.5", difficultyMin: "2.5", difficultyMax: "3.3", workloadMin: "1", workloadMax: "4" }));
@@ -141,7 +150,7 @@ describe("course catalogue queries", () => {
 
   it("handles an empty catalogue without requesting an invalid range", async () => {
     respond = (call) => call.head ? { data: null, count: 0, error: null } : { data: [], error: null };
-    expect(await getCourseCatalogue(parseCourseFilters({}))).toEqual({ courses: [], departments: [], total: 0, page: 1, pages: 1 });
+    expect(await getCourseCatalogue(parseCourseFilters({}))).toEqual({ courses: [], departments: [], semesters: [], total: 0, page: 1, pages: 1 });
     expect(calls).toHaveLength(2);
   });
 

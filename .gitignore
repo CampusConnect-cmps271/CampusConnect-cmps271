@@ -54,3 +54,6 @@ yarn-error.log*
 /SCRUM_174_REPORT.md
 /SETUP_REPORT.md
 /TASK_REPORT.md
+
+# Resis saved responses and persistent request-budget ledger (keep locally).
+frontend/.resis-cache/

@@ -8,6 +8,7 @@ import styles from "./courses.module.css";
 import { ReviewSection } from "@/modules/reviews/ReviewSection";
 import { RatingSection } from "@/modules/ratings/RatingSection";
 import { ComparisonSelection, ComparisonToggle } from "./ComparisonSelection";
+import { SemesterOfferings } from "./SemesterOfferings";
 
 export async function CourseDetail({ code, filters }: { code: string; filters: CourseFilters }) {
   let detail;
@@ -59,10 +60,15 @@ export async function CourseDetail({ code, filters }: { code: string; filters: C
               {part.text}
             </Link> : part.text;
           })}
-        </p> : <p>No prerequisites are listed in the catalogue.</p>}
+        </p> : <p>{course.data_source === "resis" ? "Catalogue prerequisites have not been verified for this newly imported course. Check the semester section rules below and AUB SIS." : "No prerequisites are listed in the catalogue."}</p>}
+        <p className={styles.detailHint}>{course.data_source === "resis"
+          ? "This course was added from Resis. Its current registration rules are listed by semester and section below."
+          : "AUB catalogue requirements. See semester offerings for the registration rules supplied by Resis."}</p>
         {linksUnavailable ? <p className={styles.detailHint} role="status">Prerequisite links are temporarily unavailable. The catalogue requirements are shown above.</p>
           : hasUnresolvedReferences && <p className={styles.detailHint}>Some referenced courses are not available in this catalogue yet.</p>}
       </section>
+
+      <SemesterOfferings courseId={course.id} semester={filters.semester} />
 
       <section className={styles.detailPanel} aria-labelledby="course-reviews-title">
         <h2 id="course-reviews-title">Ratings and reviews</h2>

@@ -3,6 +3,13 @@ import { courseFilterError, coursesUrl, hasRatingFilters, parseCourseFilters } f
 import { courseUrl } from "./references";
 
 describe("shareable course range filters", () => {
+  it("preserves verified-shaped semester IDs across detail links and pagination", () => {
+    const filters = parseCourseFilters({ semester: "202720", q: "CMPS", page: "2" });
+    expect(filters.semester).toBe("202720");
+    expect(new URL(coursesUrl(filters, 3), "https://test.invalid").searchParams.get("semester")).toBe("202720");
+    expect(new URL(courseUrl("CMPS 271", filters), "https://test.invalid").searchParams.get("semester")).toBe("202720");
+    expect(parseCourseFilters({ semester: "202720,semester_id.neq.secret" }).semester).toBeUndefined();
+  });
   it("accepts inclusive decimal bounds, zero credits and repeated URL parameters", () => {
     expect(parseCourseFilters({ creditsMin: ["0", "4"], creditsMax: "3.25", difficultyMin: "1",
       difficultyMax: "3.3", workloadMin: "2.5", workloadMax: "5" })).toEqual({
