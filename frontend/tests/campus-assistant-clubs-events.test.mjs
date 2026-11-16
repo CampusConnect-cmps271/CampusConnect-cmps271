@@ -186,6 +186,27 @@ describe("campus assistant club and event search", { skip: reachable ? false : "
     });
   });
 
+  describe("embedding backfill", () => {
+    const stateOf = async () => {
+      const { data, error } = await supabase.from("events").select("revision, updated_at").eq("title", "ZZTEST Alpha Robot Demo").single();
+      assert.equal(error, null);
+      return data;
+    };
+
+    it("does not bump an event's revision or updated_at when only its embedding is set, but does for a real edit", async () => {
+      const before = await stateOf();
+      const embed = await supabase.from("events").update({ embedding: axis(7) }).eq("title", "ZZTEST Alpha Robot Demo");
+      assert.equal(embed.error, null);
+      assert.deepEqual(await stateOf(), before);
+
+      const edit = await supabase.from("events").update({ location: "ZZTEST Hall B" }).eq("title", "ZZTEST Alpha Robot Demo");
+      assert.equal(edit.error, null);
+      const after = await stateOf();
+      assert.equal(after.revision, before.revision + 1);
+      assert.notEqual(after.updated_at, before.updated_at);
+    });
+  });
+
   it("lets a signed-in student, not only the secret key, call all four searches; a signed-out visitor cannot", { skip: publishableKey ? false : "no publishable key" }, async () => {
     // The app searches as the signed-in student, so row-level security and the
     // function grants apply; the secret key used elsewhere here bypasses both.
