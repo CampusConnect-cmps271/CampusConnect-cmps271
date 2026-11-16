@@ -14,7 +14,7 @@ create policy "Administrators can read application logs"
 on public.app_logs
 for select
 to authenticated
-using (public.current_user_role() = 'administrator');
+using ((select public.current_user_role()) = 'administrator');
 
 comment on policy "Administrators can read application logs"
 on public.app_logs is
