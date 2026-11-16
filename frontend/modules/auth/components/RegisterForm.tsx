@@ -10,9 +10,6 @@ import { PasswordInput } from "./PasswordInput";
 
 const INITIAL_STATE: RegisterFormState = { status: "idle" };
 
-const FIELD_CLASS =
-  "w-full rounded-md border border-black/15 bg-transparent px-3 py-2 text-base outline-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-sky-600 aria-[invalid]:border-red-600 dark:border-white/20";
-
 export function RegisterForm() {
   // See LoginForm: wrap the action so a request that never reaches the server
   // is reported, instead of watching for a state the server already logged.
@@ -41,59 +38,46 @@ export function RegisterForm() {
   // filled-in form the student might submit again.
   if (state.status === "sent") {
     return (
-      <div
-        role="status"
-        className="flex flex-col gap-4 rounded-md border border-emerald-600/30 bg-emerald-600/10 px-4 py-5"
-      >
-        <h2 className="text-lg font-semibold">
-          Check your university email for your code
-        </h2>
-        <p className="text-sm opacity-90">
+      <div role="status" className="auth-success">
+        <div className="auth-success-icon" aria-hidden="true">
+          ✉
+        </div>
+        <h2>Check your university email for your code</h2>
+        <p>
           We sent an 8-digit verification code to <strong>{state.email}</strong>
           . Enter it to activate your account, then log in.
         </p>
-        <p className="text-sm opacity-80">
+        <p>
           Nothing in your inbox? Check the spam folder. You can ask for a new
           code on the next page.
         </p>
         <Link
           href={verifyEmailPathFor(state.email)}
-          className="self-start rounded-md bg-sky-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+          className="btn btn-primary btn-block"
         >
           Enter your code
         </Link>
-        <p className="text-sm opacity-80">
-          Already verified?{" "}
-          <Link
-            href={LOGIN_PATH}
-            className="font-medium text-sky-700 underline-offset-2 hover:underline dark:text-sky-400"
-          >
-            Log in
-          </Link>
+        <p className="auth-footer">
+          Already verified? <Link href={LOGIN_PATH}>Log in</Link>
         </p>
       </div>
     );
   }
 
   return (
-    <form action={formAction} noValidate className="flex flex-col gap-5">
+    <form action={formAction} noValidate>
       <p aria-live="polite" role="status" className="sr-only">
         {pending ? "Creating your account" : ""}
       </p>
 
       {state.status === "error" && state.message ? (
-        <p
-          role="alert"
-          className="rounded-md border border-red-600/30 bg-red-600/10 px-3 py-2 text-sm text-red-700 dark:text-red-300"
-        >
+        <p role="alert" className="alert alert-error">
           {state.message}
         </p>
       ) : null}
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor={nameId} className="text-sm font-medium">
-          Full name
-        </label>
+      <div className="field">
+        <label htmlFor={nameId}>Full name</label>
         <input
           id={nameId}
           name="fullName"
@@ -103,19 +87,16 @@ export function RegisterForm() {
           defaultValue={values?.fullName}
           aria-invalid={nameError ? true : undefined}
           aria-describedby={nameError ? `${nameId}-error` : undefined}
-          className={FIELD_CLASS}
         />
         {nameError ? (
-          <p id={`${nameId}-error`} className="text-sm text-red-700 dark:text-red-400">
+          <p id={`${nameId}-error`} className="field-error">
             {nameError}
           </p>
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor={emailId} className="text-sm font-medium">
-          University email
-        </label>
+      <div className="field">
+        <label htmlFor={emailId}>University email</label>
         <input
           id={emailId}
           name="email"
@@ -128,10 +109,9 @@ export function RegisterForm() {
           defaultValue={values?.email}
           aria-invalid={emailError ? true : undefined}
           aria-describedby={emailError ? `${emailId}-error` : undefined}
-          className={FIELD_CLASS}
         />
         {emailError ? (
-          <p id={`${emailId}-error`} className="text-sm text-red-700 dark:text-red-400">
+          <p id={`${emailId}-error`} className="field-error">
             {emailError}
           </p>
         ) : null}
@@ -153,19 +133,13 @@ export function RegisterForm() {
       <button
         type="submit"
         disabled={pending}
-        className="rounded-md bg-sky-700 px-4 py-2.5 text-base font-medium text-white transition-opacity hover:bg-sky-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+        className="btn btn-primary btn-block"
       >
         {pending ? "Creating account…" : "Sign up"}
       </button>
 
-      <p className="text-sm opacity-80">
-        Already have an account?{" "}
-        <Link
-          href={LOGIN_PATH}
-          className="font-medium text-sky-700 underline-offset-2 hover:underline dark:text-sky-400"
-        >
-          Log in
-        </Link>
+      <p className="auth-footer">
+        Already have an account? <Link href={LOGIN_PATH}>Log in</Link>
       </p>
     </form>
   );
