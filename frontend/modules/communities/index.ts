@@ -88,6 +88,7 @@ export { CommunityCard, membershipLabel, TopicBadge } from "./components/Communi
 export { CommunityForm } from "./components/CommunityForm";
 export { CommunityPostCard } from "./components/CommunityPostCard";
 export { CommunityPostForm } from "./components/CommunityPostForm";
+export { JoinToPostButton } from "./components/JoinToPostButton";
 export { MembershipControls } from "./components/MembershipControls";
 export { PostedIn } from "./components/PostedIn";
 export { formatDate, plural } from "./components/styles";

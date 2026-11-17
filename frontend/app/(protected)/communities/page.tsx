@@ -124,7 +124,7 @@ export default async function CommunitiesPage({ searchParams }: CommunitiesPageP
               <ul className="flex max-w-3xl flex-col gap-3">
                 {following.posts.map((post) => (
                   <li key={post.id}>
-                    <CommunityPostCard post={post} showCommunity />
+                    <CommunityPostCard post={post} />
                   </li>
                 ))}
               </ul>

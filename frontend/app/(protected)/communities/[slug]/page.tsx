@@ -10,6 +10,7 @@ import {
   getCommunityBySlug,
   getMembership,
   isModeratorOrAdmin,
+  JoinToPostButton,
   listCommunityPosts,
   MAX_PAGES,
   MembershipControls,
@@ -122,7 +123,7 @@ export default async function CommunityPage({ params, searchParams }: CommunityP
                   New post
                 </Link>
               ) : active ? (
-                <p className="text-sm text-[var(--ink-soft)]">Join to post</p>
+                <JoinToPostButton communityId={community.id} slug={community.slug} />
               ) : null}
             </div>
 

@@ -124,8 +124,6 @@ export default async function PostPage({
             Posted{" "}
             {new Date(post.created_at).toLocaleString("en-US", { timeZone: "Asia/Beirut" })}
           </time>
-
-          <PostedIn postId={post.id} />
         </div>
 
         <h1 className="mb-4 text-3xl font-bold">
@@ -147,6 +145,7 @@ export default async function PostPage({
             ) : (
               "CampusConnect student"
             )}
+            <PostedIn postId={post.id} />
           </p>
 
           {author ? (
