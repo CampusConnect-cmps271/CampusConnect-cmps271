@@ -10,7 +10,6 @@ import { courses } from "./mock-courses.mjs";
 export const plannerTestAccounts = {
   "planner-rana@mail.aub.edu": "00000000-0000-4000-8000-000000000301",
   "planner-omar@mail.aub.edu": "00000000-0000-4000-8000-000000000302",
-  "planner-meetings@mail.aub.edu": "00000000-0000-4000-8000-000000000303",
   "planner-phone@mail.aub.edu": "00000000-0000-4000-8000-000000000304",
   "planner-keys@mail.aub.edu": "00000000-0000-4000-8000-000000000305",
   "planner-owner@mail.aub.edu": "00000000-0000-4000-8000-000000000306",
@@ -18,17 +17,15 @@ export const plannerTestAccounts = {
   // SCRUM-67: the conflict warnings.
   "planner-conflicts@mail.aub.edu": "00000000-0000-4000-8000-000000000308",
   "planner-incomplete@mail.aub.edu": "00000000-0000-4000-8000-000000000309",
-  "planner-zones@mail.aub.edu": "00000000-0000-4000-8000-00000000030a",
   // The calendar: own items and events the student is going to.
   "planner-calendar@mail.aub.edu": "00000000-0000-4000-8000-00000000030b",
   // SCRUM-243: class times from sections of the imported schedule.
   "planner-sections@mail.aub.edu": "00000000-0000-4000-8000-00000000030c",
 };
 
-// SCRUM-243. Only this student's new plans link themselves to an imported
-// semester, as the database's insert trigger would, so the other planner
-// tests keep their unlinked plans.
-const LINKING_STUDENT = plannerTestAccounts["planner-sections@mail.aub.edu"];
+// SCRUM-243. New plans link themselves to an imported semester, as the
+// database's insert trigger would. Only Spring 2027 is imported, so plans for
+// other terms stay unlinked.
 const SEMESTERS = {
   "202720": { id: "202720", name: "Spring 2026-2027", synced_at: "2026-11-08T00:00:00Z", import_id: "00000000-0000-4000-a000-000000202720" },
 };
@@ -88,13 +85,13 @@ const MOVED_CRNS = new Set(["90021"]);
 const updatedCourses = new Set();
 
 // Synthetic published events that planner-calendar has saved. Not real AUB
-// events. Tue 16 Feb 2027 10:00-11:00 and Wed 17 Feb 2027 13:00-15:00 Beirut.
+// events. Tue 16 Feb 2027 11:30-12:30 and Wed 17 Feb 2027 13:00-15:00 Beirut.
 const events = [
   {
     id: "00000000-0000-4000-8000-000000000e01",
     title: "Robotics club talk",
-    starts_at: "2027-02-16T08:00:00+00:00",
-    ends_at: "2027-02-16T09:00:00+00:00",
+    starts_at: "2027-02-16T09:30:00+00:00",
+    ends_at: "2027-02-16T10:30:00+00:00",
     location: "Bechtel 101",
   },
   {
@@ -285,7 +282,7 @@ export async function handlePlanner(request, response, url, claims) {
         term: input.term,
         starts_on: input.starts_on,
         ends_on: input.ends_on,
-        resis_semester_id: userId === LINKING_STUDENT ? (TERM_SEMESTER[input.term] ?? null) : null,
+        resis_semester_id: TERM_SEMESTER[input.term] ?? null,
       };
       plans.push(plan);
       return respond(request, response, 201, [plan]), true;
