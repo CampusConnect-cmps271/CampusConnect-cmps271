@@ -61,6 +61,18 @@ async function openWeek(page: Page, date: string) {
 }
 
 const planned = (page: Page, code: string) => page.getByRole("article", { name: new RegExp(`^${code} `) });
+
+/**
+ * A course's section picker once React has taken it over. Until then every
+ * section lists its linked choices, so labels repeat and an early choice
+ * could be undone; afterwards an unchosen section shows a "Linked: …" line
+ * instead, which is what this waits for.
+ */
+async function sectionPicker(page: Page, code: string) {
+  const picker = page.getByRole("region", { name: `Choose a section of ${code}` });
+  await expect(picker.getByText(/^Linked: CRN/).first()).toBeVisible({ timeout: 20_000 });
+  return picker;
+}
 const total = (page: Page) => page.getByText(/^[\d.]+ credits? · \d+ courses?$/);
 const status = (page: Page) => page.getByRole("heading", { level: 2 }).filter({ hasText: /conflict|No courses to check/ });
 const conflictLine = (page: Page, text: string) => page.getByRole("listitem").filter({ hasText: text });
@@ -70,6 +82,17 @@ const square = (page: Page, date: string, time: string) => page.locator(`[data-s
 const itemOnCalendar = (page: Page, title: string) => page.getByRole("button", { name: new RegExp(`^Edit ${title}, `) });
 
 /**
+ * Clicks until the item dialog opens. The calendar ignores clicks until
+ * React has hydrated it, which a cold dev server can take a while to do.
+ */
+async function openDialog(page: Page, click: () => Promise<void>) {
+  await expect(async () => {
+    if (!(await dialog(page).isVisible())) await click();
+    await expect(dialog(page)).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 20_000 });
+}
+
+/**
  * Clicks the top half of an hour's square, opening a new item at that hour.
  * Clicks its right edge, which classes and events never cover.
  */
@@ -77,8 +100,7 @@ async function clickSquare(page: Page, date: string, time: string) {
   const target = square(page, date, time);
   const box = await target.boundingBox();
   if (!box) throw new Error(`No square for ${date} ${time}`);
-  await target.click({ position: { x: box.width - 4, y: 4 } });
-  await expect(dialog(page)).toBeVisible();
+  await openDialog(page, () => target.click({ position: { x: box.width - 4, y: 4 } }));
 }
 
 /** Fills the open item dialog and saves it; the dialog closes once it's saved. */
@@ -221,7 +243,7 @@ test.describe("at phone width", () => {
     await addCourse(page, "CMPS 240", "CMPS 240");
 
     await expect(total(page)).toHaveText("3 credits · 1 course");
-    await page.getByRole("button", { name: /^Add an item on / }).first().click();
+    await openDialog(page, () => page.getByRole("button", { name: /^Add an item on / }).first().click());
     await expect(dialog(page).getByLabel("Title")).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(0);
@@ -260,9 +282,8 @@ test("the planner can be used with the keyboard alone", async ({ page }) => {
   // MATH 202 has sections: choose one from the picker.
   await page.getByRole("button", { name: "Add MATH 202 to this plan" }).focus();
   await page.keyboard.press("Enter");
-  const picker = page.getByRole("region", { name: "Choose a section of MATH 202" });
-  await expect(picker).toBeVisible({ timeout: 20_000 });
-  await picker.getByLabel(/^Section 2 · CRN 90012/).focus();
+  const picker = await sectionPicker(page, "MATH 202");
+  await picker.getByLabel(/^Section 2 · CRN 90012 · Lecture/).focus();
   await page.keyboard.press("Space");
   await picker.getByRole("button", { name: "Use this section" }).focus();
   await page.keyboard.press("Enter");
@@ -276,8 +297,10 @@ test("the planner can be used with the keyboard alone", async ({ page }) => {
   await expect(total(page)).toHaveText("6 credits · 2 courses");
 
   // A day's + opens a new item; Enter in the title saves it as an all-day item.
-  await page.getByRole("button", { name: /^Add an item on / }).first().focus();
-  await page.keyboard.press("Enter");
+  await openDialog(page, async () => {
+    await page.getByRole("button", { name: /^Add an item on / }).first().focus();
+    await page.keyboard.press("Enter");
+  });
   await expect(dialog(page).getByLabel("Title")).toBeFocused();
   await page.keyboard.type("Read chapter 3");
   await page.keyboard.press("Enter");
@@ -370,8 +393,8 @@ test("the calendar shows classes, own items and events you're going to, and flag
   await createPlan(page, "Spring 2027");
   // Section 2 meets Tue and Thu 11:00-12:15, with its recitation on Wed 16:00-16:50.
   await addCourse(page, "MATH 202", "MATH 202");
-  const picker = page.getByRole("region", { name: "Choose a section of MATH 202" });
-  await picker.getByLabel(/^Section 2 · CRN 90012/).check();
+  const picker = await sectionPicker(page, "MATH 202");
+  await picker.getByLabel(/^Section 2 · CRN 90012 · Lecture/).check();
   await picker.getByRole("button", { name: "Use this section" }).click();
   // The picker's own label has the same text, so wait for the saved page first.
   await expect(page).toHaveURL(/\?done=[0-9a-f-]{36}&what=picked#course-/, { timeout: 20_000 });
@@ -419,7 +442,7 @@ test("the calendar shows classes, own items and events you're going to, and flag
   });
 
   await test.step("a date too far from the term is refused in the dialog", async () => {
-    await page.getByRole("button", { name: "Add an item on Fri, 19 Feb 2027" }).click();
+    await openDialog(page, () => page.getByRole("button", { name: "Add an item on Fri, 19 Feb 2027" }).click());
     await dialog(page).getByLabel("Title").fill("Summer trip");
     await dialog(page).getByLabel("Date").fill("2027-07-01");
     await dialog(page).getByRole("button", { name: "Save item" }).click();
@@ -477,6 +500,7 @@ test("a linked plan fills class times from the chosen section, and never asks fo
     await expect(page).toHaveURL(/\?sections=[0-9a-f-]{36}#course-/, { timeout: 20_000 });
     await expect(picker("MATH 202")).toBeVisible();
     await expect(picker("MATH 202").getByText("3 sections in AUB's Spring 2026-2027 schedule")).toBeVisible();
+    await sectionPicker(page, "MATH 202");
     await picker("MATH 202").getByLabel(/^Section 2 · CRN 90012 · Lecture/).check();
     const linked = picker("MATH 202").getByRole("group", { name: "Section 2's recitation, CRN 90013, is linked to it. Add it too?" });
     await expect(linked.getByRole("checkbox")).toBeChecked();
@@ -503,7 +527,7 @@ test("a linked plan fills class times from the chosen section, and never asks fo
   await test.step("a lecture with a linked lab offers the lab", async () => {
     await search(page, "CMPS 241");
     await page.getByRole("button", { name: "Add CMPS 241 to this plan" }).click();
-    await expect(picker("CMPS 241")).toBeVisible({ timeout: 20_000 });
+    await sectionPicker(page, "CMPS 241");
     await picker("CMPS 241").getByLabel(/^Section L1 · CRN 90031 · Lecture/).check();
     const lab = picker("CMPS 241").getByRole("group", { name: "Section L1's lab, CRN 90032, is linked to it. Add it too?" });
     await expect(lab.getByRole("checkbox")).toBeChecked();
