@@ -266,6 +266,8 @@ test("the planner can be used with the keyboard alone", async ({ page }) => {
   await page.keyboard.press("Space");
   await picker.getByRole("button", { name: "Use this section" }).focus();
   await page.keyboard.press("Enter");
+  // The picker's own label has the same text, so wait for the saved page first.
+  await expect(page).toHaveURL(/\?done=[0-9a-f-]{36}&what=picked#course-/, { timeout: 20_000 });
   await expect(planned(page, "MATH 202").getByText("Section 2 · CRN 90012")).toBeVisible({ timeout: 20_000 });
 
   await page.getByRole("button", { name: "Move MATH 202 up" }).focus();
@@ -371,6 +373,8 @@ test("the calendar shows classes, own items and events you're going to, and flag
   const picker = page.getByRole("region", { name: "Choose a section of MATH 202" });
   await picker.getByLabel(/^Section 2 · CRN 90012/).check();
   await picker.getByRole("button", { name: "Use this section" }).click();
+  // The picker's own label has the same text, so wait for the saved page first.
+  await expect(page).toHaveURL(/\?done=[0-9a-f-]{36}&what=picked#course-/, { timeout: 20_000 });
   await expect(planned(page, "MATH 202").getByText("Section 2 · CRN 90012")).toBeVisible({ timeout: 20_000 });
 
   await test.step("a week is shown with its dates, and saved events wait until marked as going", async () => {
