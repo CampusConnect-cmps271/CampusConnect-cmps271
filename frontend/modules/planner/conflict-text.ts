@@ -13,7 +13,7 @@ export function conflictHeadline(report: ConflictReport): string {
     case "conflicts":
       return `${plural(report.conflicts.length, "conflict", "conflicts")} found`;
     case "clear":
-      return "No conflicts among the times you entered";
+      return "No conflicts";
     case "incomplete": {
       const missing: string[] = [];
       if (report.unknown.length) {
@@ -23,7 +23,7 @@ export function conflictHeadline(report: ConflictReport): string {
         const count = report.invalid.filter((invalid) => invalid.kind === kind).length;
         if (count) missing.push(`${plural(count, one, many)} ${count === 1 ? "needs" : "need"} fixing`);
       }
-      return `No overlaps among the times you entered, but ${missing.join(" and ")}`;
+      return `No conflicts so far, but ${missing.join(" and ")}`;
     }
   }
 }

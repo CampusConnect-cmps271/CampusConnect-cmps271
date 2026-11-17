@@ -1,4 +1,5 @@
 import { CalendarPlus, CircleCheck, CircleHelp, TriangleAlert } from "lucide-react";
+import { mondayOf } from "../calendar";
 import type { ConflictReport, ConflictSide } from "../conflicts";
 import { conflictHeadline, invalidItemHelp, invalidMeetingHelp, overlapDates, overlapWindow } from "../conflict-text";
 import type { PlanDetails, PlannerEvent } from "../types";
@@ -27,7 +28,11 @@ export function ConflictPanel({ plan, events, report }: { plan: PlanDetails; eve
 
   const label = (side: ConflictSide) => {
     if (side.kind === "meeting") return { href: `#meeting-${side.meeting_id}`, text: courses.get(side.plan_course_id)?.code ?? "A course" };
-    if (side.kind === "item") return { href: `#item-${side.item_id}`, text: items.get(side.item_id)?.title ?? "An item" };
+    if (side.kind === "item") {
+      const item = items.get(side.item_id);
+      // Items live on the calendar: link to the week that shows it.
+      return { href: item ? `/planner/${plan.id}?week=${mondayOf(item.on_date)}#calendar` : "#calendar", text: item?.title ?? "An item" };
+    }
     return { href: `#event-${side.event_id}`, text: eventTitles.get(side.event_id) ?? "An event" };
   };
   const link = (side: ConflictSide, text = label(side).text) => (
@@ -37,16 +42,16 @@ export function ConflictPanel({ plan, events, report }: { plan: PlanDetails; eve
   );
 
   return (
-    <section aria-labelledby="conflict-status-heading" className="flex flex-col gap-3">
-      <div aria-live="polite" className={`flex gap-3 rounded-lg border-2 px-4 py-3 ${box}`}>
+    <section aria-labelledby="conflict-status-heading" className="flex flex-col gap-2">
+      <div aria-live="polite" className={`flex gap-2.5 rounded-xl border px-4 py-2.5 ${box}`}>
         <Icon aria-hidden="true" className={`mt-0.5 h-5 w-5 shrink-0 ${icon}`} />
-        <div className="flex min-w-0 flex-col gap-2 text-sm text-[var(--ink)]">
-          <h2 id="conflict-status-heading" className="text-base font-semibold">
+        <div className="flex min-w-0 flex-col gap-1 text-sm text-[var(--ink)]">
+          <h2 id="conflict-status-heading" className="font-semibold">
             {conflictHeadline(report)}
           </h2>
 
           {report.status === "conflicts" ? (
-            <ul className="flex list-disc flex-col gap-1 pl-5">
+            <ul className="flex list-disc flex-col gap-0.5 pl-5">
               {report.conflicts.map((conflict, index) => {
                 const [first, second] = conflict.sides;
                 const when = `${overlapWindow(conflict)} (Beirut time), ${overlapDates(conflict)}`;
@@ -71,7 +76,7 @@ export function ConflictPanel({ plan, events, report }: { plan: PlanDetails; eve
 
           {report.unknown.length && report.status !== "empty" ? (
             <p>
-              {report.status === "conflicts" ? "Also, these courses have no times yet: " : "No times yet: "}
+              No times yet:{" "}
               {report.unknown.map((unknown, index) => (
                 <span key={unknown.plan_course_id}>
                   {index ? ", " : ""}
@@ -80,16 +85,14 @@ export function ConflictPanel({ plan, events, report }: { plan: PlanDetails; eve
                   </a>
                 </span>
               ))}
-              . A course without times could still clash.
+              .
             </p>
           ) : null}
-
-          {report.status === "empty" ? <p>Add courses and their meeting times to check them for overlaps.</p> : null}
         </div>
       </div>
 
       {report.invalid.length ? (
-        <div className="rounded-lg border border-[var(--danger)] bg-white px-4 py-3 text-sm text-[var(--ink)]">
+        <div className="rounded-xl border border-[var(--danger)] bg-white px-4 py-2.5 text-sm text-[var(--ink)]">
           <h3 className="font-semibold">Times to fix</h3>
           <ul className="mt-1 flex list-disc flex-col gap-1 pl-5">
             {report.invalid.map((invalid) => (

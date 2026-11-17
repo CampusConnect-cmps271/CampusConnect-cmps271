@@ -4,9 +4,13 @@ import { before, after, describe, it } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 
 // SCRUM-228 / SP3-44: semester plans, plan courses and manual meetings.
+// Runs on the current schema: SCRUM-243's sections migration changed the
+// meeting policies and checks, and typed meetings must work as before.
 const migrationNames = [
   "20261017091812_create_courses.sql",
+  "20261108193027_resis_semester_catalogue.sql",
   "20261031140841_planner_semester_plans.sql",
+  "20261116161014_planner_resis_sections.sql",
 ];
 
 async function readMigration(name) {
@@ -18,6 +22,14 @@ async function readMigration(name) {
 }
 
 const migrations = await Promise.all(migrationNames.map(readMigration));
+// The Resis migration's catalogue view reads the ratings view; stub it.
+migrations.splice(
+  1,
+  0,
+  `create view public.course_rating_averages with (security_invoker = true) as
+     select id as course_id, 0::bigint as review_count, null::numeric as average_difficulty, null::numeric as average_workload
+     from public.courses;`,
+);
 
 const users = {
   studentA: "70000000-0000-4000-8000-000000000001",
@@ -484,8 +496,11 @@ describe("SP3-44 private semester plans and the manual meeting contract", () => 
         await rejectsWith(addMeeting(db, planCourseId, { start: -1, end: 60 }), "23514");
         await rejectsWith(addMeeting(db, planCourseId, { timezone: "Mars/Olympus_Mons" }), "22023");
         await rejectsWith(addMeeting(db, planCourseId, { timezone: "Beirut" }), "22023");
-        await rejectsWith(addMeeting(db, planCourseId, { source: "aub_timetable" }), "23514");
+        // Students add typed meetings only (SCRUM-243's insert policy).
+        await rejectsWith(addMeeting(db, planCourseId, { source: "aub_timetable" }), "42501");
       });
+      // And no one stores a source other than manual or resis.
+      await rejectsWith(addMeeting(db, planCourseId, { source: "aub_timetable" }), "23514");
     });
 
     it("refuses a duplicate meeting and caps a course at 7", async () => {

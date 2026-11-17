@@ -108,8 +108,19 @@ restrictions, prerequisite expressions, and individual source update times.
 All catalogue courses remain available when no semester is selected. An absent
 offering means no imported data; it does not prove the university does not offer
 the course. The planner and recommendations can find newly inserted courses
-through their existing shared-catalogue queries; this change does not silently
-add section times to a student's plans.
+through their existing shared-catalogue queries.
+
+### Planner section times (SCRUM-243)
+
+A semester plan links to an imported semester (`semester_plans.resis_semester_id`,
+set automatically when exactly one active semester has the term's Resis name, e.g.
+Spring 2027 ↔ "Spring 2026-2027"). The student then chooses sections, and
+`planner_choose_sections` writes `plan_course_sections` and the plan's meeting
+rows (`plan_meetings.source = 'resis'`, with the CRN) from the active snapshot's
+sessions; students can't write either directly. Activating a newer import changes
+nobody's plan: the plan page asks `planner_section_changes` which chosen sections
+the new snapshot moved or dropped and offers "Update times". Old imports may still
+be deleted: plans keep only the import id they took times from, not a foreign key.
 
 ## Verification
 

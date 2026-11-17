@@ -1,23 +1,25 @@
 "use client";
 
-import { useActionState, useState, type FormEvent } from "react";
-import { addItem, removeItem, updateItem, type ItemActionState } from "../actions";
-import { formatItemWhen } from "../calendar";
-import { EMPTY_ITEM_FORM, PLANNER_LIMITS, validateItemForm, type ItemFieldErrors, type ItemFormValues } from "../schema";
+import { useActionState, useEffect, useRef, useState, type FormEvent } from "react";
+import { addItem, removeItem, updateItem, type ItemActionState, type PlannerActionState } from "../actions";
+import { PLANNER_LIMITS, validateItemForm, type ItemFieldErrors, type ItemFormValues } from "../schema";
+import { formatTermDate } from "../terms";
 import { timeFromMinutes } from "../time";
 import type { PlanItem } from "../types";
-import { FIELD_CLASS, FieldError, LABEL_CLASS, useHydrated } from "./MeetingForms";
-import { PlannerButton } from "./PlannerButton";
+import { FIELD_CLASS, FieldError, LABEL_CLASS, PRIMARY_BUTTON, SECONDARY_BUTTON } from "./FormBits";
 
 /** A planned course an item can belong to. */
 export type ItemCourseOption = { planCourseId: string; code: string };
 
 /** The dates an item may use. */
-type ItemDateRange = { first: string; last: string };
+export type ItemDateRange = { first: string; last: string };
+
+/** What the item dialog is open for: a new item at a date (and time), or an existing item. */
+export type ItemDialogTarget = { mode: "add"; date: string; start: number | null } | { mode: "edit"; item: PlanItem };
+
+const LAST_MINUTE = 23 * 60 + 59;
 
 type ItemFieldsProps = {
-  /** Makes the field ids unique on a page with many item forms. */
-  idPrefix: string;
   formAction: (formData: FormData) => void;
   state: ItemActionState;
   pending: boolean;
@@ -27,38 +29,23 @@ type ItemFieldsProps = {
   courses: readonly ItemCourseOption[];
   dateRange: ItemDateRange;
   submitLabel: string;
-  /** Clear the fields after a successful save (adding, not editing). */
-  resetOnSuccess?: boolean;
-  onCancel?: () => void;
+  onCancel: () => void;
 };
 
-function ItemFields({
-  idPrefix,
-  formAction,
-  state,
-  pending,
-  initialValues,
-  fields,
-  courses,
-  dateRange,
-  submitLabel,
-  resetOnSuccess = false,
-  onCancel,
-}: ItemFieldsProps) {
+function ItemFields({ formAction, state, pending, initialValues, fields, courses, dateRange, submitLabel, onCancel }: ItemFieldsProps) {
   const [values, setValues] = useState(initialValues);
   const [clientErrors, setClientErrors] = useState<ItemFieldErrors>({});
 
-  // A failed save returns what was typed; keep it. A new item clears.
+  // A failed save returns what was typed; keep it.
   const [returned, setReturned] = useState(state);
   if (returned !== state) {
     setReturned(state);
     if (state?.values) setValues(state.values);
-    else if (state?.ok && resetOnSuccess) setValues(initialValues);
     setClientErrors({});
   }
 
   const errors: ItemFieldErrors = { ...state?.errors, ...clientErrors };
-  const id = (field: string) => `${idPrefix}-${field}`;
+  const id = (field: string) => `item-${field}`;
   const describedBy = (field: keyof ItemFormValues, hint?: string) =>
     [hint, errors[field] ? id(`${field}-error`) : undefined].filter(Boolean).join(" ") || undefined;
 
@@ -77,7 +64,7 @@ function ItemFields({
     setClientErrors(result.errors);
   }
 
-  const input = (field: "start" | "end", label: string) => (
+  const time = (field: "start" | "end", label: string) => (
     <div className="flex flex-col gap-1">
       <label htmlFor={id(field)} className={LABEL_CLASS}>
         {label}
@@ -113,6 +100,7 @@ function ItemFields({
           onChange={(event) => update("title", event.target.value)}
           maxLength={PLANNER_LIMITS.itemTitleLength}
           placeholder="e.g. CMPS 202 midterm"
+          autoFocus
           aria-invalid={errors.title ? true : undefined}
           aria-describedby={describedBy("title")}
           className={FIELD_CLASS}
@@ -120,206 +108,203 @@ function ItemFields({
         <FieldError id={id("title-error")} message={errors.title} />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="col-span-2 flex flex-col gap-1 sm:col-span-1">
-          <label htmlFor={id("date")} className={LABEL_CLASS}>
-            Date
-          </label>
-          <input
-            id={id("date")}
-            name="date"
-            type="date"
-            min={dateRange.first}
-            max={dateRange.last}
-            value={values.date}
-            onChange={(event) => update("date", event.target.value)}
-            aria-invalid={errors.date ? true : undefined}
-            aria-describedby={describedBy("date")}
-            className={FIELD_CLASS}
-          />
-          <FieldError id={id("date-error")} message={errors.date} />
-        </div>
-        {input("start", "Starts")}
-        {input("end", "Ends")}
-        <div className="col-span-2 flex flex-col gap-1 sm:col-span-1">
-          <label htmlFor={id("planCourseId")} className={LABEL_CLASS}>
-            Course
-          </label>
-          <select
-            id={id("planCourseId")}
-            name="planCourseId"
-            value={values.planCourseId}
-            onChange={(event) => update("planCourseId", event.target.value)}
-            aria-invalid={errors.planCourseId ? true : undefined}
-            aria-describedby={describedBy("planCourseId")}
-            className={FIELD_CLASS}
-          >
-            <option value="">None</option>
-            {courses.map((course) => (
-              <option key={course.planCourseId} value={course.planCourseId}>
-                {course.code}
-              </option>
-            ))}
-          </select>
-          <FieldError id={id("planCourseId-error")} message={errors.planCourseId} />
-        </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor={id("date")} className={LABEL_CLASS}>
+          Date
+        </label>
+        <input
+          id={id("date")}
+          name="date"
+          type="date"
+          min={dateRange.first}
+          max={dateRange.last}
+          value={values.date}
+          onChange={(event) => update("date", event.target.value)}
+          aria-invalid={errors.date ? true : undefined}
+          aria-describedby={describedBy("date")}
+          className={FIELD_CLASS}
+        />
+        <FieldError id={id("date-error")} message={errors.date} />
       </div>
-      <p id={id("times-hint")} className="text-xs text-[var(--ink-soft)]">
-        Beirut time. Leave both times empty for an all-day item; all-day items aren&apos;t checked for overlaps.
+
+      <div className="grid grid-cols-2 gap-3">
+        {time("start", "Starts")}
+        {time("end", "Ends")}
+      </div>
+      <p id={id("times-hint")} className="-mt-1 text-xs text-[var(--ink-soft)]">
+        Beirut time. Leave empty for all day.
       </p>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-md bg-[var(--maroon)] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[var(--maroon-dark)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)] disabled:opacity-60"
+      <div className="flex flex-col gap-1">
+        <label htmlFor={id("planCourseId")} className={LABEL_CLASS}>
+          Course
+        </label>
+        <select
+          id={id("planCourseId")}
+          name="planCourseId"
+          value={values.planCourseId}
+          onChange={(event) => update("planCourseId", event.target.value)}
+          aria-invalid={errors.planCourseId ? true : undefined}
+          aria-describedby={describedBy("planCourseId")}
+          className={FIELD_CLASS}
         >
+          <option value="">None</option>
+          {courses.map((course) => (
+            <option key={course.planCourseId} value={course.planCourseId}>
+              {course.code}
+            </option>
+          ))}
+        </select>
+        <FieldError id={id("planCourseId-error")} message={errors.planCourseId} />
+      </div>
+
+      <p role="status" aria-live="polite" className="text-sm text-[var(--danger)]">
+        {pending || state?.ok ? "" : state?.message}
+      </p>
+
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <button type="button" onClick={onCancel} className={SECONDARY_BUTTON}>
+          Cancel
+        </button>
+        <button type="submit" disabled={pending} className={PRIMARY_BUTTON}>
           {pending ? "Saving…" : submitLabel}
         </button>
-        {onCancel ? (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-md border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--ink)] hover:border-[var(--maroon)]"
-          >
-            Cancel
-          </button>
-        ) : null}
-        <p
-          role="status"
-          aria-live="polite"
-          className={`text-sm ${state?.ok ? "text-[var(--success)]" : "text-[var(--danger)]"}`}
-        >
-          {pending ? "" : state?.message}
-        </p>
       </div>
     </form>
   );
 }
 
-/** "Add an exam or other item". A native disclosure, so it opens by keyboard and before hydration. */
-export function AddItemForm({ planId, courses, dateRange }: { planId: string; courses: readonly ItemCourseOption[]; dateRange: ItemDateRange }) {
-  const [state, formAction, pending] = useActionState(addItem, undefined);
+type BodyProps = {
+  planId: string;
+  courses: readonly ItemCourseOption[];
+  dateRange: ItemDateRange;
+  /** Closes the dialog after a successful save or delete. */
+  onDone: () => void;
+};
+
+function AddItem({ planId, courses, dateRange, date, start, onDone }: BodyProps & { date: string; start: number | null }) {
+  const [state, formAction, pending] = useActionState(async (previous: ItemActionState, formData: FormData) => {
+    const result = await addItem(previous, formData);
+    if (result?.ok) onDone();
+    return result;
+  }, undefined);
 
   return (
-    <details className="rounded-lg border border-dashed border-[var(--border)] px-3 py-2">
-      <summary className="cursor-pointer text-sm font-medium text-[var(--maroon)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]">
-        Add an exam or other item
-      </summary>
-      <div className="mt-3">
-        <ItemFields
-          idPrefix="add-item"
-          formAction={formAction}
-          state={state}
-          pending={pending}
-          initialValues={EMPTY_ITEM_FORM}
-          fields={{ planId }}
-          courses={courses}
-          dateRange={dateRange}
-          submitLabel="Save item"
-          resetOnSuccess
-        />
-      </div>
-    </details>
+    <ItemFields
+      formAction={formAction}
+      state={state}
+      pending={pending}
+      initialValues={{
+        title: "",
+        date,
+        start: start === null ? "" : timeFromMinutes(start),
+        end: start === null ? "" : timeFromMinutes(Math.min(start + 60, LAST_MINUTE)),
+        planCourseId: "",
+      }}
+      fields={{ planId }}
+      courses={courses}
+      dateRange={dateRange}
+      submitLabel="Save item"
+      onCancel={onDone}
+    />
   );
 }
 
-type ItemRowProps = {
-  planId: string;
-  item: PlanItem;
-  courses: readonly ItemCourseOption[];
-  dateRange: ItemDateRange;
-  /** This item overlaps something else on the calendar. */
-  conflict?: boolean;
-  /** Why the conflict check couldn't place it, and what to fix. */
-  problem?: string;
-};
-
-/** One of the student's items, with Edit and Remove. Its id is the anchor the calendar links to. */
-export function ItemRow({ planId, item, courses, dateRange, conflict = false, problem }: ItemRowProps) {
-  const [state, formAction, pending] = useActionState(updateItem, undefined);
-  const [editing, setEditing] = useState(false);
-  // Edit needs JavaScript; until the page hydrates it is disabled, not dead.
-  const hydrated = useHydrated();
-
-  // A successful edit closes the form; the page shows the saved item.
-  const [returned, setReturned] = useState(state);
-  if (returned !== state) {
-    setReturned(state);
-    if (state?.ok) setEditing(false);
-  }
-
-  const course = courses.find((option) => option.planCourseId === item.plan_course_id);
-  const when = formatItemWhen(item);
+function EditItem({ planId, courses, dateRange, item, onDone }: BodyProps & { item: PlanItem }) {
+  const [state, formAction, pending] = useActionState(async (previous: ItemActionState, formData: FormData) => {
+    const result = await updateItem(previous, formData);
+    if (result?.ok) onDone();
+    return result;
+  }, undefined);
+  const [removed, removeAction, removing] = useActionState(async (previous: PlannerActionState, formData: FormData) => {
+    const result = await removeItem(previous, formData);
+    if (result?.ok) onDone();
+    return result;
+  }, undefined);
 
   return (
-    <li
-      id={`item-${item.id}`}
-      className={`flex scroll-mt-24 flex-col gap-2 rounded-md px-3 py-2 ${
-        conflict || problem ? "border-l-4 border-[var(--danger)] bg-[#fdecea]" : "bg-[#fff6e5]"
-      }`}
-    >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <div className="min-w-0 text-sm text-[var(--ink)]">
-          <p className="font-medium">
-            {item.title}
-            {course ? <span className="font-normal text-[var(--ink-soft)]"> · {course.code}</span> : null}
-          </p>
-          <p className="text-[var(--ink-soft)]">{when}</p>
-        </div>
-        {conflict ? (
-          <span className="rounded-full border border-[var(--danger)] bg-white px-2 py-0.5 text-xs font-semibold text-[var(--danger)]">
-            <span aria-hidden="true">⚠ </span>Overlaps something else
-          </span>
-        ) : null}
-        <div className="ml-auto flex items-start gap-2">
-          {editing ? null : (
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              disabled={!hydrated}
-              aria-label={`Edit ${item.title}, ${when}`}
-              className="rounded-md border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--ink)] hover:border-[var(--maroon)] disabled:opacity-60"
-            >
-              Edit
-            </button>
-          )}
-          <PlannerButton
-            action={removeItem}
-            fields={{ planId, itemId: item.id }}
-            label={`Remove ${item.title}, ${when}`}
-            variant="danger"
-          >
-            Remove
-          </PlannerButton>
-        </div>
-      </div>
-      {problem ? <p className="text-xs text-[var(--danger)]">{problem}</p> : null}
-      {state?.ok && !editing ? (
-        <p role="status" aria-live="polite" className="text-xs text-[var(--success)]">
-          {state.message}
+    <div className="flex flex-col gap-3">
+      <ItemFields
+        formAction={formAction}
+        state={state}
+        pending={pending}
+        initialValues={{
+          title: item.title,
+          date: item.on_date,
+          start: item.start_minute === null ? "" : timeFromMinutes(item.start_minute),
+          end: item.end_minute === null ? "" : timeFromMinutes(item.end_minute),
+          planCourseId: item.plan_course_id ?? "",
+        }}
+        fields={{ planId, itemId: item.id }}
+        courses={courses}
+        dateRange={dateRange}
+        submitLabel="Save changes"
+        onCancel={onDone}
+      />
+      <form action={removeAction} className="flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-3">
+        <input type="hidden" name="planId" value={planId} />
+        <input type="hidden" name="itemId" value={item.id} />
+        <button
+          type="submit"
+          disabled={removing}
+          className="rounded-md border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--danger)] hover:border-[var(--danger)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)] disabled:opacity-60"
+        >
+          {removing ? "Deleting…" : "Delete item"}
+        </button>
+        <p role="status" aria-live="polite" className="text-sm text-[var(--danger)]">
+          {removing || removed?.ok ? "" : removed?.message}
         </p>
+      </form>
+    </div>
+  );
+}
+
+/**
+ * The calendar's item dialog: a new item where the student clicked, or an
+ * existing item to change or delete. A native modal dialog, so focus stays
+ * in it and Escape closes it.
+ */
+export function ItemDialog({
+  target,
+  openCount,
+  onClose,
+  ...body
+}: Omit<BodyProps, "onDone"> & { target: ItemDialogTarget | null; openCount: number; onClose: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const element = dialog.current;
+    if (!element) return;
+    if (target && !element.open) element.showModal();
+    if (!target && element.open) element.close();
+  }, [target]);
+
+  const close = () => dialog.current?.close();
+  const heading =
+    target?.mode === "edit" ? "Edit item" : target ? `New item · ${formatTermDate(target.date)}` : "";
+
+  return (
+    <dialog
+      ref={dialog}
+      aria-labelledby="item-dialog-title"
+      onClose={onClose}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) close();
+      }}
+      className="m-auto w-[min(26rem,calc(100vw-2rem))] rounded-xl border border-[var(--border)] bg-white p-0 text-[var(--ink)] shadow-xl backdrop:bg-black/40"
+    >
+      {target ? (
+        <div className="flex flex-col gap-3 p-5">
+          <h2 id="item-dialog-title" className="text-base font-semibold">
+            {heading}
+          </h2>
+          {target.mode === "add" ? (
+            <AddItem key={openCount} {...body} date={target.date} start={target.start} onDone={close} />
+          ) : (
+            <EditItem key={openCount} {...body} item={target.item} onDone={close} />
+          )}
+        </div>
       ) : null}
-      {editing ? (
-        <ItemFields
-          idPrefix={`edit-item-${item.id}`}
-          formAction={formAction}
-          state={state}
-          pending={pending}
-          initialValues={{
-            title: item.title,
-            date: item.on_date,
-            start: item.start_minute === null ? "" : timeFromMinutes(item.start_minute),
-            end: item.end_minute === null ? "" : timeFromMinutes(item.end_minute),
-            planCourseId: item.plan_course_id ?? "",
-          }}
-          fields={{ planId, itemId: item.id }}
-          courses={courses}
-          dateRange={dateRange}
-          submitLabel="Save changes"
-          onCancel={() => setEditing(false)}
-        />
-      ) : null}
-    </li>
+    </dialog>
   );
 }

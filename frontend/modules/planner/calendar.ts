@@ -1,3 +1,4 @@
+import { allDayItemEntries, occurrenceEntries } from "./calendar-data";
 import { calendarSlots, type CalendarSlot, type ConflictReport, type ConflictSide } from "./conflicts";
 import { formatTermDate } from "./terms";
 import { timeFromMinutes } from "./time";
@@ -92,6 +93,7 @@ export function formatWeekRange(monday: string): string {
   return `${startDay}–${endDay} ${endMonth} ${endYear}`;
 }
 
+/** What a week entry is: a class, one of the student's items, or an event they're going to. */
 export type CalendarEntryKind = "class" | "item" | "event";
 
 /** One thing on one day of the week view. */
@@ -109,12 +111,19 @@ export type CalendarEntry = {
   end_minute: number | null;
   /** Overlaps something else on this date. */
   conflict: boolean;
+  /** The item's id, so the calendar can open it for editing. */
+  item_id?: string;
 };
 
 const sideKey = (side: ConflictSide) =>
   side.kind === "meeting" ? `meeting:${side.meeting_id}` : side.kind === "item" ? `item:${side.item_id}` : `event:${side.event_id}`;
 
-/** What the week shows, day by day (Monday first), timed entries in start order after all-day ones. */
+/**
+ * What the week shows, day by day (Monday first), timed entries in start
+ * order after all-day ones. Entries come from the unified calendar data's
+ * conversion (calendar-data.ts), so the week and getCalendarData name and
+ * place things alike.
+ */
 export function weekEntries({
   plan,
   events,
@@ -129,10 +138,6 @@ export function weekEntries({
   monday: string;
 }): CalendarEntry[][] {
   const dates = weekDates(monday);
-  const codes = new Map(plan.courses.map((planned) => [planned.plan_course_id, planned.code]));
-  const meetingCourse = new Map(plan.courses.flatMap((planned) => planned.meetings.map((meeting) => [meeting.id, planned.code] as const)));
-  const items = new Map(plan.items.map((item) => [item.id, item]));
-  const titles = new Map(events.map((event) => [event.id, event.title]));
 
   const conflictDates = new Map<string, Set<string>>();
   for (const conflict of report.conflicts) {
@@ -146,42 +151,42 @@ export function weekEntries({
 
   const days: CalendarEntry[][] = dates.map(() => []);
 
-  for (const item of plan.items) {
-    const index = dates.indexOf(item.on_date);
-    if (index === -1 || item.start_minute !== null) continue;
+  for (const entry of allDayItemEntries(plan)) {
+    const index = dates.indexOf(entry.all_day_date ?? "");
+    if (index === -1) continue;
     days[index].push({
-      key: `item:${item.id}`,
+      key: entry.id,
       kind: "item",
-      label: item.title,
-      detail: item.plan_course_id ? codes.get(item.plan_course_id) : undefined,
-      href: `#item-${item.id}`,
-      date: item.on_date,
+      label: entry.title,
+      detail: entry.course_code,
+      href: `#${entry.anchor}`,
+      date: entry.all_day_date ?? "",
       start_minute: null,
       end_minute: null,
       conflict: false,
+      item_id: entry.id.slice("item:".length),
     });
   }
 
-  for (const slot of slots) {
-    const index = dates.indexOf(slot.date);
-    if (index === -1) continue;
-    const key = sideKey(slot.side);
-    const conflict = conflictDates.get(key)?.has(slot.date) ?? false;
-    const base = { key: `${key}:${slot.date}:${slot.start_minute}`, date: slot.date, start_minute: slot.start_minute, end_minute: slot.end_minute, conflict };
-    if (slot.side.kind === "meeting") {
-      days[index].push({ ...base, kind: "class", label: meetingCourse.get(slot.side.meeting_id) ?? "A course", href: `#meeting-${slot.side.meeting_id}` });
-    } else if (slot.side.kind === "item") {
-      const item = items.get(slot.side.item_id);
-      days[index].push({
-        ...base,
-        kind: "item",
-        label: item?.title ?? "An item",
-        detail: item?.plan_course_id ? codes.get(item.plan_course_id) : undefined,
-        href: `#item-${slot.side.item_id}`,
-      });
-    } else {
-      days[index].push({ ...base, kind: "event", label: titles.get(slot.side.event_id) ?? "An event", href: `#event-${slot.side.event_id}` });
-    }
+  // One entry per slot: the week draws each day's stretch on its own.
+  const occurrences = slots
+    .filter((slot) => dates.includes(slot.date))
+    .map((slot) => ({ side: slot.side, starts_at: "", ends_at: "", slots: [slot] }));
+  for (const entry of occurrenceEntries(occurrences, { plan, events })) {
+    const [slot] = entry.slices;
+    const key = sideKey(entry.side!);
+    days[dates.indexOf(slot.date)].push({
+      key: `${key}:${slot.date}:${slot.start_minute}`,
+      kind: entry.kind === "class" ? "class" : entry.kind === "item" ? "item" : "event",
+      label: entry.title,
+      detail: entry.kind === "item" ? entry.course_code : undefined,
+      href: `#${entry.anchor}`,
+      date: slot.date,
+      start_minute: slot.start_minute,
+      end_minute: slot.end_minute,
+      conflict: conflictDates.get(key)?.has(slot.date) ?? false,
+      item_id: entry.side?.kind === "item" ? entry.side.item_id : undefined,
+    });
   }
 
   return days.map((entries) =>
