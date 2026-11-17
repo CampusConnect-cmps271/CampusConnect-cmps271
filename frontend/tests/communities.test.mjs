@@ -36,6 +36,7 @@ const moderatorId = "00000000-0000-4000-8000-000000000004";
 const adminId = "00000000-0000-4000-8000-000000000005";
 const suspendedId = "00000000-0000-4000-8000-000000000006";
 const busyId = "00000000-0000-4000-8000-000000000007";
+const newcomerId = "00000000-0000-4000-8000-000000000008";
 const cmps271 = "10000000-0000-4000-8000-000000000001";
 
 // Supabase grants anon and authenticated every privilege on new tables and
@@ -62,7 +63,8 @@ const foundation = `
     ('${moderatorId}', 'moderator@mail.aub.edu'),
     ('${adminId}', 'admin@mail.aub.edu'),
     ('${suspendedId}', 'suspended@mail.aub.edu'),
-    ('${busyId}', 'busy@mail.aub.edu');
+    ('${busyId}', 'busy@mail.aub.edu'),
+    ('${newcomerId}', 'newcomer@mail.aub.edu');
 `;
 
 async function asUser(database, userId, callback) {
@@ -174,6 +176,20 @@ describe("SP4-04 communities", () => {
       const long = await createCommunity(database, adminId, `${"Very long name ".repeat(5)}end`);
       assert.ok(long.slug.length <= 60, long.slug);
       assert.match(long.slug, /^[a-z0-9]+(-[a-z0-9]+)*$/);
+    });
+
+    it("never gives a community /communities/new, the address of the page that starts one", async () => {
+      const named = await createCommunity(database, newcomerId, "New");
+      assert.equal(named.slug, "new-2");
+      const again = await createCommunity(database, newcomerId, "new!");
+      assert.equal(again.slug, "new-3");
+      // Not even a write that names the address itself.
+      await assert.rejects(
+        database.query("insert into public.communities (name, topic, owner_id, slug) values ('Reserved address', 'other', $1, 'new')", [
+          newcomerId,
+        ]),
+        isCode("23514"),
+      );
     });
 
     it("needs a course for a course community and none for any other topic", async () => {

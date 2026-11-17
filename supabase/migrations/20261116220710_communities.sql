@@ -36,6 +36,11 @@ create table public.communities (
   constraint communities_slug_format
     check (char_length(slug) between 3 and 60 and slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
 
+  -- /communities/new is the page that starts a community, so no community
+  -- may take that address: its own page could never be opened.
+  constraint communities_slug_not_reserved
+    check (slug <> 'new'),
+
   constraint communities_name_valid
     check (
       char_length(name) between 3 and 80
@@ -267,8 +272,9 @@ using (
 -- ---------------------------------------------------------------- triggers
 
 -- Fills a missing slug from the name: lowercase ASCII letters and digits
--- joined by hyphens, at most 50 characters, then -2, -3, ... on a clash. A
--- name with too few of them (an Arabic name, say) starts from "community".
+-- joined by hyphens, at most 50 characters, then -2, -3, ... on a clash or
+-- on "new", the address of the page that starts a community. A name with
+-- too few of them (an Arabic name, say) starts from "community".
 create or replace function public.set_community_slug()
 returns trigger
 language plpgsql
@@ -292,7 +298,7 @@ begin
 
   candidate := base;
 
-  while exists (select 1 from public.communities c where c.slug = candidate) loop
+  while candidate = 'new' or exists (select 1 from public.communities c where c.slug = candidate) loop
     suffix := suffix + 1;
     candidate := base || '-' || suffix;
   end loop;

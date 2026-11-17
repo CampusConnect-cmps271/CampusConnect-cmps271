@@ -64,7 +64,8 @@ function slugFor(name) {
   let base = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 50).replace(/-+$/, "");
   if (base.length < 3) base = `community-${base}`.replace(/-+$/, "");
   let candidate = base;
-  for (let suffix = 2; communities.some((community) => community.slug === candidate); suffix++) candidate = `${base}-${suffix}`;
+  // "new" is the address of the page that starts a community.
+  for (let suffix = 2; candidate === "new" || communities.some((community) => community.slug === candidate); suffix++) candidate = `${base}-${suffix}`;
   return candidate;
 }
 
