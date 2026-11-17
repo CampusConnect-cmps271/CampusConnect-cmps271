@@ -27,7 +27,8 @@ async function search(page: Page, text: string) {
 }
 
 const found = (page: Page) => page.getByRole("list", { name: "Communities found" });
-const following = (page: Page) => page.getByRole("region", { name: "Following" });
+// The Posts section, which shows Following until All communities is chosen.
+const posts = (page: Page) => page.getByRole("region", { name: "Posts", exact: true });
 
 test("a student creates a course community; another finds it, joins and posts; the post reaches followers", async ({ browser }) => {
   test.setTimeout(120_000);
@@ -82,15 +83,20 @@ test("a student creates a course community; another finds it, joins and posts; t
     await expect(member).toHaveURL(/\/communities\/cmps-240-study-group$/);
     await expect(member.getByRole("link", { name: "Edit details" })).toHaveCount(0);
     await expect(member.getByRole("button", { name: "Archive" })).toHaveCount(0);
-    await expect(member.getByText("Join to post")).toBeVisible();
+    await expect(member.getByRole("button", { name: "Join to post" })).toBeVisible();
 
     await member.getByRole("button", { name: "Join", exact: true }).click();
     await expect(member.getByText("You're a member and follow it.")).toBeVisible();
     await expect(member.getByText("2 members · 2 followers")).toBeVisible();
+    await expect(member.getByRole("button", { name: "Join to post" })).toHaveCount(0);
   });
 
   await test.step("a restricted word is refused, then the post goes up", async () => {
-    await member.getByRole("link", { name: "New post" }).click();
+    // Write a post from /communities, choosing the community.
+    await member.goto("/communities");
+    await member.getByLabel("Write a post in").selectOption({ label: "CMPS 240 study group" });
+    await member.getByRole("button", { name: "Write post" }).click();
+    await expect(member).toHaveURL(/\/communities\/cmps-240-study-group\/new$/);
     await member.getByLabel("Title").fill("Only an idiot skips the review");
     await member.getByLabel("Category").selectOption("Academics");
     await member.getByLabel("Content").fill("Wednesday at 5pm, Jafet third floor.");
@@ -106,21 +112,23 @@ test("a student creates a course community; another finds it, joins and posts; t
     await expect(member.getByRole("link", { name: "Midterm review on Wednesday" })).toBeVisible();
   });
 
-  await test.step("the post is in the owner's Following feed", async () => {
+  await test.step("the post is in the owner's Following feed, with its community", async () => {
     await owner.goto("/communities");
-    await expect(following(owner).getByRole("link", { name: "Midterm review on Wednesday" })).toBeVisible();
-    await expect(following(owner).getByRole("link", { name: "CMPS 240 study group" })).toBeVisible();
+    await expect(posts(owner).getByRole("link", { name: "Following" })).toHaveAttribute("aria-current", "page");
+    await expect(posts(owner).getByRole("link", { name: "Midterm review on Wednesday" })).toBeVisible();
+    await expect(posts(owner).getByRole("link", { name: "CMPS 240 study group" })).toBeVisible();
   });
 });
 
 test("unfollowing keeps the membership and empties Following; leaving ends posting", async ({ page }) => {
+  test.setTimeout(60_000);
   await logIn(page, carla);
   await page.goto("/communities/board-games-night");
   await page.getByRole("button", { name: "Join", exact: true }).click();
   await expect(page.getByText("You're a member and follow it.")).toBeVisible();
 
   await page.goto("/communities");
-  await expect(following(page).getByRole("link", { name: "Catan this Friday" })).toBeVisible();
+  await expect(posts(page).getByRole("link", { name: "Catan this Friday" })).toBeVisible();
 
   await page.goto("/communities/board-games-night");
   await page.getByRole("button", { name: "Unfollow" }).click();
@@ -128,8 +136,8 @@ test("unfollowing keeps the membership and empties Following; leaving ends posti
   await expect(page.getByRole("link", { name: "New post" })).toBeVisible();
 
   await page.goto("/communities");
-  await expect(following(page).getByRole("link", { name: "Catan this Friday" })).toHaveCount(0);
-  await expect(following(page)).toContainText("Follow a community to see its newest posts here.");
+  await expect(posts(page).getByRole("link", { name: "Catan this Friday" })).toHaveCount(0);
+  await expect(posts(page)).toContainText("Follow a community to see its newest posts here.");
 
   await page.goto("/communities/board-games-night");
   await page.getByRole("button", { name: "Leave" }).click();
@@ -141,18 +149,34 @@ test("unfollowing keeps the membership and empties Following; leaving ends posti
 
   await expect(page.getByRole("button", { name: "Join", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "New post" })).toHaveCount(0);
-  await expect(page.getByText("Join to post")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Join to post" })).toBeVisible();
   await page.goto("/communities/board-games-night/new");
   await expect(page.getByRole("heading", { name: "Join to post" })).toBeVisible();
   await expect(page.getByLabel("Title")).toHaveCount(0);
+
+  // Join to post joins in one click, and New post appears.
+  await page.goto("/communities/board-games-night");
+  await page.getByRole("button", { name: "Join to post" }).click();
+  await expect(page.getByText("You're a member and follow it.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "New post" })).toBeVisible();
 });
 
 test("a non-member can read but not post; an archived community refuses joining and posting", async ({ page }) => {
   await logIn(page, dani);
 
-  await page.goto("/communities/quiet-study-corners");
+  // All communities shows posts from communities dani doesn't follow, each with its community.
+  await page.goto("/communities");
+  await expect(posts(page)).toContainText("Follow a community to see its newest posts here.");
+  await expect(posts(page)).toContainText("Join a community to post in it.");
+  await posts(page).getByRole("link", { name: "All communities" }).click();
+  await expect(page).toHaveURL(/posts=all/);
+  await expect(posts(page).getByRole("link", { name: "All communities" })).toHaveAttribute("aria-current", "page");
+  await expect(posts(page).getByRole("link", { name: "Third floor is quiet today" })).toBeVisible();
+  await posts(page).getByRole("link", { name: "Quiet study corners" }).first().click();
+
+  await expect(page).toHaveURL(/\/communities\/quiet-study-corners$/);
   await expect(page.getByRole("link", { name: "Third floor is quiet today" })).toBeVisible();
-  await expect(page.getByText("Join to post")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Join to post" })).toBeVisible();
   await expect(page.getByRole("link", { name: "New post" })).toHaveCount(0);
   await page.goto("/communities/quiet-study-corners/new");
   await expect(page.getByRole("heading", { name: "Join to post" })).toBeVisible();

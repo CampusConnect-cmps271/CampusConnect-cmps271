@@ -213,11 +213,10 @@ function feedRow(post) {
   };
 }
 
+/** The selected columns the row has; a name from the query never becomes a new key. */
 function pick(row, select) {
   if (!select || select === "*") return row;
-  const picked = {};
-  for (const column of select.split(",")) picked[column] = row[column];
-  return picked;
+  return Object.fromEntries(Object.entries(row).filter(([column]) => select.split(",").includes(column)));
 }
 
 function list(request, response, rows, params) {
