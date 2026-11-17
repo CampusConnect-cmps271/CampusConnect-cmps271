@@ -4,6 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/modules/auth";
+import { PostedIn } from "@/modules/communities";
 import { MessageButton } from "@/modules/messaging";
 import { getProfile, PinPostButton } from "@/modules/profiles";
 import { SkillSwapDetails } from "@/modules/skillswap";
@@ -144,6 +145,7 @@ export default async function PostPage({
             ) : (
               "CampusConnect student"
             )}
+            <PostedIn postId={post.id} />
           </p>
 
           {author ? (
