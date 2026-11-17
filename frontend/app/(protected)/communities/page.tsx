@@ -4,18 +4,23 @@ import { AppShell } from "@/components/AppShell";
 import { requireUser } from "@/modules/auth";
 import {
   COMMUNITY_TOPICS,
+  communitiesHref,
   CommunityCard,
   CommunityPostCard,
   discoverCommunities,
   findCourseByCode,
+  isDirectorySearched,
+  listAllCommunityPosts,
   listFollowingFeed,
   listMyCommunities,
   listSuggestions,
   MAX_PAGES,
   parseDirectorySearch,
   parsePages,
+  parsePostFeed,
   TOPIC_LABELS,
-  type DirectorySearch,
+  WritePostPicker,
+  type CommunitiesView,
 } from "@/modules/communities";
 
 export const metadata: Metadata = {
@@ -33,114 +38,51 @@ const FIELD = "rounded-md border border-[var(--border)] bg-white px-3 py-2 text-
 const LINK_BUTTON = `inline-flex items-center justify-center rounded-lg border border-[var(--border)] bg-white px-4 py-2 text-sm font-semibold text-[var(--ink)] hover:bg-[var(--maroon-50)] ${FOCUS}`;
 const HEADING = "text-lg font-semibold text-[var(--ink)]";
 const EMPTY = "rounded-xl border border-dashed border-[var(--border)] bg-white p-5 text-sm text-[var(--ink-soft)]";
-
-/** This page's URL with one list grown by a page, keeping the rest. */
-function pageHref(search: DirectorySearch, feedPages: number, changes: { pages?: number; feed?: number }, hash: string) {
-  const params = new URLSearchParams();
-  if (search.q) params.set("q", search.q);
-  if (search.topic) params.set("topic", search.topic);
-  if (search.sort === "active") params.set("sort", "active");
-  const pages = changes.pages ?? search.pages;
-  const feed = changes.feed ?? feedPages;
-  if (pages > 1) params.set("pages", String(pages));
-  if (feed > 1) params.set("feed", String(feed));
-  const query = params.toString();
-  return `/communities${query ? `?${query}` : ""}#${hash}`;
-}
+const TAB = `rounded-md px-3 py-1.5 text-sm font-semibold ${FOCUS}`;
 
 export default async function CommunitiesPage({ searchParams }: CommunitiesPageProps) {
   const user = await requireUser();
   const params = await searchParams;
-  const search = parseDirectorySearch(params);
-  const feedPages = parsePages(params.feed);
+  const view: CommunitiesView = {
+    search: parseDirectorySearch(params),
+    searched: isDirectorySearched(params),
+    posts: parsePostFeed(params.posts),
+    feed: parsePages(params.feed),
+  };
+  const { search } = view;
 
-  const [mine, following, discovered, suggestions] = await Promise.all([
+  const [mine, feed, discovered, suggestions] = await Promise.all([
     listMyCommunities(user.id),
-    listFollowingFeed(user.id, feedPages),
-    discoverCommunities(search),
+    view.posts === "all" ? listAllCommunityPosts(view.feed) : listFollowingFeed(user.id, view.feed),
+    view.searched ? discoverCommunities(search) : null,
     listSuggestions(user.id),
   ]);
   // A search for a course code that finds nothing invites the student to start its first community.
-  const inviteCourse = discovered.communities.length === 0 && search.q ? await findCourseByCode(search.q) : null;
+  const inviteCourse = discovered?.communities.length === 0 && search.q ? await findCourseByCode(search.q) : null;
   const filtered = Boolean(search.q || search.topic);
+  // The post picker offers the active communities the student can post in.
+  const postable = mine
+    .filter(({ community, membership }) => membership.role !== null && community.status === "active")
+    .map(({ community }) => ({ slug: community.slug, name: community.name }));
 
   return (
     <AppShell>
       <main className="flex-1 px-4 py-6 sm:px-6 sm:py-10">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-10">
-          <header className="flex flex-wrap items-center justify-between gap-3">
-            <h1 className="text-2xl font-bold text-[var(--ink)] sm:text-3xl">Communities</h1>
-            <Link
-              href="/communities/new"
-              className={`inline-flex items-center justify-center rounded-lg bg-[var(--maroon)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--maroon-dark)] ${FOCUS}`}
-            >
-              Start a community
-            </Link>
-          </header>
-
-          <section aria-labelledby="your-communities" className="flex flex-col gap-3">
-            <h2 id="your-communities" className={HEADING}>
-              Your communities
-            </h2>
-            {mine.length === 0 ? (
-              <p className={EMPTY}>You haven&apos;t joined or followed a community yet. Find one below, or start your own.</p>
-            ) : (
-              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {mine.map(({ community, membership }) => (
-                  <li key={community.id} className="flex [&>article]:flex-1">
-                    <CommunityCard community={community} membership={membership} />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          {suggestions.length > 0 ? (
-            <section aria-labelledby="suggested-communities" className="flex flex-col gap-3">
-              <h2 id="suggested-communities" className={HEADING}>
-                Suggested for you
-              </h2>
-              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {suggestions.map(({ community, reason }) => (
-                  <li key={community.id} className="flex [&>article]:flex-1">
-                    <CommunityCard community={community} reason={reason} />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          <section id="following" aria-labelledby="following-heading" className="flex scroll-mt-24 flex-col gap-3">
-            <h2 id="following-heading" className={HEADING}>
-              Following
-            </h2>
-            {following.posts.length === 0 ? (
-              <p className={EMPTY}>
-                {mine.some(({ membership }) => membership.following)
-                  ? "No posts yet in the communities you follow."
-                  : "Follow a community to see its newest posts here."}
-              </p>
-            ) : (
-              <ul className="flex max-w-3xl flex-col gap-3">
-                {following.posts.map((post) => (
-                  <li key={post.id}>
-                    <CommunityPostCard post={post} />
-                  </li>
-                ))}
-              </ul>
-            )}
-            {following.hasMore && feedPages < MAX_PAGES ? (
-              <Link href={pageHref(search, feedPages, { feed: feedPages + 1 }, "following")} scroll={false} className={`${LINK_BUTTON} self-start`}>
-                Load more
+          <section id="find" aria-labelledby="communities-heading" className="flex scroll-mt-24 flex-col gap-4">
+            <header className="flex flex-wrap items-center justify-between gap-3">
+              <h1 id="communities-heading" className="text-2xl font-bold text-[var(--ink)] sm:text-3xl">
+                Communities
+              </h1>
+              <Link
+                href="/communities/new"
+                className={`inline-flex items-center justify-center rounded-lg bg-[var(--maroon)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--maroon-dark)] ${FOCUS}`}
+              >
+                Start a community
               </Link>
-            ) : null}
-          </section>
+            </header>
 
-          <section id="discover" aria-labelledby="discover-heading" className="flex scroll-mt-24 flex-col gap-4">
-            <h2 id="discover-heading" className={HEADING}>
-              Discover
-            </h2>
-            <form action="/communities#discover" role="search" aria-label="Communities" className="flex flex-wrap items-end gap-3">
+            <form action="/communities#find" role="search" aria-label="Communities" className="flex flex-wrap items-end gap-3">
               <div className="flex min-w-[min(16rem,100%)] flex-1 flex-col gap-1">
                 <label htmlFor="community-search" className="text-sm font-semibold text-[var(--ink)]">
                   Search communities
@@ -177,20 +119,32 @@ export default async function CommunitiesPage({ searchParams }: CommunitiesPageP
                   <option value="active">Recent activity</option>
                 </select>
               </div>
+              {/* The open feed stays as it is while searching. */}
+              {view.posts === "all" ? <input type="hidden" name="posts" value="all" /> : null}
               <button
                 type="submit"
                 className={`rounded-lg bg-[var(--maroon)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--maroon-dark)] ${FOCUS}`}
               >
                 Search
               </button>
-              {filtered ? (
-                <Link href="/communities#discover" className="py-2 text-sm font-medium text-[var(--maroon)] hover:underline">
+              {view.searched ? (
+                <Link
+                  href={communitiesHref(view, { searched: false }, "find")}
+                  className="py-2 text-sm font-medium text-[var(--maroon)] hover:underline"
+                >
                   Clear
                 </Link>
-              ) : null}
+              ) : (
+                <Link
+                  href={communitiesHref({ ...view, search: parseDirectorySearch({}) }, { searched: true }, "find")}
+                  className="py-2 text-sm font-medium text-[var(--maroon)] hover:underline"
+                >
+                  Browse all
+                </Link>
+              )}
             </form>
 
-            {discovered.communities.length === 0 ? (
+            {discovered === null ? null : discovered.communities.length === 0 ? (
               <div className={EMPTY}>
                 {filtered ? (
                   <p>
@@ -227,8 +181,93 @@ export default async function CommunitiesPage({ searchParams }: CommunitiesPageP
                 ))}
               </ul>
             )}
-            {discovered.hasMore && search.pages < MAX_PAGES ? (
-              <Link href={pageHref(search, feedPages, { pages: search.pages + 1 }, "discover")} scroll={false} className={`${LINK_BUTTON} self-center`}>
+            {discovered?.hasMore && search.pages < MAX_PAGES ? (
+              <Link href={communitiesHref(view, { pages: search.pages + 1 }, "find")} scroll={false} className={`${LINK_BUTTON} self-center`}>
+                Load more
+              </Link>
+            ) : null}
+          </section>
+
+          <section aria-labelledby="your-communities" className="flex flex-col gap-3">
+            <h2 id="your-communities" className={HEADING}>
+              Your communities
+            </h2>
+            {mine.length === 0 ? (
+              <p className={EMPTY}>You haven&apos;t joined or followed a community yet. Search for one above, or start your own.</p>
+            ) : (
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {mine.map(({ community, membership }) => (
+                  <li key={community.id} className="flex [&>article]:flex-1">
+                    <CommunityCard community={community} membership={membership} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {suggestions.length > 0 ? (
+            <section aria-labelledby="suggested-communities" className="flex flex-col gap-3">
+              <h2 id="suggested-communities" className={HEADING}>
+                Suggested for you
+              </h2>
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {suggestions.map(({ community, reason }) => (
+                  <li key={community.id} className="flex [&>article]:flex-1">
+                    <CommunityCard community={community} reason={reason} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          <section id="posts" aria-labelledby="posts-heading" className="flex max-w-3xl scroll-mt-24 flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 id="posts-heading" className={HEADING}>
+                Posts
+              </h2>
+              <nav aria-label="Show posts from" className="flex gap-1 rounded-lg border border-[var(--border)] bg-white p-1">
+                {(
+                  [
+                    ["following", "Following"],
+                    ["all", "All communities"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <Link
+                    key={value}
+                    href={communitiesHref(view, { posts: value, feed: 1 }, "posts")}
+                    scroll={false}
+                    aria-current={view.posts === value ? "page" : undefined}
+                    className={`${TAB} ${
+                      view.posts === value ? "bg-[var(--maroon)] text-white" : "text-[var(--ink)] hover:bg-[var(--maroon-50)]"
+                    }`}
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </nav>
+            </div>
+
+            <WritePostPicker communities={postable} />
+
+            {feed.posts.length === 0 ? (
+              <p className={EMPTY}>
+                {view.posts === "all"
+                  ? "No community posts yet."
+                  : mine.some(({ membership }) => membership.following)
+                    ? "No posts yet in the communities you follow."
+                    : "Follow a community to see its newest posts here."}
+              </p>
+            ) : (
+              <ul aria-label={view.posts === "all" ? "Posts from all communities" : "Posts from communities you follow"} className="flex flex-col gap-3">
+                {feed.posts.map((post) => (
+                  <li key={post.id}>
+                    <CommunityPostCard post={post} />
+                  </li>
+                ))}
+              </ul>
+            )}
+            {feed.hasMore && view.feed < MAX_PAGES ? (
+              <Link href={communitiesHref(view, { feed: view.feed + 1 }, "posts")} scroll={false} className={`${LINK_BUTTON} self-start`}>
                 Load more
               </Link>
             ) : null}

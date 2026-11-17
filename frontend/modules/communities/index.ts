@@ -30,6 +30,7 @@ export {
   getMembership,
   getPostCommunity,
   isModeratorOrAdmin,
+  listAllCommunityPosts,
   listCommunityPosts,
   listCourseCommunities,
   listFollowingFeed,
@@ -65,16 +66,21 @@ export {
 } from "./schema";
 
 export {
+  communitiesHref,
   DIRECTORY_PAGE_SIZE,
   directorySearchFilter,
   escapeLikePattern,
+  isDirectorySearched,
   MAX_PAGES,
   parseDirectorySearch,
   parsePages,
+  parsePostFeed,
   parseSearchText,
   POSTS_PAGE_SIZE,
+  type CommunitiesView,
   type DirectorySearch,
   type DirectorySort,
+  type PostFeed,
 } from "./search";
 
 export { matchesInterest, MAX_SUGGESTIONS, suggestCommunities, type SuggestionPlan } from "./suggestions";
@@ -91,4 +97,5 @@ export { CommunityPostForm } from "./components/CommunityPostForm";
 export { JoinToPostButton } from "./components/JoinToPostButton";
 export { MembershipControls } from "./components/MembershipControls";
 export { PostedIn } from "./components/PostedIn";
+export { WritePostPicker } from "./components/WritePostPicker";
 export { formatDate, plural } from "./components/styles";

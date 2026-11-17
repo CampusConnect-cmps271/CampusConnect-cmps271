@@ -140,18 +140,23 @@ async function withAuthors(rows: PostRow[]): Promise<CommunityPost[]> {
   }));
 }
 
+/** Published community posts, newest first: from some communities, or from all of them when `communityIds` is null. */
 async function postPage(
-  communityIds: readonly string[],
+  communityIds: readonly string[] | null,
   pages: number,
   event: string,
 ): Promise<{ posts: CommunityPost[]; hasMore: boolean }> {
-  if (communityIds.length === 0) return { posts: [], hasMore: false };
+  if (communityIds?.length === 0) return { posts: [], hasMore: false };
   const supabase = await createClient();
   const shown = pages * POSTS_PAGE_SIZE;
-  const filtered = supabase.from("community_post_feed").select(POST_COLUMNS);
-  const { data, error } = await (communityIds.length === 1
-    ? filtered.eq("community_id", communityIds[0])
-    : filtered.in("community_id", [...communityIds]))
+  const all = supabase.from("community_post_feed").select(POST_COLUMNS);
+  const filtered =
+    communityIds === null
+      ? all
+      : communityIds.length === 1
+        ? all.eq("community_id", communityIds[0])
+        : all.in("community_id", [...communityIds]);
+  const { data, error } = await filtered
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .range(0, shown)
@@ -176,6 +181,11 @@ export async function listFollowingFeed(userId: string, pages = 1) {
   if (error) failed("communities.follows.read_failure", error);
   const ids = (follows ?? []).map((row) => row.community_id as string);
   return postPage(ids, pages, "communities.following.read_failure");
+}
+
+/** The newest posts from every community, archived ones included. */
+export async function listAllCommunityPosts(pages = 1) {
+  return postPage(null, pages, "communities.all_posts.read_failure");
 }
 
 /** Ids of the communities the student joined or follows. */

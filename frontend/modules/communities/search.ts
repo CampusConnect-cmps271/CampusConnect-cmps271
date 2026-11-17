@@ -42,6 +42,52 @@ export function parseDirectorySearch(params: Record<string, Param>): DirectorySe
   };
 }
 
+/**
+ * Whether the student searched the directory. The search form always sends
+ * q, so Search with an empty box lists every community; /communities on its
+ * own shows no results.
+ */
+export function isDirectorySearched(params: Record<string, Param>): boolean {
+  return params.q !== undefined || params.topic !== undefined;
+}
+
+/** Which posts the communities page lists: from the communities you follow, or from all of them. */
+export type PostFeed = "following" | "all";
+
+export function parsePostFeed(value: Param): PostFeed {
+  return first(value) === "all" ? "all" : "following";
+}
+
+/** Everything the communities page keeps in its address. */
+export type CommunitiesView = {
+  search: DirectorySearch;
+  searched: boolean;
+  posts: PostFeed;
+  /** Pages of posts shown. */
+  feed: number;
+};
+
+/** The communities page's address with some of its view changed, keeping the rest, scrolled to `hash`. */
+export function communitiesHref(
+  view: CommunitiesView,
+  changes: Partial<Omit<CommunitiesView, "search">> & { pages?: number },
+  hash: string,
+): string {
+  const next = { ...view, ...changes };
+  const pages = changes.pages ?? view.search.pages;
+  const params = new URLSearchParams();
+  if (next.searched) {
+    params.set("q", view.search.q);
+    if (view.search.topic) params.set("topic", view.search.topic);
+    if (view.search.sort === "active") params.set("sort", "active");
+    if (pages > 1) params.set("pages", String(pages));
+  }
+  if (next.posts === "all") params.set("posts", "all");
+  if (next.feed > 1) params.set("feed", String(next.feed));
+  const query = params.toString();
+  return `/communities${query ? `?${query}` : ""}#${hash}`;
+}
+
 /** Escapes LIKE's wildcards and its escape character, so they match themselves. */
 export function escapeLikePattern(text: string): string {
   return text.replace(/[\\%_]/g, "\\$&");
