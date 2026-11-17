@@ -19,17 +19,18 @@ describe("plannerErrorMessage", () => {
     expect(plannerErrorMessage("moveCourse", "P0002")).toBe(PLAN_NOT_FOUND);
   });
 
-  it("explains rejected meetings", () => {
-    expect(plannerErrorMessage("saveMeeting", "23505")).toBe("That meeting is already listed for this course.");
-    expect(plannerErrorMessage("saveMeeting", "54000")).toBe("A course can have up to 7 meetings.");
-    expect(plannerErrorMessage("saveMeeting", "23514")).toMatch(/must end after it starts/);
-    expect(plannerErrorMessage("saveMeeting", "22023")).toBe("That time zone isn't recognised. Use an IANA name such as Asia/Beirut.");
-    expect(plannerErrorMessage("saveMeeting", "42501")).toBe("That course isn't in one of your plans.");
+  it("explains refused sections and semester links (SCRUM-243)", () => {
+    expect(plannerErrorMessage("chooseSections", "22023")).toMatch(/aren't in AUB's current schedule/);
+    expect(plannerErrorMessage("chooseSections", "54000")).toMatch(/too many sections/);
+    expect(plannerErrorMessage("chooseSections", "55000")).toBe("Link this plan to AUB's imported schedule first.");
+    expect(plannerErrorMessage("chooseSections", "42501")).toBe("That course isn't in one of your plans.");
+    expect(plannerErrorMessage("linkSemester", "42501")).toMatch(/isn't imported/);
+    expect(plannerErrorMessage("chooseSections", "XX000")).toBe("We couldn't save the sections. Please try again.");
   });
 
   it("falls back to a retry message without database details", () => {
     expect(plannerErrorMessage("addCourse", "57014")).toBe("We couldn't add the course. Please try again.");
-    expect(plannerErrorMessage("removeMeeting", undefined)).toBe("We couldn't remove the meeting. Please try again.");
+    expect(plannerErrorMessage("removeItem", undefined)).toBe("We couldn't remove the item. Please try again.");
     expect(plannerErrorMessage("deletePlan", null)).toBe("We couldn't delete the plan. Please try again.");
   });
 });

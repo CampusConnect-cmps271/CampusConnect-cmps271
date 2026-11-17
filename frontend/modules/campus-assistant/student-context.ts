@@ -54,8 +54,19 @@ function clock(minute: number): string {
   return `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
 }
 
-/** A planned meeting. `timezone` is the IANA zone the student typed it in (Asia/Beirut unless they chose another). */
-type Meeting = { weekday: number; start_minute: number; end_minute: number; timezone?: string | null };
+/**
+ * A planned meeting. `timezone` is the IANA zone the student typed it in (Asia/Beirut unless they chose another).
+ * `source` is "manual" for a time the student typed, or "resis" for one taken from a section of AUB's imported
+ * schedule, with that section's `crn` (SCRUM-243). Rows without a source are typed ones.
+ */
+type Meeting = {
+  weekday: number;
+  start_minute: number;
+  end_minute: number;
+  timezone?: string | null;
+  source?: string | null;
+  crn?: string | null;
+};
 type PlanRow = {
   id: string;
   term: string;
@@ -65,9 +76,38 @@ type PlanRow = {
     position: number;
     courses: { code: string; name: string } | null;
     plan_meetings: Meeting[] | null;
+    /** Sections chosen from AUB's imported schedule; their numbers name the section times. */
+    plan_course_sections?: { crn: string; section: string }[] | null;
   }[] | null;
   plan_items: { title: string; on_date: string; start_minute: number | null; end_minute: number | null }[] | null;
 };
+
+const meetingText = (meeting: Meeting) =>
+  `${WEEKDAYS[meeting.weekday] ?? "?"} ${clock(meeting.start_minute)}-${clock(meeting.end_minute)}${zoneNote(meeting.timezone)}`;
+
+/**
+ * One planned course's times, saying where they came from: typed by the student (tentative), or from
+ * AUB's schedule via Resis with the section and CRN. A chosen section with no listed times says so.
+ */
+function courseTimes(planned: NonNullable<PlanRow["plan_courses"]>[number]): string {
+  const meetings = [...(planned.plan_meetings ?? [])].sort((a, b) => a.weekday - b.weekday || a.start_minute - b.start_minute);
+  const typed = meetings.filter((meeting) => meeting.source !== "resis");
+  const sections = [...(planned.plan_course_sections ?? [])].sort((a, b) => a.section.localeCompare(b.section, "en", { numeric: true }));
+  const parts: string[] = [];
+
+  if (typed.length > 0) parts.push(`${typed.map(meetingText).join(", ")} (typed by the student, tentative)`);
+  const fromSchedule = sections.map((section) => {
+    const times = meetings.filter((meeting) => meeting.source === "resis" && meeting.crn === section.crn).map(meetingText);
+    const label = `section ${clean(section.section, 40)}, CRN ${clean(section.crn, 10)}`;
+    return times.length > 0 ? `${times.join(", ")} (${label})` : `${label}: times not announced`;
+  });
+  // Section rows whose section is missing from the list still came from AUB's schedule.
+  const unlisted = meetings.filter((meeting) => meeting.source === "resis" && !sections.some((section) => section.crn === meeting.crn));
+  if (unlisted.length > 0) fromSchedule.push(unlisted.map(meetingText).join(", "));
+  if (fromSchedule.length > 0) parts.push(`${fromSchedule.join("; ")}, from AUB's schedule via Resis`);
+
+  return parts.length > 0 ? parts.join("; ") : "no meeting times entered";
+}
 
 type SavedEventRow = {
   events: { id: string; title: string; starts_at: string; ends_at: string; location: string; status: string } | null;
@@ -81,11 +121,8 @@ function planChunk(plan: PlanRow, now: Date, today: string): EvidenceChunk {
   const courses = [...(plan.plan_courses ?? [])]
     .sort((a, b) => a.position - b.position)
     .map((planned) => {
-      const meetings = [...(planned.plan_meetings ?? [])]
-        .sort((a, b) => a.weekday - b.weekday || a.start_minute - b.start_minute)
-        .map((meeting) => `${WEEKDAYS[meeting.weekday] ?? "?"} ${clock(meeting.start_minute)}-${clock(meeting.end_minute)}${zoneNote(meeting.timezone)}`);
       const name = planned.courses ? `${clean(planned.courses.code, 20)} ${clean(planned.courses.name)}` : "Unavailable course";
-      return `- ${name}: ${meetings.length > 0 ? meetings.join(", ") : "no meeting times entered"}`;
+      return `- ${name}: ${courseTimes(planned)}`;
     });
   const items = [...(plan.plan_items ?? [])]
     .filter((item) => item.on_date >= today)
@@ -98,7 +135,7 @@ function planChunk(plan: PlanRow, now: Date, today: string): EvidenceChunk {
 
   const lines = [
     `Today is ${formatBeirutDay(now)} (Beirut time).`,
-    `Your ${clean(plan.term, 20)} plan (${plan.starts_on} to ${plan.ends_on}). Meeting times were typed by the student and are tentative.`,
+    `Your ${clean(plan.term, 20)} plan (${plan.starts_on} to ${plan.ends_on}). Times "typed by the student" are tentative; times "from AUB's schedule via Resis" come from the chosen section in AUB's imported class schedule.`,
     courses.length > 0 ? `Courses:\n${courses.join("\n")}` : "No courses in this plan yet.",
     items.length > 0 ? `Upcoming items:\n${items.join("\n")}` : "No upcoming items.",
   ];
@@ -171,7 +208,7 @@ export async function loadStudentContext(client: Client, userId: string, now: Da
         await client
           .from("semester_plans")
           .select(
-            "id, term, starts_on, ends_on, plan_courses(position, courses(code, name), plan_meetings(weekday, start_minute, end_minute, timezone)), plan_items(title, on_date, start_minute, end_minute)",
+            "id, term, starts_on, ends_on, plan_courses(position, courses(code, name), plan_meetings(weekday, start_minute, end_minute, timezone, source, crn), plan_course_sections(crn, section)), plan_items(title, on_date, start_minute, end_minute)",
           )
           .eq("student_id", userId)
           .gte("ends_on", today)

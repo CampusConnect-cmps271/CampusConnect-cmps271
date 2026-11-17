@@ -7,7 +7,7 @@ export function PlanList({ plans }: { plans: readonly PlanSummary[] }) {
   if (plans.length === 0) {
     return (
       <p className="text-sm text-[var(--ink-soft)]">
-        You have no plans yet. Choose a term above to start one.
+        You have no plans yet.
       </p>
     );
   }
