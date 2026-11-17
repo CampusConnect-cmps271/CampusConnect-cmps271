@@ -114,12 +114,9 @@ describe("sectionOptions: what the picker lists", () => {
   });
 
   it("words what was just done to a course's sections", () => {
-    expect(sectionNoticeText("only", [{ section: "1", crn: "30001" }])).toBe(
-      "Added. It has one section in AUB's schedule, so it was chosen: Section 1 (CRN 30001).",
-    );
-    expect(sectionNoticeText("picked", [])).toBe("Section times added from AUB's schedule.");
-    expect(sectionNoticeText("updated", [])).toBe("Times updated from AUB's schedule.");
-    expect(sectionNoticeText("typed", [])).toBe("Section times removed. Add your own times.");
+    expect(sectionNoticeText("only", [{ section: "1", crn: "30001" }])).toBe("Its only section was chosen: Section 1 (CRN 30001).");
+    expect(sectionNoticeText("picked", [])).toBe("Section saved.");
+    expect(sectionNoticeText("updated", [])).toBe("Times updated.");
   });
 
   it("dates an import in Beirut", () => {

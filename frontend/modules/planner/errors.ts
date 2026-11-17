@@ -6,8 +6,6 @@ export type PlannerOperation =
   | "addCourse"
   | "removeCourse"
   | "moveCourse"
-  | "saveMeeting"
-  | "removeMeeting"
   | "saveItem"
   | "removeItem"
   | "going"
@@ -22,18 +20,12 @@ const FALLBACK: Record<PlannerOperation, string> = {
   addCourse: "We couldn't add the course. Please try again.",
   removeCourse: "We couldn't remove the course. Please try again.",
   moveCourse: "We couldn't move the course. Please try again.",
-  saveMeeting: "We couldn't save the meeting. Please try again.",
-  removeMeeting: "We couldn't remove the meeting. Please try again.",
   saveItem: "We couldn't save the item. Please try again.",
   removeItem: "We couldn't remove the item. Please try again.",
   going: "We couldn't update the event. Please try again.",
   linkSemester: "We couldn't change the plan's schedule. Please try again.",
   chooseSections: "We couldn't save the sections. Please try again.",
 };
-
-/** Shown when a typed time is added to a course that takes its times from sections. */
-export const SECTIONS_SET =
-  "This course's times come from its AUB sections. Choose “Use typed times” first to type your own.";
 
 /**
  * What to tell the student about a database error. Codes come from the
@@ -57,14 +49,6 @@ export function plannerErrorMessage(operation: PlannerOperation, code: string | 
       if (code === "22023") return "The plan changed while you were reordering it. Please try again.";
       if (code === "P0002" || code === "42501") return PLAN_NOT_FOUND;
       break;
-    case "saveMeeting":
-      if (code === "23505") return "That meeting is already listed for this course.";
-      if (code === "54000") return `A course can have up to ${PLANNER_LIMITS.meetingsPerCourse} meetings.`;
-      if (code === "23514") return "Check the day and times: the meeting must end after it starts, on the same day.";
-      if (code === "22023") return "That time zone isn't recognised. Use an IANA name such as Asia/Beirut.";
-      if (code === "55000") return SECTIONS_SET;
-      if (code === "42501") return "That course isn't in one of your plans.";
-      break;
     case "linkSemester":
       if (code === "42501") return "That semester's schedule isn't imported, or this plan isn't yours.";
       if (code === "23503") return "That semester's schedule isn't imported.";
@@ -87,7 +71,6 @@ export function plannerErrorMessage(operation: PlannerOperation, code: string | 
       break;
     case "deletePlan":
     case "removeCourse":
-    case "removeMeeting":
     case "removeItem":
       if (code === "42501") return PLAN_NOT_FOUND;
       break;

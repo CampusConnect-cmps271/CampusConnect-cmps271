@@ -47,7 +47,6 @@ export function NavLinks({ messagesBadge, notifications, logout }: NavLinksProps
 
   const inCourses = pathname === "/courses" || pathname.startsWith("/courses/");
   const inPlanner = pathname === "/planner" || pathname.startsWith("/planner/");
-  const inCalendar = pathname === "/calendar";
   const inElectives = pathname === "/electives" || pathname.startsWith("/electives/");
   const inSkillSwap = pathname === "/skillswap" || pathname.startsWith("/skillswap/");
   const inAssistant = pathname === "/assistant";
@@ -117,7 +116,6 @@ export function NavLinks({ messagesBadge, notifications, logout }: NavLinksProps
         <ul className="flex flex-col gap-0.5">
           {item("/courses", inCourses, "Browse courses", firstLink)}
           {item("/planner", inPlanner, "Plan your semester")}
-          {item("/calendar", inCalendar, "Calendar")}
           {item("/electives/preferences", inElectives, "Elective preferences")}
           {item("/skillswap", inSkillSwap, "SkillSwap")}
           {item("/assistant", inAssistant, "Assistant")}

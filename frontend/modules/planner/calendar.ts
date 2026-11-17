@@ -93,11 +93,8 @@ export function formatWeekRange(monday: string): string {
   return `${startDay}–${endDay} ${endMonth} ${endYear}`;
 }
 
-/**
- * What a week entry is. The plan page shows classes, items and events it's
- * going to; /calendar also shows saved and cancelled events and reminders.
- */
-export type CalendarEntryKind = "class" | "item" | "event" | "saved" | "cancelled" | "reminder";
+/** What a week entry is: a class, one of the student's items, or an event they're going to. */
+export type CalendarEntryKind = "class" | "item" | "event";
 
 /** One thing on one day of the week view. */
 export type CalendarEntry = {
@@ -114,6 +111,8 @@ export type CalendarEntry = {
   end_minute: number | null;
   /** Overlaps something else on this date. */
   conflict: boolean;
+  /** The item's id, so the calendar can open it for editing. */
+  item_id?: string;
 };
 
 const sideKey = (side: ConflictSide) =>
@@ -165,6 +164,7 @@ export function weekEntries({
       start_minute: null,
       end_minute: null,
       conflict: false,
+      item_id: entry.id.slice("item:".length),
     });
   }
 
@@ -185,6 +185,7 @@ export function weekEntries({
       start_minute: slot.start_minute,
       end_minute: slot.end_minute,
       conflict: conflictDates.get(key)?.has(slot.date) ?? false,
+      item_id: entry.side?.kind === "item" ? entry.side.item_id : undefined,
     });
   }
 

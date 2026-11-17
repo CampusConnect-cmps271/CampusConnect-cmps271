@@ -3,9 +3,7 @@ import { requireUser } from "@/modules/auth";
 import { log } from "@/modules/logging";
 import { createClient } from "@/lib/supabase/server";
 import { addDays, ITEM_WINDOW_DAYS, itemWindow, parseCalendarDate } from "./calendar";
-import { calendarEntries, type SavedCalendarEvent } from "./calendar-data";
-import { buildCalendarView, calendarRangeFor, type CalendarData, type CalendarViewMode, type CalendarViewModel } from "./calendar-view";
-import { beirutToday } from "./terms";
+import { calendarEntries, type CalendarData, type SavedCalendarEvent } from "./calendar-data";
 import { detectConflicts, type ConflictReport } from "./conflicts";
 import { PLANNER_LIMITS, plannerIdSchema } from "./schema";
 import { courseSearchFilter } from "./search";
@@ -471,34 +469,6 @@ export async function getCalendarData({ from, to }: { from: string; to: string }
       savedEvents: savedCount.error ? Math.max(1, events.length) : (savedCount.count ?? events.length),
     },
   };
-}
-
-/** The /calendar page's view of `date` (SCRUM-244/245), or null when the calendar can't be read. Logs counts only. */
-export async function loadCalendarView({
-  view,
-  date,
-  now = new Date(),
-}: {
-  view: CalendarViewMode;
-  date: string;
-  now?: Date;
-}): Promise<CalendarViewModel | null> {
-  const user = await requireUser();
-  const { from, to } = calendarRangeFor(view, date);
-  const data = await getCalendarData({ from, to });
-  if (!data) return null;
-
-  const model = buildCalendarView({ view, date, today: beirutToday(now), now, data });
-  const { counts } = model;
-  log.info(
-    "calendar.viewed",
-    { view, classes: counts.classes, items: counts.items, events: counts.events, reminders: counts.reminders, overlaps: counts.overlaps },
-    { userId: user.id },
-  );
-  if (counts.overlaps || counts.clashes) {
-    log.info("calendar.overlaps.found", { view, overlaps: counts.overlaps, clashes: counts.clashes }, { userId: user.id });
-  }
-  return model;
 }
 
 /**

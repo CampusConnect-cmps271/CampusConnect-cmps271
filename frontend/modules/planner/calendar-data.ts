@@ -12,6 +12,15 @@ import type { Meeting, PlanDetails, PlannerEvent } from "./types";
 
 export type CalendarDataKind = "class" | "item" | "event" | "reminder";
 
+/** What getCalendarData returns: the entries, the plans it read, and what the student has at all. */
+export type CalendarData = {
+  entries: CalendarDataEntry[];
+  /** The student's plans near the range, with their term dates. */
+  plans: { id: string; term: string; starts_on: string; ends_on: string }[];
+  /** How many plans and saved events the student has in total. */
+  totals: { plans: number; savedEvents: number };
+};
+
 /** One stretch of an entry on one Beirut day. */
 export type DaySlice = Pick<CalendarSlot, "date" | "start_minute" | "end_minute">;
 

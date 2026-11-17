@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { linkSemester } from "../actions";
 import { importedOn } from "../sections";
 import type { ImportedSemester } from "../types";
-import { FIELD_CLASS, LABEL_CLASS } from "./MeetingForms";
+import { FIELD_CLASS, LABEL_CLASS } from "./FormBits";
 
 const RESIS_URL = "https://resis.org/";
 
@@ -19,8 +19,8 @@ type ScheduleLinkProps = {
 };
 
 /**
- * Which AUB schedule fills in the plan's class times (SCRUM-243): says where
- * the times come from, and links, changes or clears it.
+ * Which AUB schedule the plan's class times come from (SCRUM-243): names
+ * it, and links, changes or clears it.
  */
 export function ScheduleLink({ planId, semester, semesters, suggestedName }: ScheduleLinkProps) {
   const [state, formAction, pending] = useActionState(linkSemester, undefined);
@@ -43,7 +43,7 @@ export function ScheduleLink({ planId, semester, semesters, suggestedName }: Sch
               {option.name} (imported {importedOn(option.synced_at)})
             </option>
           ))}
-          <option value="">None: I&apos;ll type all class times</option>
+          <option value="">None</option>
         </select>
       </div>
       <button
@@ -63,33 +63,30 @@ export function ScheduleLink({ planId, semester, semesters, suggestedName }: Sch
     </form>
   );
 
+  const source = (
+    <a href={RESIS_URL} className="underline" target="_blank" rel="noreferrer">
+      Resis
+    </a>
+  );
+
   return (
-    <section aria-label="Class times from AUB's schedule" className="flex flex-col gap-2 rounded-lg border border-[var(--border)] bg-white px-4 py-3">
+    <section aria-label="Class times from AUB's schedule" className="flex flex-col gap-1 px-1 text-xs text-[var(--ink-soft)]">
       {semester ? (
         <>
-          <p className="text-sm text-[var(--ink)]">
-            Class times from AUB&apos;s <strong>{semester.name}</strong> schedule, imported {importedOn(semester.synced_at)} via{" "}
-            <a href={RESIS_URL} className="underline" target="_blank" rel="noreferrer">
-              Resis
-            </a>
-            . Choose a section for each course and its days and times fill in.
+          <p>
+            Times from AUB&apos;s <strong className="text-[var(--ink)]">{semester.name}</strong> schedule via {source}, imported{" "}
+            {importedOn(semester.synced_at)}. Check AUB SIS before you register.
           </p>
           <details>
-            <summary className="cursor-pointer text-sm font-medium text-[var(--maroon)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]">
-              Change or clear the schedule
+            <summary className="cursor-pointer font-medium text-[var(--maroon)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]">
+              Change schedule
             </summary>
             <div className="mt-2">{form}</div>
           </details>
         </>
       ) : (
         <>
-          <p className="text-sm text-[var(--ink)]">
-            Fill in class times from AUB&apos;s imported schedule (via{" "}
-            <a href={RESIS_URL} className="underline" target="_blank" rel="noreferrer">
-              Resis
-            </a>
-            ) by choosing sections, instead of typing them.
-          </p>
+          <p>Link AUB&apos;s schedule (via {source}) to choose sections and fill in class times.</p>
           {form}
         </>
       )}

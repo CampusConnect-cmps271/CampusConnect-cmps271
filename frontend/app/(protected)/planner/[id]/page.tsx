@@ -58,7 +58,7 @@ export default async function PlanPage({ params, searchParams }: PlanPageProps) 
 
   return (
     <AppShell>
-<main className="flex-1 bg-white px-4 py-6 sm:py-10">
+<main className="flex-1 bg-[var(--maroon-50)] px-4 py-5 sm:px-6 sm:py-6">
       <PlanView
         plan={plan}
         report={report}

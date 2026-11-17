@@ -11,13 +11,9 @@ import {
   plannerIdSchema,
   planSchema,
   readItemForm,
-  readMeetingForm,
   validateItemForm,
-  validateMeetingForm,
   type ItemFieldErrors,
   type ItemFormValues,
-  type MeetingFieldErrors,
-  type MeetingFormValues,
 } from "./schema";
 import { readCourseSections } from "./queries";
 import { chosenCrns, MAX_SECTIONS_PER_COURSE, type SectionNotice } from "./sections";
@@ -26,17 +22,11 @@ import { officialTerm } from "./terms";
 /** The result of a planner button: a message for its aria-live region. */
 export type PlannerActionState = { ok: boolean; message: string } | undefined;
 
-/** A meeting form's result. A failed save returns what was typed. */
-export type MeetingActionState =
-  | { ok: boolean; message: string; values?: MeetingFormValues; errors?: MeetingFieldErrors }
-  | undefined;
-
 /** An item form's result. A failed save returns what was typed. */
 export type ItemActionState =
   | { ok: boolean; message: string; values?: ItemFormValues; errors?: ItemFieldErrors }
   | undefined;
 
-const MEETING_NOT_FOUND = "That meeting no longer exists.";
 const ITEM_NOT_FOUND = "That item no longer exists.";
 
 /** The new-plan form keeps the chosen term when creating fails. */
@@ -223,95 +213,6 @@ export async function moveCourse(_previous: PlannerActionState, formData: FormDa
   return { ok: true, message: direction === "up" ? "Moved up." : "Moved down." };
 }
 
-/** Adds a weekly meeting the student typed to one of their planned courses. */
-export async function addMeeting(_previous: MeetingActionState, formData: FormData): Promise<MeetingActionState> {
-  const user = await requireUser();
-  const planId = idField(formData, "planId");
-  const planCourseId = idField(formData, "planCourseId");
-  const values = readMeetingForm(formData);
-  if (!planId || !planCourseId) return { ok: false, message: PLAN_NOT_FOUND, values };
-
-  const parsed = validateMeetingForm(values);
-  if (!parsed.success) return { ok: false, message: "Check the meeting's day and times.", values, errors: parsed.errors };
-
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("plan_meetings")
-    .insert({
-      plan_course_id: planCourseId,
-      weekday: parsed.data.weekday,
-      start_minute: parsed.data.start,
-      end_minute: parsed.data.end,
-      timezone: parsed.data.timezone,
-    })
-    .select("id")
-    .single<{ id: string }>();
-
-  if (error || !data) {
-    log.warn("planner.meeting.save_rejected", { planId, planCourseId, code: error?.code ?? "no_id" }, { userId: user.id });
-    return { ok: false, message: plannerErrorMessage("saveMeeting", error?.code), values };
-  }
-
-  log.info("planner.meeting.saved", { planId, planCourseId, meetingId: data.id }, { userId: user.id });
-  refreshPlan(planId);
-  return { ok: true, message: "Meeting added." };
-}
-
-/** Changes the day, times or zone of one of the student's meetings. */
-export async function updateMeeting(_previous: MeetingActionState, formData: FormData): Promise<MeetingActionState> {
-  const user = await requireUser();
-  const planId = idField(formData, "planId");
-  const meetingId = idField(formData, "meetingId");
-  const values = readMeetingForm(formData);
-  if (!planId || !meetingId) return { ok: false, message: MEETING_NOT_FOUND, values };
-
-  const parsed = validateMeetingForm(values);
-  if (!parsed.success) return { ok: false, message: "Check the meeting's day and times.", values, errors: parsed.errors };
-
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("plan_meetings")
-    .update({
-      weekday: parsed.data.weekday,
-      start_minute: parsed.data.start,
-      end_minute: parsed.data.end,
-      timezone: parsed.data.timezone,
-    })
-    .eq("id", meetingId)
-    .select("id");
-
-  if (error) {
-    log.warn("planner.meeting.save_rejected", { planId, meetingId, code: error.code ?? null }, { userId: user.id });
-    return { ok: false, message: plannerErrorMessage("saveMeeting", error.code), values };
-  }
-  if (!data?.length) return { ok: false, message: MEETING_NOT_FOUND, values };
-
-  log.info("planner.meeting.saved", { planId, meetingId }, { userId: user.id });
-  refreshPlan(planId);
-  return { ok: true, message: "Meeting updated." };
-}
-
-/** Removes one of the student's meetings. */
-export async function removeMeeting(_previous: PlannerActionState, formData: FormData): Promise<PlannerActionState> {
-  const user = await requireUser();
-  const planId = idField(formData, "planId");
-  const meetingId = idField(formData, "meetingId");
-  if (!planId || !meetingId) return { ok: false, message: MEETING_NOT_FOUND };
-
-  const supabase = await createClient();
-  const { data, error } = await supabase.from("plan_meetings").delete().eq("id", meetingId).select("id");
-
-  if (error) {
-    log.error("planner.meeting.remove_failure", { planId, meetingId, code: error.code ?? null }, { userId: user.id });
-    return { ok: false, message: plannerErrorMessage("removeMeeting", error.code) };
-  }
-  if (!data?.length) return { ok: false, message: MEETING_NOT_FOUND };
-
-  log.info("planner.meeting.removed", { planId, meetingId }, { userId: user.id });
-  refreshPlan(planId);
-  return { ok: true, message: "Meeting removed." };
-}
-
 /** The dates a plan's items may use, or null when the plan isn't the student's. */
 async function planItemWindow(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -325,7 +226,7 @@ async function planItemWindow(
   return data ? itemWindow(data) : null;
 }
 
-/** Adds something to the plan's calendar: an exam, a meeting, anything. */
+/** Adds something to the plan's calendar: an exam, a study session, anything. */
 export async function addItem(_previous: ItemActionState, formData: FormData): Promise<ItemActionState> {
   const user = await requireUser();
   const planId = idField(formData, "planId");
@@ -456,8 +357,8 @@ export async function linkSemester(_previous: PlannerActionState, formData: Form
 
 /**
  * Back to the course's card, which says what was done. The button that did
- * it is gone once it worked (the picker closes, a notice clears, the section
- * list becomes typed times), so its own status line can't.
+ * it is gone once it worked (the picker closes, a notice clears), so its own
+ * status line can't.
  */
 function doneUrl(planId: string, planCourseId: string, what: SectionNotice): string {
   return `/planner/${planId}?done=${planCourseId}&what=${what}#course-${planCourseId}`;
@@ -514,18 +415,6 @@ export async function updateSectionTimes(_previous: PlannerActionState, formData
   const saved = await saveSections(planId, planCourseId, crns, user.id);
   if (!saved.ok) return saved;
   redirect(doneUrl(planId, planCourseId, "updated"));
-}
-
-/** "Use typed times": removes the course's sections and their times. */
-export async function switchToTypedTimes(_previous: PlannerActionState, formData: FormData): Promise<PlannerActionState> {
-  const user = await requireUser();
-  const planId = idField(formData, "planId");
-  const planCourseId = idField(formData, "planCourseId");
-  if (!planId || !planCourseId) return { ok: false, message: PLAN_NOT_FOUND };
-
-  const saved = await saveSections(planId, planCourseId, [], user.id);
-  if (!saved.ok) return saved;
-  redirect(doneUrl(planId, planCourseId, "typed"));
 }
 
 /** Every plan page and the event's own page show the going mark. */

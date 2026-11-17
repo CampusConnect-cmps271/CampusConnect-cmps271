@@ -23,7 +23,7 @@ const conflict = (fields: Partial<ScheduleConflict>): ScheduleConflict => ({
 describe("conflictHeadline", () => {
   it("names each state differently", () => {
     expect(conflictHeadline(report({ status: "empty" }))).toBe("No courses to check yet");
-    expect(conflictHeadline(report({ status: "clear" }))).toBe("No conflicts among the times you entered");
+    expect(conflictHeadline(report({ status: "clear" }))).toBe("No conflicts");
     expect(conflictHeadline(report({ status: "conflicts", conflicts: [conflict({}), conflict({})] }))).toBe("2 conflicts found");
     expect(conflictHeadline(report({ status: "conflicts", conflicts: [conflict({})] }))).toBe("1 conflict found");
   });
@@ -32,10 +32,10 @@ describe("conflictHeadline", () => {
     const unknown = [{ plan_course_id: "a", course_id: "a" }, { plan_course_id: "b", course_id: "b" }];
     const invalid = [{ ...side, reason: "bad_range" as const, dates: [] }];
     expect(conflictHeadline(report({ status: "incomplete", unknown }))).toBe(
-      "No overlaps among the times you entered, but 2 courses have no times",
+      "No conflicts so far, but 2 courses have no times",
     );
     expect(conflictHeadline(report({ status: "incomplete", unknown: unknown.slice(1), invalid }))).toBe(
-      "No overlaps among the times you entered, but 1 course has no times and 1 meeting needs fixing",
+      "No conflicts so far, but 1 course has no times and 1 meeting needs fixing",
     );
   });
 });
@@ -89,7 +89,7 @@ describe("own items", () => {
       { ...itemSide, reason: "starts_in_dst_gap" as const, dates: ["2027-03-28"] },
     ];
     expect(conflictHeadline(report({ status: "incomplete", invalid }))).toBe(
-      "No overlaps among the times you entered, but 1 meeting needs fixing and 2 items need fixing",
+      "No conflicts so far, but 1 meeting needs fixing and 2 items need fixing",
     );
   });
 

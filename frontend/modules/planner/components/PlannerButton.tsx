@@ -10,16 +10,18 @@ type PlannerButtonProps = {
   children: ReactNode;
   /** The button's accessible name when its text alone is ambiguous. */
   label?: string;
-  variant?: "primary" | "secondary" | "danger";
+  variant?: "primary" | "secondary" | "danger" | "icon";
   className?: string;
 };
 
 const VARIANTS = {
   primary:
-    "bg-[var(--maroon)] text-white hover:bg-[var(--maroon-dark)] border border-[var(--maroon)]",
+    "px-3 py-1.5 bg-[var(--maroon)] text-white hover:bg-[var(--maroon-dark)] border border-[var(--maroon)]",
   secondary:
-    "border border-[var(--border)] bg-white text-[var(--ink)] hover:border-[var(--maroon)] hover:text-[var(--maroon)]",
-  danger: "border border-[var(--border)] bg-white text-[var(--danger)] hover:border-[var(--danger)]",
+    "px-3 py-1.5 border border-[var(--border)] bg-white text-[var(--ink)] hover:border-[var(--maroon)] hover:text-[var(--maroon)]",
+  danger: "px-3 py-1.5 border border-[var(--border)] bg-white text-[var(--danger)] hover:border-[var(--danger)]",
+  /** A small icon-only button; give it a `label`. */
+  icon: "p-1.5 text-[var(--ink-soft)] hover:bg-[var(--maroon-50)] hover:text-[var(--maroon)]",
 };
 
 /** One planner button with its own form, so it works without JavaScript and by keyboard. */
@@ -42,7 +44,7 @@ export function PlannerButton({
         type="submit"
         aria-label={label}
         disabled={pending}
-        className={`rounded-md px-3 py-1.5 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)] disabled:opacity-60 ${VARIANTS[variant]}`}
+        className={`rounded-md text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)] disabled:opacity-60 ${VARIANTS[variant]}`}
       >
         {children}
       </button>

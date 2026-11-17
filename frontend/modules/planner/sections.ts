@@ -75,18 +75,17 @@ export function importedOn(value: string | null | undefined): string {
  * What was just done to a course's sections, shown on its card after the
  * action returns to the plan (?done=<plan course>&what=<this>).
  */
-export type SectionNotice = "picked" | "only" | "updated" | "typed";
+export type SectionNotice = "picked" | "only" | "updated";
 
-export const SECTION_NOTICES: readonly SectionNotice[] = ["picked", "only", "updated", "typed"];
+export const SECTION_NOTICES: readonly SectionNotice[] = ["picked", "only", "updated"];
 
 /** The card's sentence for a notice; `only` names the one section it chose. */
 export function sectionNoticeText(what: SectionNotice, sections: readonly { section: string; crn: string }[]): string {
   if (what === "only" && sections.length === 1) {
-    return `Added. It has one section in AUB's schedule, so it was chosen: Section ${sections[0].section} (CRN ${sections[0].crn}).`;
+    return `Its only section was chosen: Section ${sections[0].section} (CRN ${sections[0].crn}).`;
   }
-  if (what === "updated") return "Times updated from AUB's schedule.";
-  if (what === "typed") return "Section times removed. Add your own times.";
-  return "Section times added from AUB's schedule.";
+  if (what === "updated") return "Times updated.";
+  return "Section saved.";
 }
 
 /** "12 sections", "1 section". */

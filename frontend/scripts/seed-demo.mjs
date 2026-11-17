@@ -3,8 +3,8 @@
  * a student, a moderator and an administrator, with filled-in profiles,
  * their roles, a handful of sample posts across the categories, two
  * SkillSwap posts that match each other, a Spring 2027 semester plan for
- * the student with demo meeting times (SCRUM-67), and a Fall 2026 plan with
- * real sections and an overlapping item this week for /calendar (SCRUM-244).
+ * the student (SCRUM-67), and a Fall 2026 plan with real sections and an
+ * overlapping item this week on its calendar (SCRUM-244).
  *
  * Usage:
  *   npm run seed:demo                local Supabase, from .env.local
@@ -455,24 +455,22 @@ if (await tableExists("post_skillswap")) {
 // under RLS and grant the service role nothing. Re-running adds nothing new.
 //
 // SCRUM-243: when the section tables exist and Spring 2026-2027 has an active
-// Resis import, the plan is linked to it and CMPS 202 and CMPS 211 take their
-// times from real sections, looked up by course code now (the first section
-// with listed times, plus one of each kind linked to it) and chosen through
-// planner_choose_sections. MATH 201 keeps typed times, set to overlap CMPS
-// 202's chosen section so the demo still shows a conflict, and ENGL 203 has
-// none. Otherwise every course gets the typed demo times below, which are
-// demo entries, NOT AUB sections: CMPS 202 and MATH 201 overlap on Tuesday
-// 11:00-11:15.
+// Resis import, the plan is linked to it and CMPS 202, MATH 201 and CMPS 211
+// take their times from real sections, looked up by course code now (the
+// first section with listed times, plus one of each kind linked to it) and
+// chosen through planner_choose_sections. ENGL 203 has no times, so the
+// conflict check shows a course it can't place. Times are never typed:
+// without an import, the courses have no times.
 const PLANNER_DEMO = {
   // The official Spring 2026-27 dates, as in modules/planner/terms.ts.
   term: "Spring 2027",
   starts_on: "2027-01-13",
   ends_on: "2027-04-27",
   courses: [
-    { code: "CMPS 202", sections: true, meetings: [[2, "10:00", "11:15"], [4, "10:00", "11:15"]] },
-    { code: "MATH 201", overlaps: "CMPS 202", meetings: [[2, "11:00", "12:15"], [4, "11:30", "12:45"]] },
-    { code: "CMPS 211", sections: true, meetings: [[1, "14:00", "15:15"], [3, "14:00", "15:15"]] },
-    { code: "ENGL 203", meetings: [] },
+    { code: "CMPS 202", sections: true },
+    { code: "MATH 201", sections: true },
+    { code: "CMPS 211", sections: true },
+    { code: "ENGL 203" },
   ],
 };
 
@@ -515,8 +513,8 @@ function demoSectionChoice(sections) {
 
 // SCRUM-244: a Fall 2026 plan linked to the Fall 2026-2027 import, with real
 // sections of three courses looked up by course code at seed time. An item of
-// the student's own this week overlaps one of those classes, so /calendar
-// shows an overlap during the demo. Skipped when the section tables, the Fall
+// the student's own this week overlaps one of those classes, so the plan's
+// calendar shows an overlap during the demo. Skipped when the section tables, the Fall
 // import or the courses are missing.
 const FALL_DEMO = {
   // The official Fall 2026-27 dates, as in modules/planner/terms.ts.
@@ -525,14 +523,13 @@ const FALL_DEMO = {
   ends_on: "2026-12-04",
   requireImport: true,
   courses: [
-    { code: "CMPS 201", sections: true, meetings: [] },
-    { code: "CMPS 211", sections: true, meetings: [] },
-    { code: "MATH 201", sections: true, meetings: [] },
+    { code: "CMPS 201", sections: true },
+    { code: "CMPS 211", sections: true },
+    { code: "MATH 201", sections: true },
   ],
 };
 const DEMO_ITEM_TITLE = "Study group (demo)";
 
-const minutesOf = (time) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
 
 /** Today's date in Beirut, YYYY-MM-DD, as the planner reads "today". */
 function beirutToday() {
@@ -602,20 +599,14 @@ async function seedDemoPlan(asStudent, demo) {
 
   const { data: existing, error: listError } = await asStudent
     .from("plan_courses")
-    .select(
-      activeImportId
-        ? "id, course_id, plan_meetings(weekday, start_minute, end_minute, source), plan_course_sections(crn)"
-        : "id, course_id, plan_meetings(weekday, start_minute, end_minute)",
-    )
+    .select(activeImportId ? "id, course_id, plan_course_sections(crn)" : "id, course_id")
     .eq("plan_id", plan.id);
   if (listError) fail(`could not read the ${demo.term} demo plan: ${listError.message}`);
 
   let coursesAdded = 0;
-  let meetingsAdded = 0;
   const chosenSections = [];
-  /** Every section meeting, and the first one of each course, for typed overlaps and the demo item. */
+  /** Every section meeting, for the demo item. */
   const sectionMeetings = [];
-  const firstSectionMeeting = new Map();
   for (const course of present) {
     let planned = existing.find((row) => row.course_id === courseIds.get(course.code));
     if (!planned) {
@@ -625,7 +616,7 @@ async function seedDemoPlan(asStudent, demo) {
         .select("id")
         .single();
       if (error) fail(`could not add ${course.code} to the ${demo.term} demo plan: ${error.message}`);
-      planned = { id: data.id, plan_meetings: [], plan_course_sections: [] };
+      planned = { id: data.id, plan_course_sections: [] };
       coursesAdded += 1;
     }
 
@@ -652,38 +643,11 @@ async function seedDemoPlan(asStudent, demo) {
         .eq("source", "resis")
         .order("weekday")
         .order("start_minute");
-      if (rows?.length) {
-        sectionMeetings.push(...rows.map((row) => ({ ...row, code: course.code })));
-        firstSectionMeeting.set(course.code, rows[0]);
-        continue;
-      }
-      // Not offered, or no listed times: typed demo times instead.
-    }
-
-    // A typed course set to overlap another's chosen section: 15 minutes after it starts.
-    const anchor = course.overlaps ? firstSectionMeeting.get(course.overlaps) : undefined;
-    const meetings = anchor
-      ? [[anchor.weekday, anchor.start_minute + 15, Math.min(anchor.start_minute + 90, 1440)]]
-      : course.meetings.map(([weekday, start, end]) => [weekday, minutesOf(start), minutesOf(end)]);
-    for (const [weekday, startMinute, endMinute] of meetings) {
-      const known = planned.plan_meetings.some(
-        (meeting) => meeting.weekday === weekday && meeting.start_minute === startMinute && meeting.end_minute === endMinute,
-      );
-      if (known) continue;
-      const { error } = await asStudent.from("plan_meetings").insert({
-        plan_course_id: planned.id,
-        weekday,
-        start_minute: startMinute,
-        end_minute: endMinute,
-        timezone: "Asia/Beirut",
-      });
-      if (error) fail(`could not add a demo meeting for ${course.code}: ${error.message}`);
-      meetingsAdded += 1;
+      if (rows?.length) sectionMeetings.push(...rows.map((row) => ({ ...row, code: course.code })));
     }
   }
   summary.push(
-    `planner   ${demo.term}: ${coursesAdded} courses and ${meetingsAdded} typed demo meetings added ` +
-      `(${present.length} of ${demo.courses.length} courses in the catalogue)`,
+    `planner   ${demo.term}: ${coursesAdded} courses added (${present.length} of ${demo.courses.length} courses in the catalogue)`,
   );
   summary.push(
     activeImportId

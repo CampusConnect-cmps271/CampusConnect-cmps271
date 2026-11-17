@@ -5,7 +5,7 @@ import { useActionState, useState } from "react";
 import { chooseSections } from "../actions";
 import { linkedPrompt, sectionCountLabel, type SectionOption, type SessionLine } from "../sections";
 import type { ImportedSemester, PlannedCourse } from "../types";
-import { useHydrated } from "./MeetingForms";
+import { useHydrated } from "./FormBits";
 
 type SectionPickerProps = {
   planId: string;
@@ -54,7 +54,7 @@ export function SectionPicker({ planId, planned, semester, options, chosen, type
           Choose a section of {planned.code}
         </h4>
         <p className="text-xs text-[var(--ink-soft)]">
-          {sectionCountLabel(options.length)} in AUB&apos;s {semester.name} schedule (from Resis). The days and times fill in from it.
+          {sectionCountLabel(options.length)} in AUB&apos;s {semester.name} schedule
         </p>
       </div>
 
