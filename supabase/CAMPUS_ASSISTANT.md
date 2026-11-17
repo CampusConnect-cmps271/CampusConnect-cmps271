@@ -156,12 +156,10 @@ questions to `eval/questions.json` once real clubs and events exist locally.
 
 ## Not yet done
 
-- **Embedding events bumps their revision.** `enforce_event_management` raises
-  an event's `revision` (and `updated_at`) on every update, including the
-  backfill, which only sets `embedding`. An organizer with that event's edit form
-  open while `embed:campus-content` runs would get a stale-write conflict on
-  save. Run the backfill off-hours until that trigger is made to ignore
-  embedding-only updates.
+- **Embedding events no longer bumps their revision** (migration
+  `20261116200000`): an update that changes only `embedding` leaves `revision` and
+  `updated_at` alone, so the backfill can run while an organizer has the edit
+  form open. Apply it to hosted before relying on this.
 - **The club/event migration and tests were written without a running local
   stack.** `tests/campus-assistant-clubs-events.test.mjs` skips itself unless
   `npx supabase start` is up; run `npm run test:db` once with it running before
