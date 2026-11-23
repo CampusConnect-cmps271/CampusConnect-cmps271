@@ -22,7 +22,7 @@ function SubmitButtons() {
         name="intent"
         value="draft"
         disabled={pending}
-        className="rounded-lg border px-5 py-3 font-medium disabled:opacity-50"
+        className="rounded-xl border border-[var(--border)] bg-white px-5 py-3 font-semibold text-[var(--ink)] hover:bg-[var(--maroon-50)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)] disabled:opacity-50"
       >
         {pending ? "Saving..." : "Save Draft"}
       </button>
@@ -32,7 +32,7 @@ function SubmitButtons() {
         name="intent"
         value="published"
         disabled={pending}
-        className="rounded-lg bg-blue-600 px-5 py-3 font-medium text-white disabled:opacity-50"
+        className="rounded-xl bg-[var(--maroon)] px-5 py-3 font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)] disabled:opacity-50"
       >
         {pending ? "Saving..." : "Publish Event"}
       </button>
@@ -50,14 +50,14 @@ function FieldError({
   if (!errors[name]) return null;
 
   return (
-    <p className="mt-1 text-sm text-red-600" role="alert">
+    <p className="mt-1 text-sm text-[var(--danger)]" role="alert">
       {errors[name]}
     </p>
   );
 }
 
 const inputClass =
-  "mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-3 text-gray-900";
+  "mt-2 block w-full min-w-0 rounded-xl border border-[var(--border)] bg-white px-3 py-3 text-[var(--ink)] shadow-sm outline-offset-2 focus-visible:outline-2 focus-visible:outline-[var(--maroon)] disabled:opacity-60";
 
 export default function EventCreateForm() {
   const [state, formAction] = useActionState(
@@ -66,7 +66,8 @@ export default function EventCreateForm() {
   );
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} className="min-w-0 space-y-6" aria-label="Create event">
+      <p className="text-sm text-[var(--ink-soft)]">Fields marked * are required. Save a draft or publish when ready.</p>
       <div>
         <label
           htmlFor="event-title"
@@ -162,8 +163,8 @@ export default function EventCreateForm() {
         </div>
       </div>
 
-      <p className="text-sm text-gray-500">
-        All event times are entered in Asia/Beirut time.
+      <p className="text-sm text-[var(--ink-soft)]">
+        Enter local date and time in Beirut (Asia/Beirut). Start must be before end; daylight-saving transitions are validated.
       </p>
 
       <div>
