@@ -64,7 +64,7 @@ export function ProfileCard({ profile }: { profile: Profile }) {
 
   return (
     <div className="w-full min-w-0 rounded-xl border border-[var(--border)] bg-white p-4 shadow-sm sm:p-7">
-      <h1 className="sr-only">Student Profile</h1>
+      <h1 className="mb-4 text-sm font-semibold text-[var(--ink-soft)]">Student Profile</h1>
       <header className="mb-6 flex flex-wrap items-center gap-4 border-b border-[var(--border)] pb-5">
         <div aria-hidden="true" className="flex size-16 shrink-0 items-center justify-center rounded-full bg-[var(--maroon)] text-xl font-bold text-white sm:size-20 sm:text-2xl">
           {profile.fullName.trim().split(/\s+/).slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join("") || "?"}

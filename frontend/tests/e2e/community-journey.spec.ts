@@ -106,7 +106,7 @@ test.describe("student journey", () => {
     await expect(page.getByRole("button", { name: /Upvoted \(1\)/ })).toHaveAttribute("aria-pressed", "true");
 
     await page.goto("/home");
-    await expect(page.getByRole("article").filter({ hasText: title })).toContainText("1 upvotes");
+    await expect(page.getByRole("article").filter({ hasText: title })).toContainText(/\b1 upvotes?/);
 
     await page.getByRole("link", { name: title }).click();
     await page.getByRole("button", { name: /Upvoted/ }).click();

@@ -62,7 +62,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               <p className="text-sm text-[var(--ink-soft)]">Browse and share what matters on campus.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link href="/saved" className={outlineLink}>Saved posts</Link>
+              <Link href="/saved" className={outlineLink}>Saved</Link>
               <Link href="/posts/new" className={primaryLink}>New post</Link>
             </div>
           </div>
