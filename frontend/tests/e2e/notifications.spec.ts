@@ -54,6 +54,7 @@ test("several messages make one notification for the recipient", async ({ page }
 });
 
 test("the bell shows the count, opens a panel and lands in the conversation", async ({ page }) => {
+  test.setTimeout(60_000);
   await page.setViewportSize({ width: 1280, height: 900 });
   await logIn(page, karim.email);
 
@@ -63,7 +64,8 @@ test("the bell shows the count, opens a panel and lands in the conversation", as
   await bell(page).click();
   const panel = page.getByRole("dialog", { name: "Notifications" });
   const item = panel.getByRole("link", { name: `Unread: ${lina.name} sent you a message` });
-  await expect(item).toBeVisible();
+  // The first open loads the summary route, which a cold dev server compiles first.
+  await expect(item).toBeVisible({ timeout: 20_000 });
 
   // Escape closes the panel and returns focus to the bell.
   await page.keyboard.press("Escape");

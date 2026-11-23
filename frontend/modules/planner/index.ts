@@ -10,31 +10,66 @@
 export {
   addCourse,
   addItem,
-  addMeeting,
   createPlan,
   deletePlan,
   markGoing,
   moveCourse,
   removeCourse,
   removeItem,
-  removeMeeting,
   unmarkGoing,
   updateItem,
-  updateMeeting,
+  linkSemester,
+  chooseSections,
+  updateSectionTimes,
   type ItemActionState,
-  type MeetingActionState,
   type NewPlanState,
   type PlannerActionState,
 } from "./actions";
 
 export {
+  CALENDAR_MAX_DAYS,
   checkPlanConflicts,
+  getCalendarData,
   getEventPlannerState,
   getMyPlan,
+  getPlanSectionState,
+  getSectionPicker,
   listMyPlans,
   listSavedEventsNear,
   searchCoursesForPlan,
+  type PlanSectionState,
+  type SectionPicker,
 } from "./queries";
+
+export {
+  calendarEntries,
+  type CalendarData,
+  reminderEntry,
+  type CalendarDataEntry,
+  type CalendarDataKind,
+  type DaySlice,
+  type SavedCalendarEvent,
+} from "./calendar-data";
+
+export {
+  chosenCrns,
+  linkedPrompt,
+  importedOn,
+  MAX_SECTIONS_PER_COURSE,
+  SECTION_NOTICES,
+  sectionCountLabel,
+  sectionNoticeText,
+  sectionOptions,
+  sessionMeetings,
+  sessionWhen,
+  type LinkedGroup,
+  type LinkedOption,
+  type ResisSection,
+  type ResisSession,
+  type SectionNotice,
+  type SectionOption,
+  type SessionMeeting,
+} from "./sections";
 
 export {
   addDays,
@@ -63,23 +98,15 @@ export { courseSearchFilter, parsePlannerSearch } from "./search";
 
 export {
   EMPTY_ITEM_FORM,
-  EMPTY_MEETING_FORM,
   itemSchema,
-  meetingSchema,
   PLANNER_LIMITS,
-  PLANNER_TIMEZONE,
   plannerIdSchema,
   planSchema,
   readItemForm,
-  readMeetingForm,
   validateItemForm,
-  validateMeetingForm,
   type ItemFieldErrors,
   type ItemFormValues,
   type ItemInput,
-  type MeetingFieldErrors,
-  type MeetingFormValues,
-  type MeetingInput,
 } from "./schema";
 
 export {
@@ -90,6 +117,7 @@ export {
   OFFICIAL_TERMS,
   officialTerm,
   openTerms,
+  resisSemesterName,
   TERM_PATTERN,
   type OfficialTerm,
 } from "./terms";
@@ -105,13 +133,16 @@ export {
 } from "./time";
 
 export type {
+  ChosenSection,
   CourseSearchResult,
+  ImportedSemester,
   Meeting,
   PlanDetails,
   PlanItem,
   PlannedCourse,
   PlannerEvent,
   PlanSummary,
+  SectionChange,
   SemesterPlan,
   Weekday,
 } from "./types";
@@ -119,10 +150,10 @@ export type {
 export { EventGoingControl } from "./components/EventGoingControl";
 export { NewPlanForm } from "./components/NewPlanForm";
 export { PlanList } from "./components/PlanList";
-export { PlannerNotice } from "./components/PlannerNotice";
 export { PlanView } from "./components/PlanView";
 
 export {
+  calendarOccurrences,
   calendarSlots,
   detectConflicts,
   DISPLAY_TIMEZONE,

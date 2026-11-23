@@ -3,6 +3,18 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  BookOpen,
+  CalendarDays,
+  MessageCircle,
+  Repeat2,
+  Sparkles,
+  Target,
+  UserRound,
+  UsersRound,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 
 type NavLinksProps = {
   /** Rendered after "Messages"; comes from the messaging module. */
@@ -13,8 +25,10 @@ type NavLinksProps = {
   logout: ReactNode;
 };
 
-const LINK_CLASS =
-  "flex items-center gap-2 rounded-md px-3 py-2.5 text-sm font-medium hover:bg-[var(--maroon-50)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]";
+const FOCUS =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]";
+
+const LINK_CLASS = `group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-150 hover:bg-[var(--maroon-50)] ${FOCUS}`;
 
 const DRAWER_ID = "main-menu";
 
@@ -47,28 +61,47 @@ export function NavLinks({ messagesBadge, notifications, logout }: NavLinksProps
 
   const inCourses = pathname === "/courses" || pathname.startsWith("/courses/");
   const inPlanner = pathname === "/planner" || pathname.startsWith("/planner/");
+  const inCommunities = pathname === "/communities" || pathname.startsWith("/communities/");
   const inElectives = pathname === "/electives" || pathname.startsWith("/electives/");
   const inSkillSwap = pathname === "/skillswap" || pathname.startsWith("/skillswap/");
   const inAssistant = pathname === "/assistant";
   const inMessages = pathname === "/messages" || pathname.startsWith("/messages/");
   const inProfile = pathname === "/profile";
 
-  const item = (href: string, current: boolean, label: ReactNode, ref?: typeof firstLink) => (
+  const item = (
+    href: string,
+    current: boolean,
+    Icon: LucideIcon,
+    label: ReactNode,
+    ref?: typeof firstLink,
+  ) => (
     <li>
       <Link
         ref={ref}
         href={href}
         aria-current={current ? "page" : undefined}
         onClick={() => setOpenOn(null)}
-        className={`${LINK_CLASS} ${current ? "bg-[var(--maroon-50)] text-[var(--maroon)]" : "text-[var(--ink-soft)]"}`}
+        className={`${LINK_CLASS} ${current ? "bg-[var(--maroon-50)] font-semibold text-[var(--maroon)]" : "text-[var(--ink-soft)] hover:text-[var(--ink)]"}`}
       >
-        {label}
+        {current ? (
+          <span
+            aria-hidden="true"
+            className="absolute inset-y-2 left-0 w-1 rounded-full bg-[var(--maroon)]"
+          />
+        ) : null}
+        <span
+          aria-hidden="true"
+          className={`grid size-8 shrink-0 place-items-center rounded-lg transition-colors duration-150 ${current ? "bg-[var(--maroon)] text-white" : "bg-[var(--maroon-50)] text-[var(--maroon)] group-hover:bg-[var(--maroon-100)]"}`}
+        >
+          <Icon size={16} strokeWidth={2} />
+        </span>
+        <span className="flex items-center gap-2">{label}</span>
       </Link>
     </li>
   );
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1.5">
       {notifications}
       <button
         ref={button}
@@ -77,7 +110,7 @@ export function NavLinks({ messagesBadge, notifications, logout }: NavLinksProps
         aria-expanded={open}
         aria-controls={DRAWER_ID}
         onClick={() => setOpenOn(open ? null : pathname)}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[var(--ink)] hover:bg-[var(--maroon-50)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]"
+        className={`inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--ink)] shadow-sm transition-colors duration-150 hover:border-[var(--maroon-200)] hover:bg-[var(--maroon-50)] hover:text-[var(--maroon)] ${FOCUS}`}
       >
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"
           strokeWidth="2" strokeLinecap="round" aria-hidden="true">
@@ -88,16 +121,18 @@ export function NavLinks({ messagesBadge, notifications, logout }: NavLinksProps
       <div
         aria-hidden="true"
         onClick={() => setOpenOn(null)}
-        className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-200 ${open ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        className={`fixed inset-0 z-40 bg-[var(--maroon-deep)]/40 backdrop-blur-[2px] transition-opacity duration-200 ${open ? "opacity-100" : "pointer-events-none opacity-0"}`}
       />
       <aside
         id={DRAWER_ID}
         aria-label="Menu"
         inert={!open}
-        className={`fixed inset-y-0 right-0 z-50 flex w-72 max-w-[85vw] flex-col gap-2 border-l border-[var(--border)] bg-white p-3 shadow-xl transition-transform duration-200 ${open ? "translate-x-0" : "invisible translate-x-full"}`}
+        className={`fixed inset-y-0 right-0 z-50 flex w-80 max-w-[88vw] flex-col gap-3 rounded-l-3xl border-l border-[var(--border)] bg-white p-4 shadow-[var(--shadow-md)] transition-transform duration-300 ease-out ${open ? "translate-x-0" : "invisible translate-x-full"}`}
       >
-        <div className="flex items-center justify-between px-3 py-1">
-          <span className="text-sm font-semibold text-[var(--ink)]">Menu</span>
+        <div className="flex items-center justify-between rounded-2xl bg-gradient-to-br from-[var(--maroon)] to-[var(--maroon-dark)] px-4 py-3 text-white">
+          <span className="font-[family-name:var(--font-heading)] text-sm font-semibold tracking-wide">
+            Menu
+          </span>
           <button
             type="button"
             aria-label="Close menu"
@@ -105,24 +140,22 @@ export function NavLinks({ messagesBadge, notifications, logout }: NavLinksProps
               setOpenOn(null);
               button.current?.focus();
             }}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--ink-soft)] hover:bg-[var(--maroon-50)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-white/90 transition-colors duration-150 hover:bg-white/15 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              <path d="M3 3l10 10M13 3L3 13" />
-            </svg>
+            <X size={16} strokeWidth={2.25} aria-hidden="true" />
           </button>
         </div>
-        <ul className="flex flex-col gap-0.5">
-          {item("/courses", inCourses, "Browse courses", firstLink)}
-          {item("/planner", inPlanner, "Plan your semester")}
-          {item("/electives/preferences", inElectives, "Elective preferences")}
-          {item("/skillswap", inSkillSwap, "SkillSwap")}
-          {item("/assistant", inAssistant, "Assistant")}
-          {item("/messages", inMessages, <>Messages{messagesBadge}</>)}
-          {item("/profile", inProfile, "Profile")}
+        <ul className="flex flex-col gap-1">
+          {item("/courses", inCourses, BookOpen, "Browse courses", firstLink)}
+          {item("/planner", inPlanner, CalendarDays, "Plan your semester")}
+          {item("/communities", inCommunities, UsersRound, "Communities")}
+          {item("/electives/preferences", inElectives, Target, "Elective preferences")}
+          {item("/skillswap", inSkillSwap, Repeat2, "SkillSwap")}
+          {item("/assistant", inAssistant, Sparkles, "Assistant")}
+          {item("/messages", inMessages, MessageCircle, <>Messages{messagesBadge}</>)}
+          {item("/profile", inProfile, UserRound, "Profile")}
         </ul>
-        <div className="mt-auto border-t border-[var(--border)] pt-2">{logout}</div>
+        <div className="mt-auto border-t border-[var(--border)] pt-3">{logout}</div>
       </aside>
     </div>
   );

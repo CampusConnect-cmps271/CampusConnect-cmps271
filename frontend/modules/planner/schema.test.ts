@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_MEETING_FORM, planSchema, readMeetingForm, validateItemForm, validateMeetingForm } from "./schema";
+import { planSchema, validateItemForm } from "./schema";
 import { TERM_PATTERN } from "./terms";
 import { minutesFromTime, timeFromMinutes } from "./time";
-
-const meeting = (fields: Partial<typeof EMPTY_MEETING_FORM>) => ({ ...EMPTY_MEETING_FORM, ...fields });
 
 describe("term pattern", () => {
   it("accepts a season and a year from 2025 to 2035", () => {
@@ -46,73 +44,6 @@ describe("HH:MM helpers", () => {
     expect(timeFromMinutes(0)).toBe("00:00");
     expect(timeFromMinutes(645)).toBe("10:45");
     expect(timeFromMinutes(1440)).toBe("24:00");
-  });
-});
-
-describe("validateMeetingForm", () => {
-  it("returns the meeting in minutes, in Asia/Beirut", () => {
-    expect(validateMeetingForm(meeting({ weekday: "2", start: "09:30", end: "10:45" }))).toEqual({
-      success: true,
-      data: { weekday: 2, start: 570, end: 645, timezone: "Asia/Beirut" },
-    });
-  });
-
-  it("needs the end after the start, on the same day", () => {
-    const equal = validateMeetingForm(meeting({ start: "10:00", end: "10:00" }));
-    const before = validateMeetingForm(meeting({ start: "14:00", end: "13:00" }));
-    expect(equal).toEqual({ success: false, errors: { end: "The end time must be after the start time." } });
-    expect(before).toEqual({ success: false, errors: { end: "The end time must be after the start time." } });
-  });
-
-  it("explains missing and malformed times", () => {
-    expect(validateMeetingForm(meeting({ start: "", end: "" }))).toEqual({
-      success: false,
-      errors: { start: "Enter a start time.", end: "Enter an end time." },
-    });
-    expect(validateMeetingForm(meeting({ start: "9am", end: "10:00" }))).toEqual({
-      success: false,
-      errors: { start: "Enter the start time as HH:MM." },
-    });
-  });
-
-  it("accepts ISO weekdays 1 to 7 only", () => {
-    expect(validateMeetingForm(meeting({ weekday: "7", start: "08:00", end: "09:00" })).success).toBe(true);
-    for (const weekday of ["0", "8", "", "Mon", "1.5"]) {
-      const result = validateMeetingForm(meeting({ weekday, start: "08:00", end: "09:00" }));
-      expect(result).toEqual({ success: false, errors: { weekday: "Choose a day." } });
-    }
-  });
-
-  it("accepts any IANA zone, saved under Intl's name for it", () => {
-    for (const [typed, saved] of [
-      ["America/New_York", "America/New_York"],
-      ["Europe/London", "Europe/London"],
-      ["asia/beirut", "Asia/Beirut"],
-      [" UTC ", "UTC"],
-    ]) {
-      const result = validateMeetingForm(meeting({ timezone: typed, start: "08:00", end: "09:00" }));
-      expect(result.success && result.data.timezone).toBe(saved);
-    }
-  });
-
-  it("rejects names that aren't IANA time zones", () => {
-    for (const timezone of ["Beirut", "Mars/Olympus_Mons", "GMT+3 ", "../etc"]) {
-      const result = validateMeetingForm(meeting({ timezone, start: "08:00", end: "09:00" }));
-      expect(result).toEqual({
-        success: false,
-        errors: { timezone: "Enter an IANA time zone, such as Asia/Beirut or America/New_York." },
-      });
-    }
-    expect(validateMeetingForm(meeting({ timezone: "", start: "08:00", end: "09:00" }))).toEqual({
-      success: false,
-      errors: { timezone: "Enter a time zone, such as Asia/Beirut." },
-    });
-  });
-
-  it("reads missing form fields as empty", () => {
-    const formData = new FormData();
-    formData.set("start", "08:00");
-    expect(readMeetingForm(formData)).toEqual({ weekday: "", start: "08:00", end: "", timezone: "" });
   });
 });
 

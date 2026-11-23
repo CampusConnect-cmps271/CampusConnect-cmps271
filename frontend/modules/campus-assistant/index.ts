@@ -9,9 +9,11 @@
 
 export { answerQuestion } from "./answer";
 export { embedQuerySafely, EmbeddingError, getConfiguredQueryEmbedder, type QueryEmbedder } from "./embeddings";
+export { isPersonalQuestion } from "./personal";
 export { createRateLimiter } from "./rate-limit";
 export { getConfiguredProvider, ProviderError } from "./provider";
 export { retrieveEvidence, searchTerms } from "./retrieval";
 export { QUESTION_MAX_LENGTH, questionSchema, type AssistantAnswer } from "./schema";
+export { loadStudentContext } from "./student-context";
 
 export { AssistantPanel } from "./components/AssistantPanel";

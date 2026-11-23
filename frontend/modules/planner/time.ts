@@ -10,9 +10,6 @@ export const WEEKDAYS: readonly { value: Weekday; short: string; long: string }[
   { value: 7, short: "Sun", long: "Sunday" },
 ];
 
-/** The <datalist> of zone names the plan page renders once for every meeting form. */
-export const TIME_ZONE_LIST_ID = "planner-time-zones";
-
 /**
  * The name Intl uses for a time zone the student typed ("asia/beirut" ->
  * "Asia/Beirut"), or null when it isn't an IANA zone this runtime knows.

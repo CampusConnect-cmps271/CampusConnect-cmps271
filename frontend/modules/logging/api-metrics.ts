@@ -2,6 +2,7 @@
 import "server-only";
 
 import { log } from "./log";
+import { databaseTimings, emptyDatabaseTimings, threshold } from "@/modules/performance/tracking";
 
 type ApiHandler<Args extends unknown[]> = (
   ...args: Args
@@ -12,7 +13,7 @@ export function trackApiRequest<Args extends unknown[]>(
   method: string,
   handler: ApiHandler<Args>,
 ): ApiHandler<Args> {
-  return async (...args: Args): Promise<Response> => {
+  return async (...args: Args): Promise<Response> => databaseTimings.run(emptyDatabaseTimings(), async () => {
     const start = performance.now();
     let status = 500;
 
@@ -34,6 +35,8 @@ export function trackApiRequest<Args extends unknown[]>(
           method,
           status,
           duration_ms: durationMs,
+          slow: durationMs >= threshold("PERFORMANCE_SLOW_REQUEST_MS", 1000),
+          database: databaseTimings.getStore(),
         }).catch((error: unknown) => {
           console.error("API metric logging failed:", error);
         });
@@ -41,5 +44,5 @@ export function trackApiRequest<Args extends unknown[]>(
         console.error("API metric logging failed:", error);
       }
     }
-  };
+  });
 }

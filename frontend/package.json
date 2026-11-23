@@ -25,7 +25,9 @@
     "extract:courses": "node scripts/extract-aub-courses.mjs",
     "seed:demo": "node --env-file-if-exists=.env.local scripts/seed-demo.mjs",
     "seed:demo:hosted": "node --env-file-if-exists=.env.local scripts/seed-demo.mjs --hosted",
-    "sync:resis": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/sync-resis.mjs"
+    "sync:resis": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/sync-resis.mjs",
+    "test:load": "node scripts/load-test.mjs",
+    "test:load:local": "node scripts/load-test-local.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

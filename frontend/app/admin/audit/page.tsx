@@ -35,7 +35,10 @@ export default async function AuditLogPage({ searchParams }: PageProps<"/admin/a
   return (
     <main className="min-h-screen bg-gray-100 p-6 text-gray-900">
       <div className="mx-auto max-w-6xl rounded-xl bg-white p-6 shadow">
-        <Link href="/admin" className="text-sm font-semibold text-blue-700 hover:underline">← User roles</Link>
+        <nav className="flex gap-4 text-sm">
+          <Link href="/admin" className="font-semibold text-blue-700 hover:underline">← User roles</Link>
+          <Link href="/admin/health" className="font-semibold text-blue-700 hover:underline">System health</Link>
+        </nav>
         <h1 className="mt-4 text-2xl font-bold">Audit log</h1>
         <p className="mt-2 text-sm text-gray-600">Append-only history of role, suspension, and moderation actions.</p>
 
