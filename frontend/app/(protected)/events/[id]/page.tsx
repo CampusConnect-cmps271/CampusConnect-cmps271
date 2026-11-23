@@ -14,7 +14,10 @@ type PageProps = {
   params: Promise<{ id: string }>;
 };
 
-function formatEventDate(value: string) {
+function formatEventDate(value: string | null | undefined) {
+  if (!value) return "Date to be announced";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Date to be announced";
   return new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Beirut",
     weekday: "long",
@@ -24,7 +27,7 @@ function formatEventDate(value: string) {
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h12",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 function safeRegistrationUrl(value: string | null) {
@@ -92,26 +95,26 @@ function EventInformation({
     },
     {
       label: "Timezone",
-      value: event.timezone,
+      value: event.timezone?.trim() || "Asia/Beirut",
     },
     {
       label: "Location",
-      value: event.location,
+      value: event.location?.trim() || "Location to be announced",
     },
     {
       label: "Category",
-      value: event.category,
+      value: event.category?.trim() || "Uncategorized",
     },
     {
       label: "Organizer",
-      value: event.organizer_display_name,
+      value: event.organizer_display_name?.trim() || "Organizer not specified",
     },
   ];
 
   return (
     <section
       aria-labelledby="event-information-heading"
-      className="rounded-xl border border-gray-300 p-6 dark:border-gray-700"
+      className="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-6"
     >
       <h2
         id="event-information-heading"
@@ -126,7 +129,7 @@ function EventInformation({
             <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
               {item.label}
             </dt>
-            <dd className="mt-1 font-medium">
+            <dd className="mt-1 break-words font-medium [overflow-wrap:anywhere]">
               {item.value}
             </dd>
           </div>
@@ -138,7 +141,7 @@ function EventInformation({
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Club or Organization
           </p>
-          <p className="mt-1 font-medium">
+          <p className="mt-1 break-words font-medium [overflow-wrap:anywhere]">
             {event.club_name}
           </p>
         </div>
@@ -159,7 +162,7 @@ function RegistrationSection({
   return (
     <section
       aria-labelledby="registration-heading"
-      className="rounded-xl border border-gray-300 p-6 dark:border-gray-700"
+      className="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-6"
     >
       <h2
         id="registration-heading"
@@ -189,7 +192,7 @@ function RegistrationSection({
             href={registrationUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-5 inline-flex items-center rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700"
+            className="mt-5 inline-flex max-w-full flex-wrap items-center rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
           >
             Open Registration Website
             <span className="ml-2" aria-hidden="true">
@@ -326,7 +329,7 @@ export default async function EventDetailsPage({
   const cancelled = event.status === "cancelled";
 
   return (
-    <main className="mx-auto max-w-4xl px-5 py-10">
+    <main className="mx-auto w-full min-w-0 max-w-4xl px-4 py-8 sm:px-5 sm:py-10">
       <nav aria-label="Breadcrumb">
         <Link
           href="/events"
@@ -341,18 +344,20 @@ export default async function EventDetailsPage({
           <EventStatus status={event.status} />
 
           <span className="text-sm text-gray-500 dark:text-gray-400">
-            {event.category}
+            {event.category?.trim() || "Uncategorized"}
           </span>
         </div>
 
-        <h1 className="text-3xl font-bold sm:text-4xl">
+        <h1 className="break-words text-3xl font-bold leading-tight [overflow-wrap:anywhere] sm:text-4xl">
           {event.title}
         </h1>
+
+        <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Displayed dates and times use Beirut local time (Asia/Beirut).</p>
 
         <p className="mt-4 text-gray-600 dark:text-gray-300">
           Organized by{" "}
           <span className="font-semibold">
-            {event.organizer_display_name}
+            {event.organizer_display_name?.trim() || "Organizer not specified"}
           </span>
         </p>
 
@@ -387,7 +392,7 @@ export default async function EventDetailsPage({
       <div className="mt-8 space-y-6">
         <section
           aria-labelledby="event-description-heading"
-          className="rounded-xl border border-gray-300 p-6 dark:border-gray-700"
+          className="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-6"
         >
           <h2
             id="event-description-heading"
@@ -396,8 +401,8 @@ export default async function EventDetailsPage({
             About This Event
           </h2>
 
-          <div className="mt-4 whitespace-pre-wrap leading-7 text-gray-700 dark:text-gray-300">
-            {event.description ||
+          <div className="mt-4 break-words whitespace-pre-wrap leading-7 text-gray-700 [overflow-wrap:anywhere] dark:text-gray-300">
+            {event.description?.trim() ||
               "No detailed description has been provided."}
           </div>
         </section>

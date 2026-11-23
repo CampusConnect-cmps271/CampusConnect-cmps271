@@ -25,12 +25,15 @@ function getValue(
   return typeof value === "string" ? value : "";
 }
 
-function formatDate(value: string): string {
+function formatDate(value: string | null | undefined): string {
+  if (!value) return "Date to be announced";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Date to be announced";
   return new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Beirut",
     dateStyle: "medium",
     timeStyle: "short",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 function getPageNumber(value: string): number {
@@ -80,12 +83,21 @@ function makePageUrl(
 }
 
 function EventCard({ event }: { event: EventSummary }) {
+  const ended = Boolean(event.ends_at) && !Number.isNaN(new Date(event.ends_at).getTime())
+    && new Date(event.ends_at).getTime() < Date.now();
   return (
-    <article className="flex h-full flex-col justify-between rounded-xl border border-gray-300 p-5 dark:border-gray-700">
+    <article className="flex h-full min-w-0 flex-col justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-900 sm:p-6">
       <div>
-        <p className="mb-3 text-sm font-medium text-blue-600 dark:text-blue-400">
-          {event.category}
-        </p>
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="max-w-full break-words rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800 dark:bg-blue-950 dark:text-blue-200">
+            {event.category || "Uncategorized"}
+          </span>
+          <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${ended
+            ? "border-gray-300 text-gray-700 dark:border-gray-600 dark:text-gray-300"
+            : "border-green-300 text-green-800 dark:border-green-700 dark:text-green-300"}`}>
+            {ended ? "Past event" : "Published"}
+          </span>
+        </div>
 
         <h2 className="text-xl font-semibold">
           <Link
@@ -114,20 +126,20 @@ function EventCard({ event }: { event: EventSummary }) {
           <div>
             <dt className="font-semibold">Location</dt>
             <dd className="text-gray-600 dark:text-gray-300">
-              {event.location}
+              {event.location?.trim() || "Location to be announced"}
             </dd>
           </div>
         </dl>
 
-        <p className="mt-4 line-clamp-3 whitespace-pre-line text-sm text-gray-600 dark:text-gray-300">
-          {event.description ||
+        <p className="mt-4 line-clamp-3 break-words whitespace-pre-line text-sm leading-6 text-gray-600 [overflow-wrap:anywhere] dark:text-gray-300">
+          {event.description?.trim() ||
             "No additional description available."}
         </p>
       </div>
 
       <Link
         href={`/events/${event.id}`}
-        className="mt-6 inline-flex w-fit items-center rounded-lg border border-blue-600 px-4 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:text-blue-400 dark:hover:bg-gray-800"
+        className="mt-6 inline-flex w-fit max-w-full items-center rounded-lg border border-blue-600 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:text-blue-300 dark:hover:bg-gray-800"
         aria-label={`View details for ${event.title}`}
       >
         View Details
@@ -193,8 +205,12 @@ export default async function EventsPage({
     Boolean(endDate) ||
     includePast;
 
+  function withoutFilter(key: keyof typeof currentFilters) {
+    return makePageUrl({ ...currentFilters, [key]: key === "includePast" ? false : "" }, 1);
+  }
+
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <main className="mx-auto w-full min-w-0 max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-8">
         <h1 className="text-3xl font-bold">
           Campus Events
@@ -206,13 +222,13 @@ export default async function EventsPage({
         </p>
 
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-          All dates and times are shown in Beirut time.
+          All dates and times are shown in Beirut time (Asia/Beirut).
         </p>
       </header>
 
       <section
         aria-labelledby="event-filters-heading"
-        className="mb-8 rounded-xl border border-gray-300 p-5 dark:border-gray-700"
+        className="mb-8 min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-6"
       >
         <h2
           id="event-filters-heading"
@@ -321,6 +337,16 @@ export default async function EventsPage({
         </form>
       </section>
 
+      {activeFilters && (
+        <section aria-label="Active event filters" className="mb-6 flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-sm font-medium text-gray-600 dark:text-gray-300">Active filters:</span>
+          {category && <Link href={withoutFilter("category")} className="rounded-full border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:border-gray-600 dark:hover:bg-gray-800" aria-label={`Remove category filter: ${category}`}>Category: {category} <span aria-hidden="true">×</span></Link>}
+          {startDate && <Link href={withoutFilter("startDate")} className="rounded-full border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:border-gray-600 dark:hover:bg-gray-800" aria-label={`Remove start date filter: ${startDate}`}>From: {startDate} <span aria-hidden="true">×</span></Link>}
+          {endDate && <Link href={withoutFilter("endDate")} className="rounded-full border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:border-gray-600 dark:hover:bg-gray-800" aria-label={`Remove end date filter: ${endDate}`}>To: {endDate} <span aria-hidden="true">×</span></Link>}
+          {includePast && <Link href={withoutFilter("includePast")} className="rounded-full border border-gray-300 px-3 py-1.5 text-sm font-medium hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:border-gray-600 dark:hover:bg-gray-800" aria-label="Remove include past events filter">Including past <span aria-hidden="true">×</span></Link>}
+        </section>
+      )}
+
       {errorMessage ? (
         <section
           role="alert"
@@ -331,7 +357,7 @@ export default async function EventsPage({
           </h2>
 
           <p className="mt-2 text-sm">
-            {errorMessage}
+            The event list is temporarily unavailable. Please try again or adjust your filters.
           </p>
 
           <Link
@@ -352,10 +378,10 @@ export default async function EventsPage({
 
           <p className="mt-3 text-gray-600 dark:text-gray-300">
             {page > 1
-              ? "There are no events on this page."
+              ? "There are no events on this page. Return to the first page to continue browsing."
               : activeFilters
-                ? "No events match your current filters."
-                : "There are no upcoming published events."}
+                ? "No events match your current filters. Try a different date, category, or clear all filters."
+                : "There are no upcoming published events. Check again later or include past events."}
           </p>
 
           <Link
@@ -370,7 +396,7 @@ export default async function EventsPage({
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <h2
               id="event-results-heading"
-              className="text-xl font-semibold"
+              className="break-words text-xl font-semibold leading-snug"
             >
               Available Events
             </h2>
@@ -383,7 +409,7 @@ export default async function EventsPage({
             </p>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid min-w-0 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {result.events.map((event) => (
               <EventCard
                 key={event.id}
@@ -394,7 +420,7 @@ export default async function EventsPage({
 
           <nav
             aria-label="Event pages"
-            className="mt-8 flex items-center justify-between gap-4"
+            className="mt-8 flex flex-wrap items-center justify-between gap-4"
           >
             {page > 1 ? (
               <Link

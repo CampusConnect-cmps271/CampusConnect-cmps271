@@ -21,7 +21,7 @@ export default function EventsError({
     <main className="mx-auto max-w-3xl px-5 py-12">
       <section
         role="alert"
-        className="rounded-xl border border-red-300 p-8"
+        className="rounded-2xl border border-red-300 p-6 sm:p-8"
       >
         <h1 className="text-2xl font-bold">
           Events Could Not Be Loaded
@@ -37,7 +37,7 @@ export default function EventsError({
           <button
             type="button"
             onClick={reset}
-            className="rounded-lg bg-blue-600 px-5 py-2.5 font-medium text-white hover:bg-blue-700"
+            className="rounded-lg bg-blue-600 px-5 py-2.5 font-medium text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
           >
             Try Again
           </button>

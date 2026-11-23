@@ -21,7 +21,7 @@ export default function EventsLoading() {
         {Array.from({ length: 6 }, (_, index) => (
           <div
             key={index}
-            className="h-56 rounded-xl border border-gray-300 p-5 dark:border-gray-700"
+            className="h-56 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900"
           >
             <div className="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700" />
             <div className="mt-5 h-6 w-3/4 rounded bg-gray-200 dark:bg-gray-700" />
