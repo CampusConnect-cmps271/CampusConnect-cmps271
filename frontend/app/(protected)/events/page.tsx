@@ -83,8 +83,7 @@ function makePageUrl(
 }
 
 function EventCard({ event }: { event: EventSummary }) {
-  const ended = Boolean(event.ends_at) && !Number.isNaN(new Date(event.ends_at).getTime())
-    && new Date(event.ends_at).getTime() < Date.now();
+  const ended = false;
   return (
     <article className="flex h-full min-w-0 flex-col justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-900 sm:p-6">
       <div>
