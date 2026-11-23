@@ -1,62 +1,40 @@
 import { AppShell } from "@/components/AppShell";
 
+const skeleton = "animate-pulse rounded-md bg-[var(--maroon-100)]";
 
 export default function Loading() {
   return (
     <AppShell>
-<main className="flex w-full flex-1 flex-col gap-8 px-5 py-8 sm:px-8 lg:px-12">
-      <div className="animate-pulse space-y-3">
-        <div className="h-8 w-64 rounded-lg bg-[var(--maroon-100)]" />
-        <div className="h-4 w-48 rounded-lg bg-[var(--maroon-100)]" />
-      </div>
-
-      <section className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="h-7 w-36 animate-pulse rounded-lg bg-[var(--maroon-100)]" />
-          <div className="h-10 w-28 animate-pulse rounded-lg bg-[var(--maroon-100)]" />
-        </div>
-
-        <div className="flex gap-3">
-          <div className="h-10 w-40 animate-pulse rounded-lg bg-[var(--maroon-100)]" />
-          <div className="h-10 w-28 animate-pulse rounded-lg bg-[var(--maroon-100)]" />
-        </div>
-      </section>
-
-      <section
-        className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
-        aria-label="Loading campus feed"
-        aria-busy="true"
-      >
-        {[1, 2, 3].map((item) => (
-          <div
-            key={item}
-            className="animate-pulse rounded-xl border border-[var(--border)] p-5"
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <div className="h-6 w-24 rounded-full bg-[var(--maroon-100)]" />
-              <div className="h-4 w-20 rounded bg-[var(--maroon-100)]" />
-            </div>
-
-            <div className="mb-3 h-6 w-3/4 rounded bg-[var(--maroon-100)]" />
-
-            <div className="space-y-2">
-              <div className="h-4 w-full rounded bg-[var(--maroon-100)]" />
-              <div className="h-4 w-5/6 rounded bg-[var(--maroon-100)]" />
-              <div className="h-4 w-2/3 rounded bg-[var(--maroon-100)]" />
-            </div>
-
-            <div className="mt-5 flex gap-4">
-              <div className="h-4 w-20 rounded bg-[var(--maroon-100)]" />
-              <div className="h-4 w-24 rounded bg-[var(--maroon-100)]" />
-            </div>
+      <main className="mx-auto flex w-full min-w-0 max-w-7xl flex-1 flex-col gap-7 px-4 py-7 sm:px-6 sm:py-9 lg:px-10" aria-busy="true" aria-label="Loading campus feed">
+        <header className="space-y-3" aria-hidden="true">
+          <div className={`${skeleton} h-4 w-28`} />
+          <div className={`${skeleton} h-8 w-64 max-w-full`} />
+          <div className={`${skeleton} h-4 w-80 max-w-full`} />
+        </header>
+        <section className="space-y-5" aria-hidden="true">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className={`${skeleton} h-7 w-36`} />
+            <div className="flex gap-2"><div className={`${skeleton} h-11 w-28`} /><div className={`${skeleton} h-11 w-28`} /></div>
           </div>
-        ))}
-      </section>
-
-      <p className="sr-only" role="status">
-        Loading campus feed...
-      </p>
-    </main>
-</AppShell>
+          <div className={`${skeleton} h-11 w-full`} />
+          <div className="flex flex-wrap gap-3 rounded-xl border border-[var(--border)] p-4">
+            <div className={`${skeleton} h-11 min-w-36 flex-1`} />
+            <div className={`${skeleton} h-11 min-w-32 flex-1`} />
+            <div className={`${skeleton} h-11 w-32`} />
+          </div>
+        </section>
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-hidden="true">
+          {[1, 2, 3, 4, 5, 6].map((key) => (
+            <div key={key} className="space-y-4 rounded-xl border border-[var(--border)] p-5">
+              <div className="flex items-center justify-between gap-3"><div className={`${skeleton} h-6 w-24`} /><div className={`${skeleton} h-4 w-20`} /></div>
+              <div className={`${skeleton} h-6 w-4/5`} />
+              <div className="space-y-2"><div className={`${skeleton} h-4 w-full`} /><div className={`${skeleton} h-4 w-11/12`} /><div className={`${skeleton} h-4 w-2/3`} /></div>
+              <div className="flex gap-4 pt-5"><div className={`${skeleton} h-4 w-20`} /><div className={`${skeleton} h-4 w-24`} /></div>
+            </div>
+          ))}
+        </section>
+        <p className="sr-only" role="status">Loading campus feed...</p>
+      </main>
+    </AppShell>
   );
 }
