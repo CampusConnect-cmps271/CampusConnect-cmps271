@@ -55,6 +55,26 @@ test.describe("student journey", () => {
     await expect(card).toContainText("0 upvotes");
   });
 
+  test("feed filter chips preserve the other selection and reset cleanly", async ({ page }) => {
+    await page.goto("/home");
+    await page.getByLabel("Category", { exact: true }).selectOption("General");
+    await page.getByLabel("Sort by", { exact: true }).selectOption("top");
+    await page.getByRole("button", { name: "Apply filters" }).click();
+
+    await expect(page).toHaveURL(/\/home\?category=General&sort=top|\/home\?sort=top&category=General/);
+    await expect(page.getByRole("link", { name: "Remove category filter: General" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Remove sort filter: Most upvoted" })).toBeVisible();
+    await page.getByRole("link", { name: "Remove category filter: General" }).click();
+    await expect(page).toHaveURL(/\/home\?sort=top$/);
+    await expect(page.getByRole("link", { name: "Remove sort filter: Most upvoted" })).toBeVisible();
+    await page.getByRole("link", { name: "Reset all" }).click();
+    await expect(page).toHaveURL(/\/home$/);
+    await expect(page.getByRole("link", { name: "Reset all" })).toHaveCount(0);
+    await page.setViewportSize({ width: 360, height: 780 });
+    await page.reload();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+
   test("a post cannot be created without a title or category", async ({ page }) => {
     await page.goto("/posts/new");
     await page.getByRole("button", { name: "Create post" }).click();

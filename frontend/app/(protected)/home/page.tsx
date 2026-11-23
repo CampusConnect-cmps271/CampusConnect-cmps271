@@ -67,7 +67,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             </div>
           </div>
 
-          <div className="min-w-0"><PostSearchForm /></div>
+          <div className="min-w-0 space-y-2">
+            <PostSearchForm />
+            <p className="text-xs text-[var(--ink-soft)]">Search by keyword to find matching posts. Use the filters below to browse the campus feed by category or popularity.</p>
+          </div>
 
           <form action="/home" aria-label="Filter and sort campus posts" className="flex flex-wrap items-end gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface,transparent)] p-3 sm:p-4">
             <div className="flex min-w-[150px] flex-1 flex-col gap-1 sm:max-w-xs">
@@ -87,6 +90,33 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <button type="submit" className={primaryLink}>Apply filters</button>
             {(selectedCategory || sort !== "newest") && <Link href="/home" className={outlineLink}>Clear</Link>}
           </form>
+
+          {(selectedCategory || sort !== "newest") && (
+            <div aria-label="Active feed filters" className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="font-semibold text-[var(--ink-soft)]">Active filters:</span>
+              {selectedCategory && (
+                <Link
+                  href={feedUrl(1, sort, "")}
+                  aria-label={`Remove category filter: ${selectedCategory}`}
+                  className="inline-flex min-h-9 max-w-full items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--maroon-50)] px-3 py-1 text-[var(--ink)] hover:border-[var(--maroon)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]"
+                >
+                  <span className="min-w-0 break-words">Category: {selectedCategory}</span>
+                  <span aria-hidden="true">×</span>
+                </Link>
+              )}
+              {sort !== "newest" && (
+                <Link
+                  href={feedUrl(1, "newest", selectedCategory)}
+                  aria-label="Remove sort filter: Most upvoted"
+                  className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--maroon-50)] px-3 py-1 text-[var(--ink)] hover:border-[var(--maroon)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]"
+                >
+                  <span>Sort: Most upvoted</span>
+                  <span aria-hidden="true">×</span>
+                </Link>
+              )}
+              <Link href="/home" className="rounded px-2 py-2 font-semibold text-[var(--maroon)] underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]">Reset all</Link>
+            </div>
+          )}
         </section>
 
         <section aria-label="Campus posts" className="min-w-0">
@@ -94,10 +124,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <div className="rounded-xl border border-dashed border-[var(--border)] px-5 py-12 text-center sm:px-8">
               <h3 className="text-lg font-bold text-[var(--ink)]">{page > 1 ? "No posts on this page" : "No posts found"}</h3>
               <p className="mx-auto mt-2 max-w-md text-sm text-[var(--ink-soft)]">
-                {page > 1 ? "Posts may have changed since your last visit. Return to the first page." : selectedCategory ? "There are no posts in this category yet. Try another category or view all posts." : "There are no posts to show yet. Start a conversation with your campus."}
+                {page > 1
+                  ? "Posts may have changed since your last visit. Return to the first page."
+                  : selectedCategory || sort !== "newest"
+                    ? "No posts match the selected feed filters. Try removing a filter or resetting the feed."
+                    : "There are no posts to show yet. Start a conversation with your campus."}
               </p>
               <div className="mt-5 flex justify-center gap-2">
-                <Link className={outlineLink} href={page > 1 ? feedUrl(1) : "/home"}>{page > 1 ? "Back to first page" : "View all posts"}</Link>
+                <Link className={outlineLink} href={page > 1 ? feedUrl(1) : "/home"}>{page > 1 ? "Back to first page" : selectedCategory || sort !== "newest" ? "Reset feed filters" : "View all posts"}</Link>
                 <Link className={primaryLink} href="/posts/new">Create a post</Link>
               </div>
             </div>
