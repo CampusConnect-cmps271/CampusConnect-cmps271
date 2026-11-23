@@ -27,7 +27,8 @@
     "seed:demo:hosted": "node --env-file-if-exists=.env.local scripts/seed-demo.mjs --hosted",
     "sync:resis": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/sync-resis.mjs",
     "test:load": "node scripts/load-test.mjs",
-    "test:load:local": "node scripts/load-test-local.mjs"
+    "test:load:local": "node scripts/load-test-local.mjs",
+    "test:coverage": "vitest run --config vitest.coverage.config.mts --coverage"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
@@ -47,6 +48,7 @@
     "@types/node": "^24.19.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "5.0.3",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
     "supabase": "^2.119.0",
