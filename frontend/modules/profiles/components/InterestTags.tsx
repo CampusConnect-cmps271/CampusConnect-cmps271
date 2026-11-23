@@ -5,7 +5,7 @@ export function InterestTags({ interests }: { interests: string[] }) {
       {interests.map((interest) => (
         <li
           key={interest}
-          className="rounded-full bg-[var(--maroon-100)] px-3 py-1 text-sm font-medium text-[var(--maroon)] break-all"
+          className="max-w-full break-words rounded-full bg-[var(--maroon-100)] px-3 py-1 text-sm font-medium text-[var(--maroon)]"
         >
           {interest}
         </li>

@@ -8,7 +8,7 @@ export function PinnedPostCard({ post }: { post: PinnedPost }) {
   return (
     <section
       aria-labelledby="pinned-post-heading"
-      className="bg-white rounded-lg border border-[var(--border)] p-6 w-full"
+      className="w-full min-w-0 rounded-xl border border-[var(--border)] bg-white p-5 shadow-sm sm:p-6"
     >
       <h2
         id="pinned-post-heading"
@@ -31,12 +31,12 @@ export function PinnedPostCard({ post }: { post: PinnedPost }) {
           </time>
         </div>
 
-        <h3 className="text-lg font-semibold text-[var(--ink)] break-words group-hover:underline">
+        <h3 className="break-words text-lg font-semibold text-[var(--ink)] group-hover:underline">
           {post.title}
         </h3>
 
         {post.excerpt ? (
-          <p className="mt-1 text-sm text-[var(--ink-soft)] break-words">{post.excerpt}</p>
+          <p className="mt-1 break-words text-sm text-[var(--ink-soft)]">{post.excerpt}</p>
         ) : null}
       </Link>
     </section>

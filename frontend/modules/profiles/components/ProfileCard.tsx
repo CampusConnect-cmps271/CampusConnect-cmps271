@@ -13,10 +13,10 @@ import { InterestTags } from "./InterestTags";
 
 const INITIAL_STATE: ProfileFormState = { status: "idle" };
 
-const LABEL_CLASS = "block text-sm font-bold text-[var(--ink-soft)] mb-1";
-const VALUE_CLASS = "bg-[var(--maroon-50)] p-3 rounded-md text-[var(--ink)] break-words";
+const LABEL_CLASS = "mb-1 block text-sm font-semibold text-[var(--ink-soft)]";
+const VALUE_CLASS = "min-w-0 rounded-lg bg-[var(--maroon-50)] px-3 py-3 text-sm text-[var(--ink)] break-words sm:text-base";
 const INPUT_CLASS =
-  "w-full p-3 border border-[var(--border)] rounded-md bg-white text-[var(--ink)] aria-[invalid]:border-[var(--danger)]";
+  "w-full min-w-0 rounded-lg border border-[var(--border)] bg-white px-3 py-3 text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)] aria-[invalid=true]:border-[var(--danger)]";
 
 /**
  * The signed-in student's own profile: shown read-only, edited in place.
@@ -63,40 +63,48 @@ export function ProfileCard({ profile }: { profile: Profile }) {
   }
 
   return (
-    <div className="bg-white rounded-lg border border-[var(--border)] p-6 sm:p-8 w-full">
-      <h1 className="text-2xl font-bold text-center text-[var(--ink)] border-b-2 border-[var(--border)] pb-4 mb-6">
-        Student Profile
-      </h1>
+    <div className="w-full min-w-0 rounded-xl border border-[var(--border)] bg-white p-4 shadow-sm sm:p-7">
+      <header className="mb-6 flex flex-wrap items-center gap-4 border-b border-[var(--border)] pb-5">
+        <div aria-hidden="true" className="flex size-16 shrink-0 items-center justify-center rounded-full bg-[var(--maroon)] text-xl font-bold text-white sm:size-20 sm:text-2xl">
+          {profile.fullName.trim().split(/\s+/).slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join("") || "?"}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold uppercase tracking-wide text-[var(--ink-soft)]">My profile</p>
+          <h1 className="break-words text-xl font-bold text-[var(--ink)] sm:text-2xl">{profile.fullName}</h1>
+          <p className="mt-1 text-sm text-[var(--ink-soft)]">Manage the information others see on your student profile.</p>
+        </div>
+      </header>
 
       {!isEditing ? (
         <>
-          <dl className="space-y-4">
+          <dl className="grid min-w-0 gap-4 sm:grid-cols-2">
             <DisplayField label="Full name">{profile.fullName}</DisplayField>
-            <DisplayField label="Major">{profile.major || "N/A"}</DisplayField>
+            <DisplayField label="Major">{profile.major || "Not added yet"}</DisplayField>
             <DisplayField label="Graduation year">
-              {profile.graduationYear ?? "N/A"}
+              {profile.graduationYear ?? "Not added yet"}
             </DisplayField>
-            <DisplayField label="Bio">
-              <span className="whitespace-pre-wrap">{profile.bio || "N/A"}</span>
+            <div className="sm:col-span-2"><DisplayField label="Bio">
+              <span className="whitespace-pre-wrap">{profile.bio || "Not added yet"}</span>
             </DisplayField>
-            <DisplayField label="Interests">
+            </div>
+            <div className="sm:col-span-2"><DisplayField label="Interests">
               {profile.interests.length > 0 ? (
                 <InterestTags interests={profile.interests} />
               ) : (
-                "N/A"
+                "Not added yet"
               )}
-            </DisplayField>
+            </DisplayField></div>
           </dl>
 
           <p role="status" className="mt-4 text-sm text-[var(--success)] empty:hidden">
             {state.status === "saved" ? "Profile saved." : ""}
           </p>
 
-          <div className="flex gap-3 mt-6">
+          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={startEditing}
-              className="flex-1 bg-[var(--maroon)] text-white py-3 rounded-md font-bold hover:bg-[var(--maroon-dark)]"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[var(--maroon)] px-5 py-3 font-semibold text-white hover:bg-[var(--maroon-dark)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)] sm:w-auto"
             >
               Edit Profile
             </button>
@@ -104,6 +112,8 @@ export function ProfileCard({ profile }: { profile: Profile }) {
         </>
       ) : (
         <form action={formAction} noValidate>
+          <h2 className="mb-1 text-lg font-semibold text-[var(--ink)]">Edit your information</h2>
+          <p className="mb-5 text-sm text-[var(--ink-soft)]">Only your full name is required. Other fields may be left blank.</p>
           {state.status === "error" && state.message ? (
             <p
               role="alert"
@@ -113,7 +123,7 @@ export function ProfileCard({ profile }: { profile: Profile }) {
             </p>
           ) : null}
 
-          <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <EditField label="Full name" errors={errors?.fullName}>
               {(props) => (
                 <input
@@ -122,6 +132,7 @@ export function ProfileCard({ profile }: { profile: Profile }) {
                   type="text"
                   autoComplete="name"
                   required
+                  maxLength={PROFILE_LIMITS.fullName}
                   defaultValue={values.fullName}
                   className={INPUT_CLASS}
                 />
@@ -134,6 +145,7 @@ export function ProfileCard({ profile }: { profile: Profile }) {
                   {...props}
                   name="major"
                   type="text"
+                  maxLength={PROFILE_LIMITS.major}
                   defaultValue={values.major}
                   className={INPUT_CLASS}
                 />
@@ -158,7 +170,7 @@ export function ProfileCard({ profile }: { profile: Profile }) {
               )}
             </EditField>
 
-            <EditField
+            <div className="sm:col-span-2"><EditField
               label="Bio"
               errors={errors?.bio}
               hint={`Up to ${PROFILE_LIMITS.bio} characters.`}
@@ -168,13 +180,14 @@ export function ProfileCard({ profile }: { profile: Profile }) {
                   {...props}
                   name="bio"
                   rows={4}
+                  maxLength={PROFILE_LIMITS.bio}
                   defaultValue={values.bio}
                   className={INPUT_CLASS}
                 />
               )}
-            </EditField>
+            </EditField></div>
 
-            <EditField
+            <div className="sm:col-span-2"><EditField
               label="Interests"
               errors={errors?.interests}
               hint={`Separate with commas, up to ${PROFILE_LIMITS.interests}.`}
@@ -189,22 +202,22 @@ export function ProfileCard({ profile }: { profile: Profile }) {
                   className={INPUT_CLASS}
                 />
               )}
-            </EditField>
+            </EditField></div>
           </div>
 
-          <div className="flex gap-3 mt-6">
+          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={cancelEditing}
               disabled={pending}
-              className="flex-1 bg-[var(--ink-soft)] text-white py-3 rounded-md font-bold hover:bg-[var(--ink)] disabled:opacity-60"
+              className="min-h-11 rounded-lg border border-[var(--border)] bg-white px-5 py-3 font-semibold text-[var(--ink)] hover:bg-[var(--maroon-50)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)] disabled:opacity-60"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={pending}
-              className="flex-1 bg-green-600 text-white py-3 rounded-md font-bold hover:bg-green-700 disabled:opacity-60"
+              className="min-h-11 rounded-lg bg-[var(--maroon)] px-5 py-3 font-semibold text-white hover:bg-[var(--maroon-dark)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)] disabled:opacity-60"
             >
               {pending ? "Saving…" : "Save Changes"}
             </button>
