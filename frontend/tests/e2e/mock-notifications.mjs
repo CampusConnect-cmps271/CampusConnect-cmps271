@@ -5,6 +5,10 @@ import { randomUUID } from "node:crypto";
 // caller's own rows; Realtime is not modelled.
 const notifications = [];
 
+export function unreadNotificationCount(userId) {
+  return notifications.filter((row) => row.recipient_id === userId && row.read_at === null).length;
+}
+
 async function readBody(request) {
   let raw = "";
   for await (const chunk of request) raw += chunk;

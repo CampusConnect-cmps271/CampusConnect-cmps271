@@ -28,7 +28,7 @@ export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
     </section>
   );
   const { courses, departments, semesters, total, page, pages, filterError } = result.data;
-  const ratings = await getCourseRatings(courses.map((course) => course.id));
+  const ratings = result.data.ratings ?? await getCourseRatings(courses.map((course) => course.id));
   const groups = new Map<string, Course[]>();
   for (const course of courses) {
     const group = groups.get(course.department) ?? [];

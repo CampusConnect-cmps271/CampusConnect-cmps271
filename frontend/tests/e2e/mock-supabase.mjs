@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { handleCommunity, matchingPosts } from "./mock-community.mjs";
-import { handleMessaging } from "./mock-messaging.mjs";
-import { handleNotifications } from "./mock-notifications.mjs";
+import { handleMessaging, unreadConversationCount } from "./mock-messaging.mjs";
+import { handleNotifications, unreadNotificationCount } from "./mock-notifications.mjs";
 import { handleSkillSwap, matchingSkillSwapPosts } from "./mock-skillswap.mjs";
 import { handleCourses } from "./mock-courses.mjs";
 import { handleReviews } from "./mock-reviews.mjs";
@@ -271,10 +271,16 @@ createServer(async (request, response) => {
     ]));
   }
 
+  if (path === "/rest/v1/rpc/get_my_header_counts" && request.method === "POST") {
+    const caller = bearerClaims(request).sub;
+    if (!caller) { response.statusCode = 403; return response.end("{}"); }
+    return response.end(JSON.stringify({ messages: unreadConversationCount(caller), notifications: unreadNotificationCount(caller) }));
+  }
+
   // Sprint 2 tables: posts, comments, upvotes and saved posts.
   if (await handleElectivePreferences(request, response, url, bearerClaims(request))) return;
   if (await handleElectives(request, response, url, bearerClaims(request))) return;
-  if (handleCourses(request, response, url, bearerEmail(request))) return;
+  if (await handleCourses(request, response, url, bearerEmail(request))) return;
   if (handleRatings(request, response, url, bearerClaims(request))) return;
   if (await handleReviews(request, response, url, bearerClaims(request))) return;
   if (await handlePostSearch(request, response, url, bearerClaims(request), [pinnedPost, ...matchingPosts(new URLSearchParams())])) return;

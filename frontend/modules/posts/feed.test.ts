@@ -1,0 +1,12 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+const m=vi.hoisted(()=>({requireUser:vi.fn(),rpc:vi.fn(),error:vi.fn()}));
+vi.mock('server-only',()=>({}));
+vi.mock('@/modules/auth',()=>({requireUser:m.requireUser}));
+vi.mock('@/lib/supabase/server',()=>({createClient:async()=>({rpc:m.rpc})}));
+vi.mock('@/modules/logging',()=>({log:{error:m.error}}));
+import {getFeedPosts} from './feed';
+beforeEach(()=>{vi.resetAllMocks();m.requireUser.mockResolvedValue({id:'student'});m.rpc.mockResolvedValue({data:{posts:[],categories:['General'],selectedCategory:'',hasMore:false},error:null});});
+it('loads categories, ranked posts and comment counts with one request',async()=>{expect(await getFeedPosts()).toEqual({posts:[],categories:['General'],selectedCategory:'',hasMore:false,nextPage:null});expect(m.rpc).toHaveBeenCalledExactlyOnceWith('get_campus_feed_page',{p_page:1,p_sort:'newest',p_category:''});});
+it('bounds the page and category before sending resource-heavy inputs',async()=>{await getFeedPosts(1000,'top','x'.repeat(201));expect(m.rpc).toHaveBeenCalledWith('get_campus_feed_page',{p_page:100,p_sort:'top',p_category:''});});
+it('reports invalid or failed reads instead of rendering an empty success',async()=>{m.rpc.mockResolvedValue({data:null,error:{code:'57014',message:'private'}});await expect(getFeedPosts()).rejects.toThrow('Failed to load posts.');});
+it('authenticates before fetching any feed data',async()=>{m.requireUser.mockRejectedValue(new Error('redirect'));await expect(getFeedPosts()).rejects.toThrow('redirect');expect(m.rpc).not.toHaveBeenCalled();});
