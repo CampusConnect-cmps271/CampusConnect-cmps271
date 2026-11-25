@@ -42,8 +42,8 @@ Local verification on 2026-11-25 for `mohamad/sprint-5-polish-security-reliabili
 
 - `npm run test:security`: 178 checks passed.
 - `npm run test:reliability`: 19 checks passed.
-- `npm run test:db`: 625 passed, 4 pre-existing TODO tests, 0 failed.
-- `npm run test:unit`: 1,294 tests passed; two local-stack integration suites could not collect because a local Supabase URL/key was not configured.
+- `npm run test:db`: 627 passed, 4 pre-existing TODO tests, 0 failed after integrating the latest `main`.
+- `npm run test:unit`: 1,300 tests passed; two local-stack integration suites could not collect because a local Supabase URL/key was not configured.
 - `npm run lint`: passed.
 - `npm run build -- --webpack`: passed.
 - Focused club, community, monitoring and Sprint 5 visual-evidence browser journeys: 14 passed. Screenshot attachments are included in the Playwright report artifact when CI runs.
