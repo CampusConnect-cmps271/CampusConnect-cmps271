@@ -1,7 +1,7 @@
 
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/modules/auth";
-import { getMyNotificationSummary } from "@/modules/notifications";
+import { getNotificationSummaryForUser } from "@/modules/notifications";
 import { trackApiRequest } from "@/modules/logging/api-metrics";
 
 async function getNotifications(): Promise<Response> {
@@ -15,7 +15,7 @@ async function getNotifications(): Promise<Response> {
   }
 
   try {
-    const summary = await getMyNotificationSummary();
+    const summary = await getNotificationSummaryForUser(user);
 
     return NextResponse.json(summary, {
       headers: { "Cache-Control": "no-store" },

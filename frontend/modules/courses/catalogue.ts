@@ -32,18 +32,20 @@ function failed(error: { code?: string } | null): never {
 }
 
 async function loadDepartments(client: Client) {
-  const departments = new Set<string>();
-  // Supabase caps results at 1,000 rows. Page the narrow projection so later
-  // departments are not silently omitted from the selector.
+  // Deduplicate in Postgres under the caller's RLS, rather than downloading
+  // every course in sequential 1,000-row pages to build a small selector.
+  const departments: string[] = [];
   const batchSize = 1000;
   for (let offset = 0; ; offset += batchSize) {
-    const { data, error } = await client.from("courses").select("department")
-      .order("department").order("id").range(offset, offset + batchSize - 1);
+    const { data, error } = await client.rpc("list_course_departments")
+      .range(offset, offset + batchSize - 1);
     if (error || !data) failed(error);
-    for (const row of data) departments.add(row.department);
+    departments.push(...(data as { department: string }[]).map((row) => row.department));
+    // Usually one small response; still handle a future catalogue with more
+    // than PostgREST's row limit of distinct departments without truncation.
     if (data.length < batchSize) break;
   }
-  return [...departments].sort((a, b) => a.localeCompare(b));
+  return departments.sort((a, b) => a.localeCompare(b));
 }
 
 async function loadCourses(client: Client, filters: CourseFilters): Promise<CoursePage> {
@@ -53,7 +55,7 @@ async function loadCourses(client: Client, filters: CourseFilters): Promise<Cour
     // Rating predicates must apply before counting and pagination, not to only
     // the visible page. The view uses the caller's RLS and displayed averages.
     let query = client.from(filters.semester ? "course_semester_catalogue" : hasRatingFilters(filters) ? "course_filter_catalogue" : "courses").select(
-      filters.semester ? "id,code,name,credits,description,department,instructors,attributes" : "id,code,name,credits,description,department", { count: "exact", head },
+      filters.semester ? "id,code,name,credits,description,department,instructors,attributes" : "id,code,name,credits,description,department", head ? { count: "exact", head: true } : undefined,
     );
     if (filters.semester) query = query.eq("semester_id", filters.semester);
     if (filters.department) query = query.eq("department", filters.department);

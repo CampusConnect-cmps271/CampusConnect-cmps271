@@ -30,7 +30,8 @@ export function handleCourses(request, response, url, email) {
   const semesterFilter = url.pathname === "/rest/v1/course_semester_catalogue";
   const semesterList = url.pathname === "/rest/v1/resis_semesters";
   const ratingFilter = url.pathname === "/rest/v1/course_filter_catalogue" || semesterFilter;
-  if (url.pathname !== "/rest/v1/courses" && !ratingFilter && !semesterList) return false;
+  const departments = url.pathname === "/rest/v1/rpc/list_course_departments";
+  if (url.pathname !== "/rest/v1/courses" && !ratingFilter && !semesterList && !departments) return false;
   if (ratingFilter && email === "filters-unavailable@mail.aub.edu") {
     response.statusCode = 404;
     response.end(JSON.stringify({ code: "PGRST205", message: "Synthetic private filter-view failure" }));
@@ -39,6 +40,10 @@ export function handleCourses(request, response, url, email) {
   if (!email || email === "courses-unavailable@mail.aub.edu") {
     response.statusCode = 403;
     response.end(JSON.stringify({ code: "42501", message: "Synthetic database failure details must never reach the page" }));
+    return true;
+  }
+  if (departments) {
+    response.end(JSON.stringify([...new Set(courses.map((c) => c.department))].sort().map((department) => ({ department }))));
     return true;
   }
   if (semesterList) {
