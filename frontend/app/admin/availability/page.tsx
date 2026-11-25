@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth/server";
 import { summarizeApiAvailability } from "@/modules/logging/availability-dashboard";
 import { loadApiAvailability } from "@/modules/logging/dashboard-server";
+import { ADMIN_CARD, AdminEmptyState, AdminPageShell } from "@/components/AdminPageShell";
 
 export const metadata: Metadata = {
   title: "API availability | CampusConnect",
@@ -48,28 +49,10 @@ export default async function AvailabilityDashboardPage({
   );
 
   return (
-    <main className="min-h-screen bg-gray-100 p-6 text-gray-900">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <header className="rounded-xl bg-white p-6 shadow">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold">API availability dashboard</h1>
-              <p className="mt-2 text-sm text-gray-600">
-                Request-based availability for instrumented API endpoints.
-                The figures use recorded HTTP responses, not continuous uptime probes.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-4 text-sm font-semibold">
-              <Link href="/admin/errors" className="text-blue-700 hover:underline">
-                Error dashboard
-              </Link>
-              <Link href="/admin" className="text-blue-700 hover:underline">
-                Administration
-              </Link>
-            </div>
-          </div>
-        </header>
-
+    <AdminPageShell
+      title="API availability"
+      description="Request-based service indicators for instrumented endpoints. These figures are not continuous uptime probes."
+    >
         <section aria-label="Availability by period" className="grid gap-4 md:grid-cols-3">
           {periods.map((period) => (
             <Link
@@ -78,25 +61,25 @@ export default async function AvailabilityDashboardPage({
               aria-current={range === period.id ? "page" : undefined}
               className={`rounded-xl border p-5 shadow-sm transition-colors ${
                 range === period.id
-                  ? "border-blue-600 bg-blue-50"
-                  : "border-gray-200 bg-white hover:border-blue-300"
+                  ? "border-[var(--maroon)] bg-[var(--maroon-50)] ring-2 ring-[var(--maroon-100)]"
+                  : "border-[var(--border)] bg-white hover:border-[var(--maroon-200)]"
               }`}
             >
-              <h2 className="text-sm font-semibold text-gray-600">{period.label}</h2>
+              <h2 className="text-sm font-semibold text-[var(--ink-soft)]">{period.label}</h2>
               <p className="mt-2 text-3xl font-bold">
                 {displayPercent(period.summary.availability_percent)}
               </p>
-              <p className="mt-2 text-sm text-gray-600">
+              <p className="mt-2 text-sm text-[var(--ink-soft)]">
                 {numberFormat.format(period.summary.total_requests)} recorded requests
               </p>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-[var(--ink-soft)]">
                 {numberFormat.format(period.summary.server_errors)} server errors (5xx)
               </p>
             </Link>
           ))}
         </section>
 
-        <section className="rounded-xl bg-white p-5 shadow">
+        <section className={ADMIN_CARD}>
           <h2 className="text-lg font-bold">{selected.label} summary</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
@@ -105,31 +88,31 @@ export default async function AvailabilityDashboardPage({
               ["Client errors (4xx)", selected.summary.client_errors],
               ["Server errors (5xx)", selected.summary.server_errors],
             ].map(([label, count]) => (
-              <div key={label} className="rounded-lg bg-gray-50 p-4">
-                <p className="text-sm text-gray-600">{label}</p>
+              <div key={label} className="rounded-xl bg-[var(--maroon-50)] p-4">
+                <p className="text-sm text-[var(--ink-soft)]">{label}</p>
                 <p className="mt-2 text-2xl font-bold">
                   {numberFormat.format(count as number)}
                 </p>
               </div>
             ))}
           </div>
-          <p className="mt-4 text-sm text-gray-600">
+          <p className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--yellow-50)] p-4 text-sm leading-6 text-[var(--ink-soft)]">
             Availability = (total requests - HTTP 5xx responses) / total requests.
             Client errors (4xx) count as available responses. No requests means no
             availability percentage, rather than 100% uptime.
           </p>
         </section>
 
-        <section className="overflow-hidden rounded-xl bg-white shadow">
-          <div className="border-b border-gray-200 p-5">
+        <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]">
+          <div className="border-b border-[var(--border)] p-5">
             <h2 className="text-lg font-bold">Endpoint breakdown</h2>
-            <p className="mt-1 text-sm text-gray-600">
+            <p className="mt-1 text-sm text-[var(--ink-soft)]">
               {selected.label}. Endpoints with more server failures appear first.
             </p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-gray-50 text-gray-600">
+              <thead className="bg-[var(--maroon-50)] text-[var(--ink-soft)]">
                 <tr>
                   <th scope="col" className="px-5 py-3">Method</th>
                   <th scope="col" className="px-5 py-3">Endpoint</th>
@@ -141,7 +124,7 @@ export default async function AvailabilityDashboardPage({
               </thead>
               <tbody>
                 {endpointRows.map((row) => (
-                  <tr key={`${row.method}:${row.endpoint}`} className="border-t border-gray-100">
+                  <tr key={`${row.method}:${row.endpoint}`} className="border-t border-[var(--border)]">
                     <td className="px-5 py-4 font-semibold">{row.method}</td>
                     <td className="px-5 py-4 font-mono text-xs">{row.endpoint}</td>
                     <td className="px-5 py-4 text-right">{numberFormat.format(row.total_requests)}</td>
@@ -156,12 +139,9 @@ export default async function AvailabilityDashboardPage({
             </table>
           </div>
           {endpointRows.length === 0 ? (
-            <p className="p-8 text-center text-sm text-gray-500">
-              No API request metrics were recorded in this period.
-            </p>
+            <div className="p-5"><AdminEmptyState title="No availability data" detail="No instrumented API requests were recorded in this period. Select a longer range or run a synthetic check." /></div>
           ) : null}
         </section>
-      </div>
-    </main>
+    </AdminPageShell>
   );
 }
