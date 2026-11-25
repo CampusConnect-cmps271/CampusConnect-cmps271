@@ -10,7 +10,7 @@ export default async function PerformancePage({ searchParams }: PageProps<"/admi
   const selected = (await searchParams).range;
   const range = typeof selected === "string" && Object.hasOwn(ranges, selected) ? selected as keyof typeof ranges : "24h";
   const metrics = await loadPerformance(ranges[range]);
-  return <AdminPageShell title="Performance" description="API response-time percentiles and Supabase HTTP timing anomalies, available only to administrators.">
+  return <AdminPageShell title="Performance dashboard" description="API response-time percentiles and Supabase HTTP timing anomalies, available only to administrators.">
       <nav className={`${ADMIN_CARD} flex flex-wrap gap-2`} aria-label="Performance time range">{Object.keys(ranges).map(r => <Link key={r} href={`/admin/performance?range=${r}`} aria-current={r === range ? "page" : undefined} className={`rounded-lg px-4 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)] ${r === range ? "bg-[var(--maroon)] text-white" : "bg-[var(--maroon-50)] text-[var(--maroon)] hover:bg-[var(--maroon-100)]"}`}>{r}</Link>)}</nav>
       <section className={ADMIN_CARD}>
         <h2 className="text-lg font-bold">API response times</h2>
