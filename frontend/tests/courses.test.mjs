@@ -5,6 +5,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { parseCourseCatalogue } from "../scripts/import-courses.mjs";
 
 const migration = await readFile(new URL("../../supabase/migrations/20261017091812_create_courses.sql", import.meta.url), "utf8");
+const departmentMigration = await readFile(new URL("../../supabase/migrations/20261125121639_optimize_course_departments.sql", import.meta.url), "utf8");
 const example = await readFile(new URL("../../supabase/data/courses.example.csv", import.meta.url), "utf8");
 
 describe("SCRUM-166 course storage and permissions", () => {
@@ -20,6 +21,7 @@ describe("SCRUM-166 course storage and permissions", () => {
         grant all on tables to anon, authenticated, service_role;
     `);
     await database.exec(migration);
+    await database.exec(departmentMigration);
   });
   after(async () => { await database?.close(); });
 
@@ -107,5 +109,27 @@ describe("SCRUM-166 course storage and permissions", () => {
       from public.courses limit 1
     `), (error) => error.code === "23505" && error.constraint === "courses_code_key");
     await assert.rejects(upsert({ ...original, name: null }), (error) => error.code === "23502");
+  });
+
+  it("returns distinct departments beyond 1,000 courses in one call", async () => {
+    await database.exec(`insert into public.courses(code,name,description,credits,department)
+      select 'LOAD ' || i, 'Synthetic course', 'Department regression fixture', 3,
+        case when i = 1200 then 'Zoology' else 'Example Department' end
+      from generate_series(1,1200) as i`);
+    await asRole("authenticated", async () => {
+      const { rows } = await database.query("select * from public.list_course_departments()");
+      assert.deepEqual(rows, [{ department: "Example Department" }, { department: "Zoology" }]);
+    });
+  });
+
+  it("denies anonymous RPC access and respects caller RLS", async () => {
+    await asRole("anon", () => assert.rejects(database.query("select * from public.list_course_departments()"), (e) => e.code === "42501"));
+    await database.exec('begin; drop policy "Signed-in students can read the course catalogue" on public.courses; create policy "Restricted fixture" on public.courses for select to authenticated using (department = \'Zoology\')');
+    try {
+      await asRole("authenticated", async () => {
+        const { rows } = await database.query("select * from public.list_course_departments()");
+        assert.deepEqual(rows, [{ department: "Zoology" }]);
+      });
+    } finally { await database.exec("rollback"); }
   });
 });

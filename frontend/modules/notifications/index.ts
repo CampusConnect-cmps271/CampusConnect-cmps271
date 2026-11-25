@@ -13,6 +13,7 @@ export {
   countMyUnreadNotifications,
   getMyNotification,
   getMyNotificationSummary,
+  getNotificationSummaryForUser,
   listMyNotifications,
   NOTIFICATIONS_SHOWN,
 } from "./queries";

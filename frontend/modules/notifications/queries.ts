@@ -3,7 +3,7 @@ import "server-only";
 
 import * as z from "zod";
 
-import { requireUser } from "@/modules/auth";
+import { requireUser, type CurrentUser } from "@/modules/auth";
 import { log } from "@/modules/logging";
 import { getDisplayNames } from "@/modules/profiles";
 import { createClient } from "@/lib/supabase/server";
@@ -179,18 +179,21 @@ export async function countMyUnreadNotifications():
   Promise<number | null> {
   const user = await requireUser();
   const supabase = await createClient();
+  return readUnreadCount(supabase, user.id);
+}
 
+async function readUnreadCount(supabase: SupabaseServerClient, userId: string): Promise<number | null> {
   const { count, error } = await supabase
     .from("notifications")
     .select("id", { count: "exact", head: true })
-    .eq("recipient_id", user.id)
+    .eq("recipient_id", userId)
     .is("read_at", null);
 
   if (error || typeof count !== "number") {
     log.error(
       "notifications.unread_count.read_failure",
       { code: error?.code ?? "no_count" },
-      { userId: user.id },
+      { userId },
     );
 
     return null;
@@ -204,11 +207,14 @@ export async function listMyNotifications():
   Promise<NotificationItem[]> {
   const user = await requireUser();
   const supabase = await createClient();
+  return readNotifications(supabase, user.id);
+}
 
+async function readNotifications(supabase: SupabaseServerClient, userId: string): Promise<NotificationItem[]> {
   const { data, error } = await supabase
     .from("notifications")
     .select(NOTIFICATION_COLUMNS)
-    .eq("recipient_id", user.id)
+    .eq("recipient_id", userId)
     .order("created_at", { ascending: false })
     .limit(NOTIFICATIONS_SHOWN);
 
@@ -216,7 +222,7 @@ export async function listMyNotifications():
     log.error(
       "notifications.list.read_failure",
       { code: error.code ?? null },
-      { userId: user.id },
+      { userId },
     );
 
     throw new Error(
@@ -233,9 +239,19 @@ export async function listMyNotifications():
 /** Read the bell's unread count and latest notifications. */
 export async function getMyNotificationSummary():
   Promise<NotificationSummary> {
+  const user = await requireUser();
+  return getNotificationSummaryForUser(user);
+}
+
+/** Server-only: pass the user already verified by getCurrentUser/requireUser.
+ * Route handlers do not share React's render cache. Reuse their verified
+ * identity and RLS client instead of doing two more Auth/profile lookups.
+ */
+export async function getNotificationSummaryForUser(user: CurrentUser): Promise<NotificationSummary> {
+  const supabase = await createClient();
   const [unreadCount, items] = await Promise.all([
-    countMyUnreadNotifications(),
-    listMyNotifications(),
+    readUnreadCount(supabase, user.id),
+    readNotifications(supabase, user.id),
   ]);
 
   return {
