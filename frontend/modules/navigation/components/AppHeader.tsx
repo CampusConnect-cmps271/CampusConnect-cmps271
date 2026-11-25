@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { LogoutButton, requireUser } from "@/modules/auth";
-import { countMyUnreadConversations, UnreadMessagesBadge } from "@/modules/messaging";
-import { countMyUnreadNotifications, NotificationBell } from "@/modules/notifications";
+import { UnreadMessagesBadge } from "@/modules/messaging";
+import { NotificationBell } from "@/modules/notifications";
+import { getHeaderCounts } from "../counts";
 import { NavLinks } from "./NavLinks";
 
 /**
@@ -11,10 +12,7 @@ import { NavLinks } from "./NavLinks";
  */
 export async function AppHeader() {
   const user = await requireUser();
-  const [unread, unreadNotifications] = await Promise.all([
-    countMyUnreadConversations(),
-    countMyUnreadNotifications(),
-  ]);
+  const { messages: unread, notifications: unreadNotifications } = await getHeaderCounts();
 
   return (
     <header className="sticky top-0 z-30 border-b border-[var(--border)] text-[var(--ink)]">

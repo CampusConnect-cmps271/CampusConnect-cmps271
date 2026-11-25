@@ -1,0 +1,12 @@
+import {beforeEach,expect,it,vi} from 'vitest';
+const m=vi.hoisted(()=>({requireUser:vi.fn(),rpc:vi.fn(),error:vi.fn()}));
+vi.mock('server-only',()=>({}));
+vi.mock('@/modules/auth',()=>({requireUser:m.requireUser}));
+vi.mock('@/lib/supabase/server',()=>({createClient:async()=>({rpc:m.rpc})}));
+vi.mock('@/modules/logging',()=>({log:{error:m.error}}));
+import {getHeaderCounts} from './counts';
+beforeEach(()=>{vi.resetAllMocks();m.requireUser.mockResolvedValue({id:'student'});m.rpc.mockResolvedValue({data:{messages:2,notifications:3},error:null});});
+it('fetches both counters in one caller-scoped RPC',async()=>{expect(await getHeaderCounts()).toEqual({messages:2,notifications:3});expect(m.rpc).toHaveBeenCalledExactlyOnceWith('get_my_header_counts');});
+it('keeps unknown counts unknown on failure',async()=>{m.rpc.mockResolvedValue({data:null,error:{code:'57014'}});expect(await getHeaderCounts()).toEqual({messages:null,notifications:null});});
+it('rejects malformed counters',async()=>{m.rpc.mockResolvedValue({data:{messages:-1,notifications:0},error:null});expect(await getHeaderCounts()).toEqual({messages:null,notifications:null});});
+it('does not hide an authentication redirect',async()=>{m.requireUser.mockRejectedValue(new Error('redirect'));await expect(getHeaderCounts()).rejects.toThrow('redirect');expect(m.rpc).not.toHaveBeenCalled();});

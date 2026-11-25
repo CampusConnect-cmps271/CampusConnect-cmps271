@@ -26,12 +26,13 @@ function like(pattern, text) {
   return new RegExp(`^${regex}$`, "iu").test(text);
 }
 
-export function handleCourses(request, response, url, email) {
+export async function handleCourses(request, response, url, email) {
   const semesterFilter = url.pathname === "/rest/v1/course_semester_catalogue";
   const semesterList = url.pathname === "/rest/v1/resis_semesters";
   const ratingFilter = url.pathname === "/rest/v1/course_filter_catalogue" || semesterFilter;
   const departments = url.pathname === "/rest/v1/rpc/list_course_departments";
-  if (url.pathname !== "/rest/v1/courses" && !ratingFilter && !semesterList && !departments) return false;
+  const bundle = url.pathname === "/rest/v1/rpc/browse_course_catalogue";
+  if (url.pathname !== "/rest/v1/courses" && !ratingFilter && !semesterList && !departments && !bundle) return false;
   if (ratingFilter && email === "filters-unavailable@mail.aub.edu") {
     response.statusCode = 404;
     response.end(JSON.stringify({ code: "PGRST205", message: "Synthetic private filter-view failure" }));
@@ -40,6 +41,24 @@ export function handleCourses(request, response, url, email) {
   if (!email || email === "courses-unavailable@mail.aub.edu") {
     response.statusCode = 403;
     response.end(JSON.stringify({ code: "42501", message: "Synthetic database failure details must never reach the page" }));
+    return true;
+  }
+  if (bundle) {
+    let raw = ""; for await (const chunk of request) raw += chunk;
+    const p = JSON.parse(raw || "{}");
+    let rows = courses.filter((c) => (!p.p_query || c.code.toLowerCase().includes(p.p_code_query.toLowerCase()) || c.name.toLowerCase().includes(p.p_query.toLowerCase()))
+      && (!p.p_department || c.department === p.p_department)
+      && (p.p_credits_min == null || c.credits >= p.p_credits_min) && (p.p_credits_max == null || c.credits <= p.p_credits_max));
+    rows.sort((a, b) => a.department.localeCompare(b.department) || a.code.localeCompare(b.code) || a.id.localeCompare(b.id));
+    const total = rows.length, pages = Math.max(1, Math.ceil(total / 24)), page = Math.min(p.p_page, pages);
+    rows = rows.slice((page - 1) * 24, page * 24);
+    let ratings = email === "ratings-unavailable@mail.aub.edu" ? null : rows.filter((c) => email !== "ratings-missing@mail.aub.edu" || c.code !== "CMPS 104").map(ratingFixture);
+    if (email === "ratings-invalid@mail.aub.edu" && ratings?.length) ratings[0].average_overall = 7;
+    response.end(JSON.stringify({ courses: rows, total, pages, page, ratings,
+      departments: [...new Set(courses.map((c) => c.department))].sort(), semesters: [
+        { id: "202720", name: "Spring 2026-2027", synced_at: "2026-11-08T00:00:00Z" },
+        { id: "202710", name: "Fall 2026-2027", synced_at: "2026-11-08T00:00:00Z" },
+      ] }));
     return true;
   }
   if (departments) {

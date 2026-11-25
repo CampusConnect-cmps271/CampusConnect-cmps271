@@ -3,7 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/modules/auth";
 import { log } from "@/modules/logging";
 import { COURSES_PER_PAGE, COURSE_RANGE_FILTERS, courseFilterError, courseSearchExpression, hasRatingFilters, type CourseFilters } from "./search";
-import { getImportedSemesters } from "./semesters";
+import { getImportedSemesters, type ImportedSemester } from "./semesters";
+import type { RatingSummary } from "@/modules/ratings/model";
+import { CatalogueBundleError, loadCatalogueBundle } from "./catalogue-bundle";
 
 export type Course = {
   id: string;
@@ -84,17 +86,23 @@ async function loadCourses(client: Client, filters: CourseFilters): Promise<Cour
   return { courses: result.data as Course[], total: count, page, pages };
 }
 
-export async function getCourseCatalogue(filters: CourseFilters) {
+export async function getCourseCatalogue(filters: CourseFilters): Promise<CoursePage & {
+  departments: string[]; semesters: ImportedSemester[]; ratings?: Map<string, RatingSummary>;
+}> {
   // Guard the data entry point as well as the page, using the student's RLS
   // client. Catalogue browsing never needs a service-role key.
   await requireUser();
   try {
     const client = await createClient();
+    if (!filters.semester && !hasRatingFilters(filters) && !courseFilterError(filters)) {
+      return await loadCatalogueBundle(client, filters);
+    }
     const [departments, result, semesters] = await Promise.all([
       loadDepartments(client), loadCourses(client, filters), getImportedSemesters(),
     ]);
     return { ...result, departments, semesters };
   } catch (error) {
+    if (error instanceof CatalogueBundleError) failed({ code: error.code });
     if (error instanceof CatalogueUnavailable) throw error;
     // Transport/configuration failures get the same safe retry UI. Auth
     // redirects above are intentionally outside this catch.

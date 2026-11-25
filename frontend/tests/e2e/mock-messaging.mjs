@@ -37,6 +37,10 @@ function unreadFor(conversationId, userId) {
   );
 }
 
+export function unreadConversationCount(userId) {
+  return conversations.filter((row) => isParticipant(row, userId) && unreadFor(row.id, userId)).length;
+}
+
 // Returns true when the request was handled here. `userId` is the caller's
 // verified id; `profileName(id)` is the profile's name, or null when none.
 export async function handleMessaging(request, response, url, { userId, profileName }) {
@@ -101,9 +105,7 @@ export async function handleMessaging(request, response, url, { userId, profileN
   }
 
   if (path === "/rest/v1/rpc/count_my_unread_conversations" && request.method === "POST") {
-    const count = conversations.filter(
-      (row) => isParticipant(row, userId) && unreadFor(row.id, userId),
-    ).length;
+    const count = unreadConversationCount(userId);
     return send(response, 200, count), true;
   }
 
