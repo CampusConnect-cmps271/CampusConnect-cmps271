@@ -17,6 +17,9 @@
     "test:db": "node --test tests/*.test.mjs",
     "test:e2e": "playwright test",
     "test:smoke": "playwright test --config playwright.smoke.config.ts",
+    "test:security": "node --test tests/roles-permissions.test.mjs tests/messaging.test.mjs tests/planner.test.mjs tests/event-reminders.test.mjs tests/clubs.test.mjs tests/event-management.test.mjs tests/moderation.test.mjs tests/monitoring-security.test.mjs && vitest run modules/logging/redact.test.ts modules/auth/actions.test.ts modules/moderation/restrictions.test.ts",
+    "test:reliability": "node --test tests/api-availability.test.mjs tests/reliability.test.mjs && vitest run modules/monitoring/alerts.test.ts modules/monitoring/health.test.ts modules/monitoring/cron-route.test.ts",
+    "synthetic:staging": "node scripts/synthetic-check.mjs",
     "seed:test-user": "node --env-file-if-exists=.env.local scripts/seed-test-user.mjs",
     "ingest:campus-sources": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/ingest-campus-sources.mjs",
     "eval:assistant": "vitest run --config vitest.eval.config.mts",
@@ -34,11 +37,11 @@
     "@supabase/supabase-js": "^2.117.2",
     "@upstash/redis": "1.41.0",
     "lucide-react": "^1.52.0",
-    "next": "16.3.8",
+    "next": "16.4.6",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "^0.0.1",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
@@ -48,11 +51,12 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.3.8",
+    "eslint-config-next": "16.4.6",
     "supabase": "^2.119.0",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^5.0.3"
+    "vite": "^8.3.8",
+    "vitest": "^5.1.2"
   },
   "engines": {
     "node": ">=22"

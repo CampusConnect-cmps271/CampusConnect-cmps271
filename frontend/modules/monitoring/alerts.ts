@@ -73,6 +73,58 @@ export function alertsForHealthSnapshot(
     }));
 }
 
+/**
+ * Turns repeated health snapshots into incident and recovery alerts. A single
+ * failed probe is kept as evidence but does not page an operator; the same
+ * service must fail `failureThreshold` consecutive checks. This state is
+ * intentionally injectable so an external monitor can persist it.
+ */
+export function createHealthAlertEvaluator(failureThreshold = 2) {
+  if (!Number.isInteger(failureThreshold) || failureThreshold < 1) {
+    throw new Error("failureThreshold must be a positive integer");
+  }
+
+  const state = new Map<HealthSnapshot["checks"][number]["service"], {
+    failures: number;
+    activeStatus: "degraded" | "outage" | null;
+  }>();
+
+  return (snapshot: HealthSnapshot): MonitoringAlert[] => {
+    const alerts: MonitoringAlert[] = [];
+    for (const check of snapshot.checks) {
+      const previous = state.get(check.service) ?? { failures: 0, activeStatus: null };
+      if (check.status === "operational") {
+        if (previous.activeStatus) {
+          alerts.push({
+            key: `health:${check.service}:recovered`,
+            severity: "warning",
+            event: `health.${check.service}.recovered`,
+            title: `${check.label} health check recovered`,
+            occurredAt: snapshot.checkedAt,
+            details: { service: check.service, previous_status: previous.activeStatus, latency_ms: check.latencyMs },
+          });
+        }
+        state.set(check.service, { failures: 0, activeStatus: null });
+        continue;
+      }
+
+      const failures = previous.failures + 1;
+      const escalated = previous.activeStatus !== null && previous.activeStatus !== check.status;
+      const shouldAlert = previous.activeStatus === null
+        ? failures >= failureThreshold
+        : escalated;
+      if (shouldAlert) {
+        alerts.push(...alertsForHealthSnapshot({ ...snapshot, checks: [check] }));
+      }
+      state.set(check.service, {
+        failures,
+        activeStatus: shouldAlert ? check.status : previous.activeStatus,
+      });
+    }
+    return alerts;
+  };
+}
+
 function webhookConfig(env: AlertEnvironment): {
   url: string;
   token: string | null;
@@ -147,6 +199,7 @@ export function createAlertDispatcher(
 }
 
 const dispatchAlert = createAlertDispatcher();
+const evaluateHealthAlerts = createHealthAlertEvaluator();
 
 export async function notifyLogAlert(entry: LogEntry): Promise<AlertDelivery | null> {
   const alert = alertForLogEntry(entry);
@@ -156,5 +209,5 @@ export async function notifyLogAlert(entry: LogEntry): Promise<AlertDelivery | n
 export async function notifyHealthAlerts(
   snapshot: HealthSnapshot,
 ): Promise<AlertDelivery[]> {
-  return Promise.all(alertsForHealthSnapshot(snapshot).map(dispatchAlert));
+  return Promise.all(evaluateHealthAlerts(snapshot).map(dispatchAlert));
 }

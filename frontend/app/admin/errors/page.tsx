@@ -4,6 +4,7 @@ import {
   groupErrorLogs,
   loadRecentErrors,
 } from "@/modules/logging";
+import { ADMIN_CARD, AdminEmptyState, AdminPageShell } from "@/components/AdminPageShell";
 
 const RANGE_HOURS = { "24h": 24, "7d": 24 * 7, "14d": 24 * 14 } as const;
 type Range = keyof typeof RANGE_HOURS;
@@ -33,41 +34,22 @@ export default async function ErrorDashboardPage({
   const clientCount = rows.length - serverCount;
 
   return (
-    <main className="min-h-screen bg-gray-100 p-6 text-gray-900">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <header className="rounded-xl bg-white p-6 shadow">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold">Error dashboard</h1>
-              <p className="mt-2 text-sm text-gray-600">
-                Recent redacted application errors, grouped for triage. Times are UTC.
-              </p>
-            </div>
-            <nav className="flex gap-4 text-sm">
-              <Link href="/admin/health" className="font-semibold text-blue-700 hover:underline">
-                System health
-              </Link>
-              <Link href="/admin" className="font-semibold text-blue-700 hover:underline">
-                Manage roles
-              </Link>
-            </nav>
-          </div>
-          <nav className="mt-5 flex gap-2" aria-label="Dashboard time range">
+    <AdminPageShell title="Error dashboard" description="Recent redacted frontend and backend errors, grouped for administrator triage. All timestamps use UTC.">
+          <nav className={`${ADMIN_CARD} flex gap-2`} aria-label="Dashboard time range">
             {Object.keys(RANGE_HOURS).map((option) => (
               <Link
                 key={option}
                 href={`/admin/errors?range=${option}`}
                 className={`rounded-md px-3 py-2 text-sm font-semibold ${
                   range === option
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    ? "bg-[var(--maroon)] text-white"
+                    : "bg-[var(--maroon-50)] text-[var(--ink)] hover:bg-[var(--maroon-100)]"
                 }`}
               >
                 {option}
               </Link>
             ))}
           </nav>
-        </header>
 
         <section className="grid gap-4 sm:grid-cols-3">
           {[
@@ -75,20 +57,20 @@ export default async function ErrorDashboardPage({
             ["Backend", serverCount],
             ["Frontend", clientCount],
           ].map(([label, value]) => (
-            <article key={label} className="rounded-xl bg-white p-5 shadow">
-              <p className="text-sm font-medium text-gray-500">{label}</p>
+            <article key={label} className={ADMIN_CARD}>
+              <p className="text-sm font-medium text-[var(--ink-soft)]">{label}</p>
               <p className="mt-2 text-3xl font-bold">{value}</p>
             </article>
           ))}
         </section>
 
-        <section className="overflow-hidden rounded-xl bg-white shadow">
-          <div className="border-b border-gray-200 p-5">
+        <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]">
+          <div className="border-b border-[var(--border)] p-5">
             <h2 className="text-lg font-bold">Grouped errors</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-gray-50 text-gray-600">
+              <thead className="bg-[var(--maroon-50)] text-[var(--ink-soft)]">
                 <tr>
                   <th className="px-5 py-3">Event</th>
                   <th className="px-5 py-3">Source</th>
@@ -100,7 +82,7 @@ export default async function ErrorDashboardPage({
               </thead>
               <tbody>
                 {groups.map((group) => (
-                  <tr key={group.key} className="border-t border-gray-100 align-top">
+                  <tr key={group.key} className="border-t border-[var(--border)] align-top">
                     <td className="px-5 py-4 font-mono text-xs">{group.event}</td>
                     <td className="px-5 py-4">{group.source}</td>
                     <td className="px-5 py-4 font-semibold">{group.count}</td>
@@ -108,7 +90,7 @@ export default async function ErrorDashboardPage({
                     <td className="whitespace-nowrap px-5 py-4">
                       {formatTimestamp(group.lastSeen)}
                     </td>
-                    <td className="max-w-sm px-5 py-4 text-gray-600">
+                    <td className="max-w-sm px-5 py-4 text-[var(--ink-soft)]">
                       <span className="block truncate">
                         {group.sampleMessage ?? "No message"}
                       </span>
@@ -124,29 +106,27 @@ export default async function ErrorDashboardPage({
             </table>
           </div>
           {groups.length === 0 ? (
-            <p className="p-8 text-center text-gray-500">
-              No errors were recorded in this range.
-            </p>
+            <div className="p-5"><AdminEmptyState title="No recorded errors" detail="No frontend or backend errors were recorded in this time range." /></div>
           ) : null}
         </section>
 
-        <section className="rounded-xl bg-white p-5 shadow">
+        <section className={ADMIN_CARD}>
           <h2 className="text-lg font-bold">Recent samples</h2>
           <div className="mt-4 space-y-3">
             {rows.slice(0, 20).map((row) => (
-              <details key={row.id} className="rounded-md border border-gray-200 p-4">
+              <details key={row.id} className="rounded-lg border border-[var(--border)] p-4">
                 <summary className="cursor-pointer font-medium">
                   {row.event} · {formatTimestamp(row.created_at)}
                 </summary>
                 <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
                   <div>
-                    <dt className="font-semibold text-gray-600">Account ID</dt>
+                    <dt className="font-semibold text-[var(--ink-soft)]">Account ID</dt>
                     <dd className="break-all font-mono text-xs">
                       {row.user_id ?? "anonymous"}
                     </dd>
                   </div>
                   <div>
-                    <dt className="font-semibold text-gray-600">Message</dt>
+                    <dt className="font-semibold text-[var(--ink-soft)]">Message</dt>
                     <dd>{row.message ?? "None"}</dd>
                   </div>
                 </dl>
@@ -157,7 +137,6 @@ export default async function ErrorDashboardPage({
             ))}
           </div>
         </section>
-      </div>
-    </main>
+    </AdminPageShell>
   );
 }

@@ -7,6 +7,7 @@ import {
   alertForLogEntry,
   alertsForHealthSnapshot,
   createAlertDispatcher,
+  createHealthAlertEvaluator,
   deliverAlert,
   type MonitoringAlert,
 } from "./alerts";
@@ -54,6 +55,21 @@ describe("monitoring alert rules", () => {
       { key: "health:database:outage", severity: "critical" },
       { key: "health:ai:degraded", severity: "warning" },
     ]);
+  });
+
+  it("alerts only after a sustained failure and emits a recovery event", () => {
+    const evaluate = createHealthAlertEvaluator(2);
+    const snapshot = (status: "operational" | "degraded" | "outage", minute: number) => ({
+      overall: status === "operational" ? "healthy" as const : status === "degraded" ? "degraded" as const : "unhealthy" as const,
+      checkedAt: `2026-11-09T12:${String(minute).padStart(2, "0")}:00.000Z`,
+      checks: [{ service: "database" as const, label: "Database", status, message: status, latencyMs: 5 }],
+    });
+
+    expect(evaluate(snapshot("outage", 0))).toEqual([]);
+    expect(evaluate(snapshot("outage", 1))).toMatchObject([{ event: "health.database.outage", severity: "critical" }]);
+    expect(evaluate(snapshot("outage", 2))).toEqual([]);
+    expect(evaluate(snapshot("operational", 3))).toMatchObject([{ event: "health.database.recovered", details: { previous_status: "outage" } }]);
+    expect(evaluate(snapshot("operational", 4))).toEqual([]);
   });
 });
 

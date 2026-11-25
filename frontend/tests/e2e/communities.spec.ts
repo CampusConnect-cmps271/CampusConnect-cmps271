@@ -48,7 +48,8 @@ test("a student creates a course community; another finds it, joins and posts; t
     await owner.getByLabel(/Description/).fill("Weekly reviews before the midterm.");
     await owner.getByRole("button", { name: "Create community" }).click();
 
-    await expect(owner).toHaveURL(/\/communities\/cmps-240-study-group$/, { timeout: 20_000 });
+    await expect(owner).toHaveURL(/\/communities\/cmps-240-study-group\?notice=created$/, { timeout: 20_000 });
+    await expect(owner.getByText("Community created. You are now its owner and first member.")).toBeVisible();
     await expect(owner.getByRole("heading", { level: 1, name: "CMPS 240 study group" })).toBeVisible();
     await expect(owner.getByRole("link", { name: "CMPS 240 · Operating Systems" })).toHaveAttribute("href", "/courses/CMPS-240");
     await expect(owner.getByText("You own this community and follow it.")).toBeVisible();
@@ -100,15 +101,16 @@ test("a student creates a course community; another finds it, joins and posts; t
     await member.getByLabel("Title").fill("Only an idiot skips the review");
     await member.getByLabel("Category").selectOption("Academics");
     await member.getByLabel("Content").fill("Wednesday at 5pm, Jafet third floor.");
-    await member.getByRole("button", { name: "Post", exact: true }).click();
+    await member.getByRole("button", { name: "Publish post", exact: true }).click();
     await expect(member.locator("main").getByRole("alert")).toContainText("community language guidelines");
     // A refused post keeps everything typed, the chosen category included.
     await expect(member.getByLabel("Category")).toHaveValue("Academics");
     await expect(member.getByLabel("Content")).toHaveValue("Wednesday at 5pm, Jafet third floor.");
 
     await member.getByLabel("Title").fill("Midterm review on Wednesday");
-    await member.getByRole("button", { name: "Post", exact: true }).click();
-    await expect(member).toHaveURL(/\/communities\/cmps-240-study-group$/, { timeout: 20_000 });
+    await member.getByRole("button", { name: "Publish post", exact: true }).click();
+    await expect(member).toHaveURL(/\/communities\/cmps-240-study-group\?notice=posted$/, { timeout: 20_000 });
+    await expect(member.getByText("Post published to this community.")).toBeVisible();
     await expect(member.getByRole("link", { name: "Midterm review on Wednesday" })).toBeVisible();
   });
 
@@ -243,7 +245,7 @@ test("a keyboard-only student creates a course community and joins and leaves an
   await page.keyboard.press("Tab");
   await expect(page.getByRole("button", { name: "Create community" })).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/communities\/math-201-problem-sessions$/, { timeout: 20_000 });
+  await expect(page).toHaveURL(/\/communities\/math-201-problem-sessions\?notice=created$/, { timeout: 20_000 });
 
   await page.getByRole("button", { name: "Unfollow" }).focus();
   await page.keyboard.press("Enter");

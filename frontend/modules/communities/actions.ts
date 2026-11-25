@@ -94,7 +94,7 @@ export async function createCommunity(_previous: CommunityFormState, formData: F
 
   log.info("communities.created", { communityId: data.id }, { userId: user.id });
   refresh(data.slug);
-  redirect(`/communities/${data.slug}`);
+  redirect(`/communities/${data.slug}?notice=created`);
 }
 
 /** Saves the owner's changes to a community's details. Bound to its id and address. */
@@ -143,7 +143,7 @@ export async function updateCommunity(
 
   log.info("communities.updated", { communityId: id.data }, { userId: user.id });
   refresh(address.data);
-  redirect(`/communities/${address.data}`);
+  redirect(`/communities/${address.data}?notice=updated`);
 }
 
 async function runButton(
@@ -250,7 +250,7 @@ export async function createCommunityPost(
   log.info("communities.post_created", { communityId: id.data, postId: data }, { userId: user.id });
   refresh(address.data);
   revalidatePath("/home");
-  redirect(`/communities/${address.data}`);
+  redirect(`/communities/${address.data}?notice=posted`);
 }
 
 /** Catalogue courses for the course picker. */

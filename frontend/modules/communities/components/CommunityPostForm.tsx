@@ -125,9 +125,13 @@ export function CommunityPostForm({ action, cancelHref }: CommunityPostFormProps
         </p>
       ) : null}
 
+      <p className="rounded-lg border border-[var(--border)] bg-[var(--maroon-50)] p-3 text-sm text-[var(--ink-soft)]">
+        <strong className="text-[var(--ink)]">Ready to publish?</strong> This post will be visible immediately in the community and community feeds.
+      </p>
+
       <div className="flex flex-wrap items-center gap-3">
         <button type="submit" disabled={pending} className={PRIMARY_BUTTON}>
-          {pending ? "Posting…" : "Post"}
+          {pending ? "Publishing…" : "Publish post"}
         </button>
         <Link href={cancelHref} className="text-sm font-medium text-[var(--ink-soft)] hover:underline">
           Cancel

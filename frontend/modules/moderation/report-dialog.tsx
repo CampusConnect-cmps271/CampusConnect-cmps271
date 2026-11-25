@@ -25,6 +25,7 @@ export default function ReportDialog({
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const titleId = `report-${targetType}-${targetId}-title`;
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -54,7 +55,8 @@ export default function ReportDialog({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-xs font-medium text-red-700 underline-offset-2 hover:underline dark:text-red-300"
+        aria-expanded={open}
+        className="min-h-10 rounded-lg px-2 text-xs font-semibold text-[var(--danger)] underline-offset-2 hover:bg-red-50 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]"
       >
         Report {targetType}
       </button>
@@ -62,8 +64,9 @@ export default function ReportDialog({
   }
 
   return (
-    <div className="mt-3 rounded-lg border border-red-700/30 bg-red-950/10 p-4">
-      <h3 className="font-semibold">Report this {targetType}</h3>
+    <section aria-labelledby={titleId} className="mt-3 rounded-xl border border-red-200 bg-red-50 p-4 text-[var(--ink)]">
+      <h3 id={titleId} className="font-semibold">Report this {targetType}</h3>
+      <p className="mt-1 text-xs text-[var(--ink-soft)]">Reports are private and reviewed by the moderation team.</p>
 
       {submitted ? (
         <div className="mt-2">
@@ -73,7 +76,7 @@ export default function ReportDialog({
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="mt-3 text-sm underline"
+            className="mt-3 min-h-10 rounded-lg px-3 text-sm font-semibold text-[var(--maroon)] underline"
           >
             Close
           </button>
@@ -85,7 +88,7 @@ export default function ReportDialog({
             <select
               value={reason}
               onChange={(event) => setReason(event.target.value as ReportReason)}
-              className="mt-1 block w-full rounded-md border border-gray-400 bg-white px-3 py-2 text-gray-900 dark:bg-gray-900 dark:text-white"
+              className="mt-1 block min-h-11 w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]"
             >
               {REASONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -102,7 +105,7 @@ export default function ReportDialog({
               onChange={(event) => setDetails(event.target.value)}
               maxLength={1000}
               rows={3}
-              className="mt-1 block w-full rounded-md border border-gray-400 bg-transparent px-3 py-2"
+              className="mt-1 block w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]"
             />
           </label>
 
@@ -116,21 +119,21 @@ export default function ReportDialog({
             <button
               type="submit"
               disabled={pending}
-              className="rounded-md bg-red-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              className="min-h-11 rounded-lg bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)] disabled:opacity-60"
             >
               {pending ? "Submitting…" : "Submit report"}
             </button>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded-md border px-3 py-2 text-sm"
+              className="min-h-11 rounded-lg border border-[var(--border)] bg-white px-4 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]"
             >
               Cancel
             </button>
           </div>
         </form>
       )}
-    </div>
+    </section>
   );
 }
 

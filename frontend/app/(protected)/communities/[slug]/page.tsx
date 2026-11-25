@@ -22,7 +22,7 @@ import { getProfile } from "@/modules/profiles";
 
 type CommunityPageProps = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ pages?: string | string[] }>;
+  searchParams: Promise<{ pages?: string | string[]; notice?: string | string[] }>;
 };
 
 export async function generateMetadata({ params }: CommunityPageProps): Promise<Metadata> {
@@ -39,7 +39,9 @@ export default async function CommunityPage({ params, searchParams }: CommunityP
   const community = await getCommunityBySlug(slug);
   if (!community) notFound();
 
-  const pages = parsePages((await searchParams).pages);
+  const query = await searchParams;
+  const pages = parsePages(query.pages);
+  const notice = typeof query.notice === "string" ? query.notice : "";
   const isOwner = community.ownerId === user.id;
   const [membership, staff, owner, { posts, hasMore }] = await Promise.all([
     getMembership(community.id, user.id),
@@ -61,6 +63,12 @@ export default async function CommunityPage({ params, searchParams }: CommunityP
           <Link href="/communities" className="text-sm font-medium text-[var(--maroon)] hover:underline">
             ← Communities
           </Link>
+
+          {notice === "created" || notice === "updated" || notice === "posted" ? (
+            <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-[var(--success)]">
+              {notice === "created" ? "Community created. You are now its owner and first member." : notice === "updated" ? "Community details updated." : "Post published to this community."}
+            </p>
+          ) : null}
 
           <header className="flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-white p-5 shadow-[var(--shadow-sm)] sm:p-6">
             <div className="flex flex-wrap items-center gap-2 text-sm">
