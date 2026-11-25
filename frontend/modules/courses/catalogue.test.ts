@@ -1,19 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  requireUser: vi.fn(), from: vi.fn(), logError: vi.fn(),
+  requireUser: vi.fn(), from: vi.fn(), rpc: vi.fn(), logError: vi.fn(),
 }));
 vi.mock("./semesters", () => ({ getImportedSemesters: async () => [] }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/modules/auth", () => ({ requireUser: mocks.requireUser }));
-vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ from: mocks.from }) }));
+vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ from: mocks.from, rpc: mocks.rpc }) }));
 vi.mock("@/modules/logging", () => ({ log: { error: mocks.logError } }));
 
 import { getCourseCatalogue } from "./catalogue";
 import { courseSearchExpression, coursesUrl, parseCourseFilters } from "./search";
 
 type Response = { data: unknown; error: { code: string; message?: string } | null; count?: number };
-const calls: { table: string; fields: string; head: boolean; filters: unknown[][]; range?: number[]; order: string[] }[] = [];
+const calls: { table: string; fields: string; head: boolean; count?: string; filters: unknown[][]; range?: number[]; order: string[] }[] = [];
 let respond: (call: typeof calls[number]) => Response;
 
 beforeEach(() => {
@@ -22,9 +22,16 @@ beforeEach(() => {
   respond = (call) => call.head ? { count: 1, data: null, error: null }
     : { data: call.fields === "department" ? [{ department: "Computer Science" }]
       : [{ id: "one", code: "CMPS 240", name: "Algorithms", department: "Computer Science", credits: 3, description: "Algorithms and analysis." }], error: null };
+  mocks.rpc.mockImplementation((name: string) => {
+    const call = { table: name, fields: "department", head: false, filters: [], order: [], range: undefined as number[] | undefined };
+    return { range(start: number, end: number) {
+      call.range = [start, end]; calls.push(call);
+      return Promise.resolve(respond(call));
+    } };
+  });
   mocks.from.mockImplementation((table: string) => ({
-    select(fields: string, options?: { head?: boolean }) {
-      const call = { table, fields, head: options?.head ?? false, filters: [] as unknown[][], order: [] as string[], range: undefined as number[] | undefined };
+    select(fields: string, options?: { head?: boolean; count?: string }) {
+      const call = { table, fields, head: options?.head ?? false, count: options?.count, filters: [] as unknown[][], order: [] as string[], range: undefined as number[] | undefined };
       calls.push(call);
       const query = {
         overrideTypes: () => query,
@@ -130,15 +137,25 @@ describe("course catalogue queries", () => {
     expect(courseQueries[1].order).toEqual(["department", "code", "id"]);
   });
 
-  it("finds departments beyond the first thousand rows and deduplicates them", async () => {
+  it("loads the distinct departments in one RPC without transferring course rows", async () => {
     const initial = respond;
-    respond = (call) => call.fields !== "department" ? initial(call) : {
-      data: call.range?.[0] === 0 ? Array.from({ length: 1000 }, () => ({ department: "Computer Science" })) : [{ department: "Zoology" }], error: null,
-    };
+    respond = (call) => call.fields === "department" ? { data: [{ department: "Zoology" }, { department: "Computer Science" }], error: null } : initial(call);
     const result = await getCourseCatalogue(parseCourseFilters({}));
     expect(result.departments).toEqual(["Computer Science", "Zoology"]);
-    expect(calls.filter((call) => call.fields === "department").map((call) => call.range))
-      .toEqual([[0, 999], [1000, 1999]]);
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith("list_course_departments");
+    expect(calls.filter((call) => call.fields === "department").map((call) => call.table)).toEqual(["list_course_departments"]);
+    expect(calls.filter((call) => call.count === "exact")).toHaveLength(1);
+  });
+
+  it("does not truncate a future catalogue with over 1,000 distinct departments", async () => {
+    const initial = respond;
+    respond = (call) => call.fields !== "department" ? initial(call) : {
+      data: call.range?.[0] === 0 ? Array.from({ length: 1000 }, (_, i) => ({ department: `Department ${i}` })) : [{ department: "Zoology" }], error: null,
+    };
+    const result = await getCourseCatalogue(parseCourseFilters({}));
+    expect(result.departments).toHaveLength(1001);
+    expect(result.departments).toContain("Zoology");
+    expect(calls.filter((call) => call.fields === "department").map((call) => call.range)).toEqual([[0, 999], [1000, 1999]]);
   });
 
   it("clamps a stale page to the last available page without skipping the remaining courses", async () => {
