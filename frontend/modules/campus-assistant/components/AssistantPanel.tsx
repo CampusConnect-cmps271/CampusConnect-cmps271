@@ -15,6 +15,19 @@ const FIELD_CLASS =
   "w-full rounded-md border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--ink)] placeholder:text-[var(--ink-soft)] focus:border-[var(--maroon)] focus:outline-none focus:ring-2 focus:ring-[var(--maroon-200)]";
 
 const GENERIC_ERROR = "Something went wrong. Your question is still here; please try again.";
+const TIMEOUT_ERROR = "The assistant took too long to answer. Your question is still here; please try again.";
+
+/** Longer than the server's own limit, so this only fires when the request is truly stuck. */
+const REQUEST_TIMEOUT_MS = 45_000;
+
+const EXAMPLE_QUESTIONS = [
+  "How do I request a transcript?",
+  "What are the library opening hours?",
+  "How do I register for courses?",
+];
+
+const BUTTON_FOCUS =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]";
 
 /** The conversation is kept for this browser tab only, and capped. */
 const STORAGE_KEY = "campus-assistant-conversation";
@@ -87,6 +100,7 @@ export function AssistantPanel() {
   const turns = useMemo(() => parseTurns(saved), [saved]);
   const [asked, setAsked] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -104,9 +118,12 @@ export function AssistantPanel() {
     setPending(true);
     setAsked(trimmed);
     setError(null);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
       const response = await fetch("/api/campus-assistant", {
         method: "POST",
+        signal: controller.signal,
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           question: trimmed,
@@ -131,12 +148,23 @@ export function AssistantPanel() {
       const next = [...turns, { question: trimmed, answer }].slice(-MAX_SAVED_TURNS);
       saveTurns(next);
       setQuestion("");
-    } catch {
-      setError(GENERIC_ERROR);
+    } catch (caught) {
+      setError(caught instanceof DOMException && caught.name === "AbortError" ? TIMEOUT_ERROR : GENERIC_ERROR);
     } finally {
+      clearTimeout(timer);
       setPending(false);
       setAsked(null);
+      // The Ask button disables while waiting, which drops focus to the page;
+      // put it back in the box so a keyboard user can carry on.
+      if (document.activeElement === document.body || document.activeElement === null) {
+        textareaRef.current?.focus({ preventScroll: true });
+      }
     }
+  }
+
+  function chooseExample(text: string) {
+    setQuestion(text);
+    textareaRef.current?.focus();
   }
 
   function clearConversation() {
@@ -153,10 +181,31 @@ export function AssistantPanel() {
 
   return (
     <div className="flex flex-col gap-5">
+      {!followUp && !pending && (
+        <section aria-labelledby="assistant-examples" className="flex flex-col gap-3">
+          <h2 id="assistant-examples" className="text-sm font-semibold text-[var(--ink)]">
+            Not sure what to ask? Try one of these
+          </h2>
+          <ul className="flex flex-wrap gap-2">
+            {EXAMPLE_QUESTIONS.map((example) => (
+              <li key={example}>
+                <button
+                  type="button"
+                  onClick={() => chooseExample(example)}
+                  className={`min-h-11 rounded-full border border-[var(--border)] bg-white px-4 py-2 text-left text-sm text-[var(--ink)] hover:bg-[var(--maroon-50)] ${BUTTON_FOCUS}`}
+                >
+                  {example}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {(followUp || pending) && (
         <div aria-live="polite" aria-busy={pending} className="flex flex-col gap-4">
           {turns.map((turn, index) => (
-            <TurnView key={index} question={turn.question} answer={turn.answer} />
+            <TurnView key={index} number={index + 1} question={turn.question} answer={turn.answer} />
           ))}
           {pending && asked && (
             <>
@@ -173,6 +222,7 @@ export function AssistantPanel() {
           {followUp ? "Ask a follow-up" : "Your question"}
         </label>
         <textarea
+          ref={textareaRef}
           id="assistant-question"
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
@@ -194,7 +244,7 @@ export function AssistantPanel() {
                 type="button"
                 onClick={clearConversation}
                 disabled={pending}
-                className="rounded-md border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--ink)] hover:bg-[var(--maroon-50)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)] disabled:opacity-60"
+                className={`min-h-11 rounded-md border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--ink)] hover:bg-[var(--maroon-50)] ${BUTTON_FOCUS} disabled:opacity-60`}
               >
                 New conversation
               </button>
@@ -202,7 +252,7 @@ export function AssistantPanel() {
             <button
               type="submit"
               disabled={pending || tooShort}
-              className="rounded-md bg-[var(--maroon)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--maroon-dark)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)] disabled:opacity-60"
+              className={`min-h-11 rounded-md bg-[var(--maroon)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--maroon-dark)] ${BUTTON_FOCUS} disabled:opacity-60`}
             >
               {pending ? "Searching AUB pages…" : "Ask"}
             </button>
@@ -211,10 +261,31 @@ export function AssistantPanel() {
       </form>
 
       {error && (
-        <p role="alert" className="rounded-lg border border-[var(--danger)] bg-white p-4 text-sm text-[var(--danger)]">
-          {error}
-        </p>
+        <div role="alert" className="flex flex-col gap-3 rounded-lg border border-[var(--danger)] bg-white p-4 text-sm text-[var(--danger)] sm:flex-row sm:items-center sm:justify-between">
+          <p>{error}</p>
+          {!tooShort && (
+            <button
+              type="button"
+              onClick={() => void ask()}
+              disabled={pending}
+              className={`min-h-11 shrink-0 rounded-md border border-[var(--danger)] px-3 py-2 font-medium text-[var(--danger)] hover:bg-[var(--maroon-50)] ${BUTTON_FOCUS} disabled:opacity-60`}
+            >
+              Try again
+            </button>
+          )}
+        </div>
       )}
+
+      <details className="rounded-lg border border-[var(--border)] bg-white p-4 text-sm text-[var(--ink)]">
+        <summary className={`cursor-pointer rounded-md font-semibold ${BUTTON_FOCUS}`}>How your questions are used</summary>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-[var(--ink-soft)]">
+          <li>Most questions are answered from official AUB pages and the course catalogue. No personal data is sent with them.</li>
+          <li>
+            A question about yourself, such as your plan, saved events or posts, also uses your own CampusConnect data, and only yours.
+          </li>
+          <li>This conversation is kept in this browser tab only. &ldquo;New conversation&rdquo; clears it.</li>
+        </ul>
+      </details>
     </div>
   );
 }
@@ -227,12 +298,12 @@ function QuestionBubble({ text }: { text: string }) {
   );
 }
 
-function TurnView({ question, answer }: Turn) {
+function TurnView({ number, question, answer }: Turn & { number: number }) {
   return (
     <>
       <QuestionBubble text={question} />
       <section
-        aria-label="Answer"
+        aria-label={`Answer ${number}`}
         className={`rounded-lg border p-4 text-sm text-[var(--ink)] ${
           answer.insufficient_evidence ? "border-[var(--yellow-400)] bg-[var(--yellow-50)]" : "border-[var(--border)] bg-white"
         }`}
@@ -253,6 +324,7 @@ function TurnView({ question, answer }: Turn) {
                     className="font-medium text-[var(--maroon)] underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]"
                   >
                     {citation.title}
+                    <span className="sr-only"> (opens in a new tab)</span>
                   </a>
                   <span className="text-[var(--ink-soft)]"> · {citationSourceText(citation)}</span>
                 </li>

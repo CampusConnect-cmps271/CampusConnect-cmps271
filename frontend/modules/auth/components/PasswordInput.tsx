@@ -58,7 +58,6 @@ export function PasswordInput({
         <button
           type="button"
           onClick={() => setVisible((current) => !current)}
-          aria-pressed={visible}
           aria-controls={fieldId}
           className="link-button password-toggle"
         >
