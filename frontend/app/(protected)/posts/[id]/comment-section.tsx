@@ -46,7 +46,7 @@ function CommentMeta({
     <p className="mb-1 text-xs text-[var(--ink-soft)]">
       {comment.author_id === userId ? "You" : "CampusConnect student"}
       {" · "}
-      <time>{new Date(comment.created_at).toLocaleString("en-US", { timeZone: "Asia/Beirut" })}</time>
+      <time dateTime={comment.created_at}>{new Date(comment.created_at).toLocaleString("en-US", { timeZone: "Asia/Beirut" })}</time>
     </p>
   );
 }

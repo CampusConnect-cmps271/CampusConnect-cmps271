@@ -148,3 +148,82 @@ test.describe("student journey", () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });
 });
+
+// SCRUM-296: discussion polish. Appended last so the shared fixture is in the
+// state the tests above leave it (no saved posts), and each test here restores it.
+test.describe("discussion polish", () => {
+  const title = "E2E polish: tips for the first week";
+
+  test.beforeEach(async ({ page }) => {
+    await logIn(page);
+  });
+
+  test("a reply box takes focus, and Cancel gives it back to Reply", async ({ page }) => {
+    await createPost(page, title, "Share what helped you most in week one.");
+    const comments = page.getByRole("region", { name: /Comments/ });
+    await comments.getByLabel("Write a comment").fill("Visit the writing center early.");
+    await comments.getByRole("button", { name: "Comment", exact: true }).click();
+    await expect(comments.getByText("Visit the writing center early.")).toBeVisible();
+
+    await comments.getByRole("button", { name: "Reply", exact: true }).click();
+    await expect(comments.getByLabel("Write a reply")).toBeFocused();
+
+    await comments.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(comments.getByRole("button", { name: "Reply", exact: true })).toBeFocused();
+  });
+
+  test("Ctrl+Enter posts a reply and the box closes", async ({ page }) => {
+    await page.goto("/home");
+    await page.getByRole("link", { name: title }).click();
+    const comments = page.getByRole("region", { name: /Comments/ });
+
+    await comments.getByRole("button", { name: "Reply", exact: true }).click();
+    await comments.getByLabel("Write a reply").fill("Seconded, they are great.");
+    await comments.getByLabel("Write a reply").press("Control+Enter");
+    await expect(comments.getByText("Seconded, they are great.")).toBeVisible();
+    await expect(comments.getByLabel("Write a reply")).toHaveCount(0);
+  });
+
+  test("the character count appears only near the limit", async ({ page }) => {
+    await page.goto("/home");
+    await page.getByRole("link", { name: title }).click();
+    const box = page.getByRole("region", { name: /Comments/ }).getByLabel("Write a comment");
+
+    await box.fill("short");
+    await expect(page.getByText(/^\d+\/2000$/)).toHaveCount(0);
+    await box.fill("a".repeat(1850));
+    await expect(page.getByText("1850/2000")).toBeVisible();
+  });
+
+  test("the Saved page lets a student remove a post and points an empty list back to the feed", async ({ page }) => {
+    await page.goto("/home");
+    await page.getByRole("link", { name: title }).click();
+    await page.getByRole("button", { name: "☆ Save" }).click();
+    await expect(page.getByRole("button", { name: "★ Saved" })).toBeVisible();
+
+    await page.goto("/saved");
+    const item = page.getByRole("listitem").filter({ hasText: title });
+    await expect(item).toBeVisible();
+    await item.getByRole("button", { name: "Remove from saved", exact: true }).click();
+
+    await expect(page.getByText("You haven't saved any posts yet.")).toBeVisible();
+    await page.getByRole("link", { name: "Browse the feed", exact: true }).click();
+    await expect(page).toHaveURL(/\/home$/);
+  });
+
+  test("vote, save and reply controls are touch-sized on a 360px phone", async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 740 });
+    await page.goto("/home");
+    await page.getByRole("link", { name: title }).click();
+    await expect(page.getByRole("region", { name: /Comments/ })).toBeVisible();
+
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+
+    for (const name of [/Upvote/, "☆ Save", "Reply"]) {
+      const target = page.getByRole("button", { name, ...(typeof name === "string" ? { exact: true } : {}) }).first();
+      const box = await target.boundingBox();
+      expect(box?.height, String(name)).toBeGreaterThanOrEqual(44);
+    }
+  });
+});

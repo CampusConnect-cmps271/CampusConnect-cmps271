@@ -57,7 +57,7 @@ export default function UpvoteButton({
         onClick={handleUpvote}
         disabled={loading}
         aria-pressed={upvoted}
-        className={`rounded-lg border px-4 py-2 text-sm font-medium disabled:opacity-50 ${
+        className={`min-h-11 rounded-lg border px-4 py-2 text-sm font-medium disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)] ${
           upvoted
             ? "border-[var(--maroon)] bg-[var(--maroon-100)] text-[var(--maroon)]"
             : "border-[var(--border)] text-[var(--ink-soft)] hover:bg-[var(--maroon-50)]"

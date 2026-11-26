@@ -7,11 +7,14 @@ import { toggleSavedPost } from "@/modules/saved/actions";
 type SaveButtonProps = {
   postId: string;
   initiallySaved: boolean;
+  /** "remove" is for the Saved page, where the only action left is to unsave. */
+  variant?: "toggle" | "remove";
 };
 
 export default function SaveButton({
   postId,
   initiallySaved,
+  variant = "toggle",
 }: SaveButtonProps) {
   const router = useRouter();
 
@@ -48,14 +51,20 @@ export default function SaveButton({
         type="button"
         onClick={handleToggle}
         disabled={loading}
-        aria-pressed={saved}
-        className={`rounded-lg border px-4 py-2 text-sm font-medium disabled:opacity-50 ${
+        aria-pressed={variant === "toggle" ? saved : undefined}
+        className={`min-h-11 rounded-lg border px-4 py-2 text-sm font-medium disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)] ${
           saved
             ? "border-[var(--maroon)] bg-[var(--maroon-100)] text-[var(--maroon)]"
             : "border-[var(--border)] text-[var(--ink-soft)] hover:bg-[var(--maroon-50)]"
         }`}
       >
-        {saved ? "★ Saved" : "☆ Save"}
+        {variant === "remove"
+          ? loading
+            ? "Removing…"
+            : "Remove from saved"
+          : saved
+            ? "★ Saved"
+            : "☆ Save"}
       </button>
 
       {error && (
