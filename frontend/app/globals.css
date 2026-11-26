@@ -235,8 +235,19 @@ html {
   background: none;
   border: none;
   color: var(--maroon);
+  /* 44px is the minimum comfortable touch target. */
+  min-width: 44px;
+  min-height: 44px;
   padding: 6px;
   cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Keep in-page anchors (How it works, FAQ) clear of the sticky header. */
+#how-it-works,
+#faq {
+  scroll-margin-top: 72px;
 }
 
 /* ---------- Shared section styles ---------- */
@@ -963,7 +974,7 @@ html {
   }
 
   .nav-toggle {
-    display: block;
+    display: inline-flex;
   }
 
   .nav-links {
@@ -978,11 +989,15 @@ html {
     border-bottom: 1px solid var(--border);
     max-height: 0;
     overflow: hidden;
-    transition: max-height 0.25s ease;
+    /* Closed links must not stay in the tab order or the accessibility tree. */
+    visibility: hidden;
+    transition: max-height 0.25s ease, visibility 0s linear 0.25s;
   }
 
   .nav-links.open {
-    max-height: 320px;
+    max-height: 80vh;
+    visibility: visible;
+    transition: max-height 0.25s ease, visibility 0s;
   }
 
   .nav-links a:not(.btn) {

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Menu, X } from 'lucide-react'
 import { LogoutButton } from '@/modules/auth/components/LogoutButton'
 import { DEFAULT_SIGNED_IN_PATH, LOGIN_PATH, REGISTER_PATH } from '@/modules/auth/navigation'
@@ -14,9 +14,42 @@ const LINKS = [
 function Navbar({ signedIn }: { signedIn: boolean }) {
   const [isOpen, setIsOpen] = useState(false)
   const close = () => setIsOpen(false)
+  const headerRef = useRef<HTMLElement>(null)
+  const toggleRef = useRef<HTMLButtonElement>(null)
+
+  // While the mobile menu is open: Escape closes it and returns focus to the
+  // toggle, a tap outside the header closes it, and widening past the mobile
+  // breakpoint resets it so it cannot reopen stuck when the window shrinks again.
+  useEffect(() => {
+    if (!isOpen) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setIsOpen(false)
+      toggleRef.current?.focus()
+    }
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && !headerRef.current?.contains(event.target)) {
+        setIsOpen(false)
+      }
+    }
+    const desktop = window.matchMedia('(min-width: 769px)')
+    const onBreakpoint = (event: MediaQueryListEvent) => {
+      if (event.matches) setIsOpen(false)
+    }
+
+    document.addEventListener('keydown', onKeyDown)
+    document.addEventListener('pointerdown', onPointerDown)
+    desktop.addEventListener('change', onBreakpoint)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('pointerdown', onPointerDown)
+      desktop.removeEventListener('change', onBreakpoint)
+    }
+  }, [isOpen])
 
   return (
-    <header className="navbar">
+    <header className="navbar" ref={headerRef}>
       <div className="navbar-inner">
         <Link href="/" className="brand" onClick={close}>
           <span className="brand-mark" aria-hidden="true">C</span>
@@ -24,6 +57,8 @@ function Navbar({ signedIn }: { signedIn: boolean }) {
         </Link>
 
         <button
+          ref={toggleRef}
+          type="button"
           className="nav-toggle"
           aria-label={isOpen ? 'Close menu' : 'Open menu'}
           aria-expanded={isOpen}
