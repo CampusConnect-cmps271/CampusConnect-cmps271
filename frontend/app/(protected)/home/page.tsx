@@ -7,7 +7,6 @@ import {
   getFeedPosts,
   POSTS_PER_PAGE,
 } from "@/modules/posts/feed";
-import { createClient } from "@/lib/supabase/server";
 import { PostSearchForm } from "@/modules/posts/PostSearchForm";
 
 export const metadata: Metadata = {
@@ -41,25 +40,10 @@ export default async function HomePage({
 
   const category = params.category ?? "";
 
-  const supabase = await createClient();
-
-  const { data: categories } = await supabase
-    .from("categories")
-    .select("name")
-    .order("id", { ascending: true });
-
-  const validCategories =
-    categories?.map((item) => item.name) ?? [];
-
-  const selectedCategory =
-    validCategories.includes(category)
-      ? category
-      : "";
-
-  const { posts, hasMore } = await getFeedPosts(
+  const { posts, hasMore, categories: validCategories, selectedCategory } = await getFeedPosts(
     page,
     sort,
-    selectedCategory || undefined
+    category || undefined
   );
 
   function feedUrl(
@@ -94,18 +78,6 @@ export default async function HomePage({
           Welcome, {user.name}
         </h1>
       </header>
-
-      <nav aria-label="Explore campus" className="flex flex-wrap gap-3">
-        <Link href="/courses" className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-medium">
-          Browse courses
-        </Link>
-        <Link href="/planner" className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-medium">
-          Plan your semester
-        </Link>
-        <Link href="/electives/preferences" className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-medium">
-          Elective preferences
-        </Link>
-      </nav>
 
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-4">

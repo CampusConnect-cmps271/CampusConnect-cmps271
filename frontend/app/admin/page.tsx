@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { requireRole } from "@/lib/auth/server";
 import { createClient } from "@/lib/supabase/server";
 import RoleManager, { type ManagedUser } from "./role-manager";
+import { ADMIN_CARD, AdminPageShell } from "@/components/AdminPageShell";
 
 export default async function AdminRolesPage() {
   await requireRole(["administrator"]);
@@ -14,30 +14,10 @@ export default async function AdminRolesPage() {
   if (error) throw new Error(`Could not load users: ${error.message}`);
 
   return (
-    <main className="min-h-screen bg-gray-100 p-6">
-      <div className="mx-auto max-w-5xl rounded-xl bg-white p-6 shadow">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <h1 className="text-2xl font-bold text-gray-900">User roles</h1>
-          <nav className="flex flex-wrap gap-4 text-sm">
-            <Link href="/admin/clubs" className="font-semibold text-blue-700 hover:underline">
-              Verify clubs
-            </Link>
-            <Link href="/admin/accounts" className="font-semibold text-blue-700 hover:underline">
-              Manage accounts
-            </Link>
-            <Link href="/admin/audit" className="font-semibold text-blue-700 hover:underline">
-              View audit log
-            </Link>
-            <Link href="/admin/errors" className="font-semibold text-blue-700 hover:underline">
-              View error dashboard
-            </Link>
-          </nav>
-        </div>
-        <p className="mt-2 text-sm text-gray-600">
-          Administrator-only role assignment for CampusConnect.
-        </p>
+    <AdminPageShell title="User roles" description="Administrator-only role assignment with protected permissions and audit history." maxWidth="max-w-5xl">
+      <section className={ADMIN_CARD}>
         <RoleManager users={(data ?? []) as ManagedUser[]} />
-      </div>
-    </main>
+      </section>
+    </AdminPageShell>
   );
 }

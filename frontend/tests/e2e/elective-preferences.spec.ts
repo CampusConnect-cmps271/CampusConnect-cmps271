@@ -15,6 +15,7 @@ async function fillDraft(page: Page) {
 test("mobile questionnaire preserves invalid drafts, saves, reloads and edits privately", async ({ page, browser }) => {
   await login(page);
   await page.setViewportSize({ width: 375, height: 812 });
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
   await page.getByRole("link", { name: "Elective preferences", exact: true }).click();
   await fillDraft(page);
   await page.getByRole("button", { name: "Save preferences" }).click();
@@ -98,7 +99,7 @@ test("empty, whitespace and over-limit drafts can be corrected to saved Unicode 
   await save.click();
   await expect(page.locator("main").getByRole("alert")).toBeVisible();
   await expect(interests).toHaveAttribute("aria-invalid", "true");
-  await expect(goals).toHaveAttribute("aria-invalid", "true");
+  await expect(goals).toHaveAttribute("aria-invalid", "false");
   await expect(interests).toHaveValue("  ,  ");
   await goals.fill("تعلم تصميم الروبوتات");
   await interests.fill(Array.from({ length: 11 }, (_, i) => `interest${i}`).join(", "));

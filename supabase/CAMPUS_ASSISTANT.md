@@ -1,14 +1,63 @@
-# Campus assistant data — pages, courses and embeddings
+# Campus assistant data — pages, courses, clubs, events and embeddings
 
-The assistant at `/assistant` answers from two kinds of stored text: chunks of
-official AUB pages (`campus_source_chunks`) and catalogue courses (`courses`).
-Each row can carry an **embedding**, a list of 768 numbers that places its
-meaning, so a question worded differently from the text still finds it. Search
-runs the keyword functions and the meaning functions together and merges the
-results; if embedding a question fails, the keyword results are used alone.
+The assistant at `/assistant` answers from four kinds of stored text: chunks of
+official AUB pages (`campus_source_chunks`), catalogue courses (`courses`),
+verified student clubs (`clubs`) and upcoming events (`events`). Each row can
+carry an **embedding**, a list of 768 numbers that places its meaning, so a
+question worded differently from the text still finds it. Search runs the
+keyword functions and the meaning functions together and merges the results; if
+embedding a question fails, the keyword results are used alone.
+
+**Clubs and events (SCRUM-254)** come from the app's own tables, so there is
+nothing to load: they are searched as soon as they exist and are embedded by
+step 2. Only what students may be told is searched, whatever the table's read
+policy allows:
+
+| Kind | Searched | Never searched |
+|---|---|---|
+| Clubs | `verification_status = 'verified'` | pending and rejected clubs |
+| Events | `status = 'published'` and `ends_at` not yet passed | drafts, cancelled and past events |
+
+The embedding script applies the same filter, so an unpublished draft or an
+unverified club is never sent to Gemini. A club that is verified, or an event
+that is published, after the last run has no embedding yet: it is still found by
+keyword search straight away, and by meaning after the next
+`npm run embed:campus-content`. Answers link to `/clubs/<slug>` and
+`/events/<id>`. Club and event search only add to an answer: if the
+`20261116113715` migration is missing on a project, pages and courses still
+answer. News is not indexed (cancelled for this sprint).
 
 Run everything from `frontend/`, against the local Supabase stack
 (`npx supabase start`). Commands are in the order they depend on each other.
+
+## The student's own context (SCRUM-255)
+
+For a question about the student themselves ("what is on my schedule today?",
+"which events did I save?") the assistant also reads that student's **own**
+semester plan, saved and going events, saved posts and posts, plus the newest
+public posts, and the answer can cite them. This data is handled differently
+from everything above, because it is private:
+
+| Rule | How it is kept |
+|---|---|
+| Only the student's own rows | Read at request time with **their own session**, so row-level security hides every other student; each query also asks for their id explicitly. `tests/campus-assistant-student-context.test.ts` proves it with two real students, including a caller who names someone else's id. |
+| Only when needed | `modules/campus-assistant/personal.ts` asks for a first-person word **and** a topic ("my schedule", "did I save"). Library hours or transcripts never carry a timetable. A vague follow-up counts as personal if the question before it was. It is a narrow heuristic: a missed question gets a less personal answer, never a leak. |
+| Never stored | Nothing private is written to the search index or embedded. It exists for one request. `embed:campus-content` never touches these tables. |
+| Short fields only | Titles, categories and times; never post bodies. Lists are capped (2 plans, 10 events and upcoming items, 10 saved posts, 5 own posts, 5 feed posts). |
+| Typed text is data | A plan item or post title is flattened to one capped line, escaped like any evidence, and the system prompt calls it data, never instructions. |
+| Not logged | Logs carry only how many private parts were attached (`private_parts`) and the names of parts that failed, never their content. |
+| Fails soft | A part that cannot be read is skipped; the rest of the answer still works. |
+
+Citations point at `/planner/<id>` (the plan) or the list pages `/events`,
+`/saved`, `/profile` and `/home`, which are the only app pages `isCitableUrl`
+allows besides courses, clubs and single events. A plan meeting time is either
+typed by the student, and the model is told it is tentative, or taken from a
+section the student chose in AUB's imported schedule (SCRUM-243), and the model
+is told it comes from AUB's schedule via Resis, with the section and CRN.
+
+What is sent to the answer model (Gemini) for a personal question is therefore
+that student's plan, saved events, post titles and the recent feed. Tell students
+this in the privacy notice before the assistant is announced.
 
 ## 1. Load the data
 
@@ -78,7 +127,43 @@ its nearest neighbour. If unrelated questions return evidence, raise it in a new
 migration with `create or replace function`; if good questions find nothing,
 lower it.
 
+## 4. Privacy and answer-quality tests (SCRUM-257)
+
+`npm test` runs these with the unit tests; the database-backed ones skip themselves
+when local Supabase is not running (`npx supabase start`, then
+`npx supabase migration up --include-all` if tables are missing). They seed a plan
+with the catalogue course `CMPS 240`, so after a fresh `npx supabase db reset`
+import the course catalogue first (`npm run import:courses -- <catalogue.csv>`;
+see [COURSES.md](COURSES.md)), or they fail during setup.
+
+| Test | What it proves |
+|---|---|
+| `tests/api/campus-assistant-privacy.test.ts` | The real route, real database and real row-level security, with two signed-in students. Only the model call is stubbed, and the stub *cites everything it is sent*, so anything that reached the model also shows in the response. For a personal question each student's request holds their own plan, timetable and saved events and none of the other's, and the response to the browser is the same. A question that is not personal carries no private data. A **draft event never reaches the model, not even for its own organizer**, and a **pending club never does**, though every student can read both. Text one student typed into their plan cannot reach or steer the other. A signed-out visitor is refused, and the logs never hold private text. |
+| `tests/campus-assistant-student-context.test.ts` | The loader on its own, including a caller who names another student's id: row-level security is the lock, the explicit filter the second. |
+| `tests/campus-assistant-clubs-events.test.mjs` | The four club and event search functions (see above). |
+| `modules/campus-assistant/*.test.ts` | Unit tests: which questions count as personal, the shape and caps of the private context, that typed text cannot pose as an instruction, that every kind of evidence is cited with its own label, and that an answer can only cite what was retrieved for that question. |
+
+These tests were checked by breaking things on purpose: removing the
+personal-question gate, the draft filter or the pending-club filter makes the
+privacy test fail, and so does dropping any student filter in the loader.
+
+**Not covered: how good the model's answers are.** None of this calls the real
+model. Whether Gemini phrases an answer well, or stays inside the excerpts it
+was given, can only be judged with a `GEMINI_API_KEY`: run
+`npm run eval:assistant` for retrieval recall (it now counts clubs and events),
+and read real answers by hand before relying on them. Add club and event
+questions to `eval/questions.json` once real clubs and events exist locally.
+
 ## Not yet done
+
+- **Embedding events no longer bumps their revision** (migration
+  `20261116200000`): an update that changes only `embedding` leaves `revision` and
+  `updated_at` alone, so the backfill can run while an organizer has the edit
+  form open. Apply it to hosted before relying on this.
+- **The club/event migration and tests were written without a running local
+  stack.** `tests/campus-assistant-clubs-events.test.mjs` skips itself unless
+  `npx supabase start` is up; run `npm run test:db` once with it running before
+  merging, to apply `20261116113715` and exercise the four new functions.
 
 - **Hosted Supabase:** the hosted project has four migrations this repository
   does not (`20261024120000`, `20261024130000`, `20261028094821`,

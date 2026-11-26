@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { handleCommunity, matchingPosts } from "./mock-community.mjs";
-import { handleMessaging } from "./mock-messaging.mjs";
-import { handleNotifications } from "./mock-notifications.mjs";
+import { handleMessaging, unreadConversationCount } from "./mock-messaging.mjs";
+import { handleNotifications, unreadNotificationCount } from "./mock-notifications.mjs";
 import { handleSkillSwap, matchingSkillSwapPosts } from "./mock-skillswap.mjs";
 import { handleCourses } from "./mock-courses.mjs";
 import { handleReviews } from "./mock-reviews.mjs";
@@ -10,6 +10,7 @@ import { handlePostSearch, postSearchFixtures } from "./mock-post-search.mjs";
 import { clubTestAccounts, handleClubs } from "./mock-clubs.mjs";
 import { electiveAccounts, handleElectives } from "./mock-electives.mjs";
 import { handlePlanner, plannerTestAccounts } from "./mock-planner.mjs";
+import { communitiesTestAccounts, handleCommunities } from "./mock-communities.mjs";
 import { electivePreferenceAccounts, handleElectivePreferences } from "./mock-elective-preferences.mjs";
 
 const user = {
@@ -53,6 +54,7 @@ const profileAccounts = {
   "clubs-representative@mail.aub.edu": clubTestAccounts.REP_ID,
   "clubs-admin@mail.aub.edu": clubTestAccounts.ADMIN_ID,
   ...plannerTestAccounts,
+  ...communitiesTestAccounts,
   ...electivePreferenceAccounts,
 };
 // Another student whose public profile the tests visit.
@@ -248,6 +250,13 @@ createServer(async (request, response) => {
     response.statusCode = 201;
     return response.end("{}");
   }
+  if (path === "/rest/v1/app_logs" && request.method === "GET") {
+    if (bearerEmail(request) !== "clubs-admin@mail.aub.edu") return response.end("[]");
+    return response.end(JSON.stringify([
+      { event: "api.request.completed", context: { endpoint: "/api/electives/recommendations", method: "POST", status: 200, duration_ms: 1200, slow: true, database: { calls: 2, duration_ms: 400, slow_queries: [{ operation: "rpc/elective_candidate_page", method: "POST", status: 200, duration_ms: 350 }] } } },
+      { event: "api.request.completed", context: { endpoint: "/api/electives/recommendations", method: "POST", status: 503, duration_ms: 2000, slow: true } },
+    ]));
+  }
   if (path === "/rest/v1/rpc/current_suspension" && request.method === "POST") {
     // Verified browser-test users are active. Keep this explicit because the
     // login action fails closed when account status cannot be checked.
@@ -262,10 +271,16 @@ createServer(async (request, response) => {
     ]));
   }
 
+  if (path === "/rest/v1/rpc/get_my_header_counts" && request.method === "POST") {
+    const caller = bearerClaims(request).sub;
+    if (!caller) { response.statusCode = 403; return response.end("{}"); }
+    return response.end(JSON.stringify({ messages: unreadConversationCount(caller), notifications: unreadNotificationCount(caller) }));
+  }
+
   // Sprint 2 tables: posts, comments, upvotes and saved posts.
   if (await handleElectivePreferences(request, response, url, bearerClaims(request))) return;
   if (await handleElectives(request, response, url, bearerClaims(request))) return;
-  if (handleCourses(request, response, url, bearerEmail(request))) return;
+  if (await handleCourses(request, response, url, bearerEmail(request))) return;
   if (handleRatings(request, response, url, bearerClaims(request))) return;
   if (await handleReviews(request, response, url, bearerClaims(request))) return;
   if (await handlePostSearch(request, response, url, bearerClaims(request), [pinnedPost, ...matchingPosts(new URLSearchParams())])) return;
@@ -280,6 +295,7 @@ createServer(async (request, response) => {
   if (await handleSkillSwap(request, response, url, { userId: caller })) return;
   if (await handleClubs(request, response, url, bearerClaims(request))) return;
   if (await handlePlanner(request, response, url, bearerClaims(request))) return;
+  if (await handleCommunities(request, response, url, bearerClaims(request))) return;
   if (path === "/rest/v1/user_roles") {
     roleLookups++;
     const email = bearerEmail(request);

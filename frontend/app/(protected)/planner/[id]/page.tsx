@@ -6,11 +6,14 @@ import {
   beirutToday,
   checkPlanConflicts,
   getMyPlan,
+  getPlanSectionState,
+  getSectionPicker,
   listSavedEventsNear,
   parsePlannerSearch,
   planCalendar,
   PlanView,
   searchCoursesForPlan,
+  SECTION_NOTICES,
 } from "@/modules/planner";
 
 export const metadata: Metadata = {
@@ -19,8 +22,16 @@ export const metadata: Metadata = {
 
 type PlanPageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ q?: string | string[]; week?: string | string[] }>;
+  searchParams: Promise<{
+    q?: string | string[];
+    week?: string | string[];
+    sections?: string | string[];
+    done?: string | string[];
+    what?: string | string[];
+  }>;
 };
+
+const single = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
 
 export default async function PlanPage({ params, searchParams }: PlanPageProps) {
   await requireUser();
@@ -31,9 +42,14 @@ export default async function PlanPage({ params, searchParams }: PlanPageProps) 
   if (!plan) notFound();
 
   const search = await searchParams;
-  const [events, results] = await Promise.all([
+  const pickerFor = single(search.sections);
+  const donePlanCourse = single(search.done);
+  const what = SECTION_NOTICES.find((notice) => notice === single(search.what));
+  const [events, results, sectionState, picker] = await Promise.all([
     listSavedEventsNear(plan),
-    searchCoursesForPlan(parsePlannerSearch(search.q)),
+    searchCoursesForPlan(parsePlannerSearch(search.q), plan.semester?.id),
+    getPlanSectionState(plan),
+    pickerFor ? getSectionPicker(plan, pickerFor) : Promise.resolve(null),
   ]);
 
   // Checked on every render, so after every action, against the saved plan.
@@ -42,7 +58,7 @@ export default async function PlanPage({ params, searchParams }: PlanPageProps) 
 
   return (
     <AppShell>
-<main className="flex-1 bg-white px-4 py-6 sm:py-10">
+<main className="flex-1 bg-[var(--maroon-50)] px-4 py-5 sm:px-6 sm:py-6">
       <PlanView
         plan={plan}
         report={report}
@@ -50,6 +66,9 @@ export default async function PlanPage({ params, searchParams }: PlanPageProps) 
         results={results}
         events={events}
         calendar={calendar}
+        sectionState={sectionState}
+        picker={picker}
+        done={donePlanCourse && what ? { planCourseId: donePlanCourse, what } : null}
       />
     </main>
 </AppShell>

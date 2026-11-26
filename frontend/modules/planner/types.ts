@@ -17,7 +17,11 @@ export type SemesterPlan = {
   course_ids: string[];
 };
 
-/** A weekly meeting time the student typed. Always tentative. */
+/**
+ * A weekly meeting time: typed by the student (source "manual", always
+ * tentative), or one weekday of a section chosen from AUB's imported
+ * schedule (source "resis", with its CRN; written only by the database).
+ */
 export type Meeting = {
   id: string;
   plan_course_id: string;
@@ -26,9 +30,38 @@ export type Meeting = {
   start_minute: number;
   /** Minutes after local midnight, 1-1440, after start_minute. */
   end_minute: number;
-  /** An IANA zone; the planner offers only Asia/Beirut for now. */
+  /** An IANA zone; section times are always Asia/Beirut. */
   timezone: string;
-  source: "manual";
+  source: "manual" | "resis";
+  /** The chosen section a "resis" time comes from; null for typed times. */
+  crn?: string | null;
+};
+
+/** A section of AUB's imported schedule chosen for a planned course (SCRUM-243). */
+export type ChosenSection = {
+  crn: string;
+  /** Its number when chosen, e.g. "3" or "L1". */
+  section: string;
+  semester_id: string;
+};
+
+/** An imported Resis semester a plan can link to. */
+export type ImportedSemester = {
+  id: string;
+  /** Resis's name, e.g. "Spring 2026-2027". */
+  name: string;
+  /** When its active snapshot was fetched from Resis. */
+  synced_at: string | null;
+};
+
+/** A chosen section a newer snapshot changed or no longer has. */
+export type SectionChange = {
+  plan_course_id: string;
+  crn: string;
+  section: string;
+  status: "changed" | "gone";
+  /** When the active snapshot was fetched. */
+  imported_at: string | null;
 };
 
 /** A catalogue course in a plan, with its current catalogue values. */
@@ -40,8 +73,10 @@ export type PlannedCourse = {
   name: string;
   /** numeric(5,2) from the catalogue, as PostgREST sends it. */
   credits: number | string;
-  /** Empty when the student has not typed any: "No times yet". */
+  /** Empty when it has no times yet: "No times yet". */
   meetings: Meeting[];
+  /** Sections chosen from AUB's imported schedule; empty for typed times. */
+  sections?: ChosenSection[];
 };
 
 /** Something the student added to a plan's calendar: an exam, a meeting, anything. */
@@ -58,7 +93,12 @@ export type PlanItem = {
   end_minute: number | null;
 };
 
-export type PlanDetails = SemesterPlan & { courses: PlannedCourse[]; items: PlanItem[] };
+export type PlanDetails = SemesterPlan & {
+  courses: PlannedCourse[];
+  items: PlanItem[];
+  /** The imported semester whose sections give class times, or null. */
+  semester?: ImportedSemester | null;
+};
 
 /** A saved event near a plan's term. Only events the student is going to are on the calendar. */
 export type PlannerEvent = {
@@ -84,4 +124,9 @@ export type CourseSearchResult = {
   code: string;
   name: string;
   credits: number | string;
+  /**
+   * On a linked plan: how many sections the imported semester has, or null
+   * when it doesn't offer the course. Undefined on an unlinked plan.
+   */
+  section_count?: number | null;
 };

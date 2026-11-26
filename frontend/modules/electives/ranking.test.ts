@@ -54,7 +54,7 @@ describe("catalogue ranking", () => {
     const partial = { ...base, name: "Software design", description: "General computing" };
     expect(rankCandidates([partial], preferencesSchema.parse({ ...preferences, interests: ["software security"] }))).toEqual([]);
     expect(rankCandidates([base, partial], preferencesSchema.parse(preferences))).toHaveLength(1);
-    expect(rankCandidates([base], preferencesSchema.parse({ ...preferences, interests: ["!!!"] }))).toEqual([]);
+    expect(preferencesSchema.safeParse({ ...preferences, interests: ["!!!"] }).success).toBe(false);
   });
   it("matches case, punctuation and Unicode consistently without substring or single-letter shortcuts", () => {
     const courses = [

@@ -26,9 +26,13 @@ function like(pattern, text) {
   return new RegExp(`^${regex}$`, "iu").test(text);
 }
 
-export function handleCourses(request, response, url, email) {
-  const ratingFilter = url.pathname === "/rest/v1/course_filter_catalogue";
-  if (url.pathname !== "/rest/v1/courses" && !ratingFilter) return false;
+export async function handleCourses(request, response, url, email) {
+  const semesterFilter = url.pathname === "/rest/v1/course_semester_catalogue";
+  const semesterList = url.pathname === "/rest/v1/resis_semesters";
+  const ratingFilter = url.pathname === "/rest/v1/course_filter_catalogue" || semesterFilter;
+  const departments = url.pathname === "/rest/v1/rpc/list_course_departments";
+  const bundle = url.pathname === "/rest/v1/rpc/browse_course_catalogue";
+  if (url.pathname !== "/rest/v1/courses" && !ratingFilter && !semesterList && !departments && !bundle) return false;
   if (ratingFilter && email === "filters-unavailable@mail.aub.edu") {
     response.statusCode = 404;
     response.end(JSON.stringify({ code: "PGRST205", message: "Synthetic private filter-view failure" }));
@@ -39,7 +43,50 @@ export function handleCourses(request, response, url, email) {
     response.end(JSON.stringify({ code: "42501", message: "Synthetic database failure details must never reach the page" }));
     return true;
   }
+  if (bundle) {
+    let raw = ""; for await (const chunk of request) raw += chunk;
+    const p = JSON.parse(raw || "{}");
+    let rows = courses.filter((c) => (!p.p_query || c.code.toLowerCase().includes(p.p_code_query.toLowerCase()) || c.name.toLowerCase().includes(p.p_query.toLowerCase()))
+      && (!p.p_department || c.department === p.p_department)
+      && (p.p_credits_min == null || c.credits >= p.p_credits_min) && (p.p_credits_max == null || c.credits <= p.p_credits_max));
+    rows.sort((a, b) => a.department.localeCompare(b.department) || a.code.localeCompare(b.code) || a.id.localeCompare(b.id));
+    const total = rows.length, pages = Math.max(1, Math.ceil(total / 24)), page = Math.min(p.p_page, pages);
+    rows = rows.slice((page - 1) * 24, page * 24);
+    let ratings = email === "ratings-unavailable@mail.aub.edu" ? null : rows.filter((c) => email !== "ratings-missing@mail.aub.edu" || c.code !== "CMPS 104").map(ratingFixture);
+    if (email === "ratings-invalid@mail.aub.edu" && ratings?.length) ratings[0].average_overall = 7;
+    response.end(JSON.stringify({ courses: rows, total, pages, page, ratings,
+      departments: [...new Set(courses.map((c) => c.department))].sort(), semesters: [
+        { id: "202720", name: "Spring 2026-2027", synced_at: "2026-11-08T00:00:00Z" },
+        { id: "202710", name: "Fall 2026-2027", synced_at: "2026-11-08T00:00:00Z" },
+      ] }));
+    return true;
+  }
+  if (departments) {
+    response.end(JSON.stringify([...new Set(courses.map((c) => c.department))].sort().map((department) => ({ department }))));
+    return true;
+  }
+  if (semesterList) {
+    const semesters = [
+      { id: "202720", name: "Spring 2026-2027", synced_at: "2026-11-08T00:00:00Z", active_import_id: "00000000-0000-4000-a000-000000202720" },
+      { id: "202710", name: "Fall 2026-2027", synced_at: "2026-11-08T00:00:00Z", active_import_id: "00000000-0000-4000-a000-000000202710" },
+    ];
+    const id = url.searchParams.get("id");
+    response.end(JSON.stringify(id ? semesters.filter(s => s.id === id.slice(3)) : semesters));
+    return true;
+  }
   let rows = [...courses];
+  if (semesterFilter) rows = rows.filter((c) => c.code === "CMPS 240").flatMap((course) => ["202720", "202710"].map((semester_id) => ({
+    ...course, semester_id, semester_name: semester_id === "202720" ? "Spring 2026-2027" : "Fall 2026-2027",
+    synced_at: "2026-11-08T00:00:00Z", source_updated_at: "2026-11-07T23:00:00Z",
+    instructors: [semester_id === "202720" ? "Spring Instructor" : "Fall Instructor"],
+    attributes: ["Writing in the Discipline"], prerequisite_variants: ["CMPS 101 or CMPS 102"],
+    sections: Array.from({ length: 4 }, (_, index) => ({ crn: String((semester_id === "202720" ? 20904 : 10904) + index), section: String(index + 1), title: course.name, credits: 3,
+      instructors: [semester_id === "202720" ? "Spring Instructor" : "Fall Instructor"], attributes: ["Writing in the Discipline"],
+      prerequisites: "CMPS 101 or CMPS 102", sessions: [{ days: "MW", start: ["09:00", "10:30", "12:00", "14:00"][index], end: ["10:15", "11:45", "13:15", "15:15"][index], type: "Lecture", location: "Test Hall", instructor: "Test Instructor" }],
+      source_updated_at: "2026-11-07T23:00:00Z", details_url: "https://www-banner.aub.edu.lb/pls/weba/bwckschd.p_disp_detail_sched?term_in=202720&crn_in=20904", restrictions: null })),
+  })));
+  const semester = url.searchParams.get("semester_id");
+  if (semester) rows = rows.filter((row) => row.semester_id === semester.slice(3));
   if (ratingFilter) rows = rows.map((course) => {
     const ratings = ratingFixture(course);
     const round = (value) => Number(new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(value));

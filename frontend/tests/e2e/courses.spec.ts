@@ -16,6 +16,7 @@ test("a signed-out visitor must log in before browsing courses", async ({ page }
 
 test("browse by department, paginate and reset the page when searching", async ({ page }) => {
   await login(page);
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Browse courses", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Course catalogue", exact: true })).toBeVisible();
   await expect(page.getByRole("status")).toContainText("32 courses found");

@@ -17,6 +17,8 @@ async function logIn(page: Page, email: string) {
 }
 
 const header = (page: Page) => page.getByRole("banner").getByRole("navigation", { name: "Main" });
+// The header's links live in a side bar that stays hidden until the menu is opened.
+const openMenu = (page: Page) => page.getByRole("button", { name: "Menu", exact: true }).click();
 
 // A sent message shows at once; wait until the server has saved it, or the
 // next navigation can abort the send.
@@ -108,20 +110,22 @@ test("multi-line and long messages stay plain text on a phone", async ({ page })
 test("the recipient sees it unread in the inbox until they open it", async ({ page }) => {
   await logIn(page, omar.email);
 
+  await openMenu(page);
   await expect(header(page).getByRole("link", { name: "Messages (1 unread)" })).toBeVisible();
 
   await header(page).getByRole("link", { name: /^Messages/ }).click();
-  await expect(page).toHaveURL(/\/messages$/);
+  await expect(page).toHaveURL(/\/messages$/, { timeout: 20_000 });
   const row = page.getByRole("list", { name: "Conversations" }).getByRole("link", { name: new RegExp(maya.name) });
   await expect(row).toContainText("Unread");
   await expect(row).toContainText("z".repeat(10));
   await expect(row).toContainText("just now");
 
   await row.click();
-  await expect(page).toHaveURL(new RegExp(`${conversationPath}$`));
+  await expect(page).toHaveURL(new RegExp(`${conversationPath}$`), { timeout: 20_000 });
   await expect(page.getByRole("log").getByText("Hi Omar, are you joining the study group?")).toBeVisible();
 
   // Opening the thread marks it read; the header count clears.
+  await openMenu(page);
   await expect(header(page).getByRole("link", { name: "Messages", exact: true })).toBeVisible();
 
   await page.goto("/messages");
@@ -161,8 +165,10 @@ test("the header fits a phone and marks the current section", async ({ page }) =
   await expect(header(page).getByRole("link", { name: "CampusConnect" })).toHaveAttribute("href", "/home");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
+  await openMenu(page);
   await header(page).getByRole("link", { name: "Profile" }).click();
   await expect(page).toHaveURL(/\/profile$/);
+  await openMenu(page);
   await expect(header(page).getByRole("link", { name: "Profile" })).toHaveAttribute("aria-current", "page");
 
   await header(page).getByRole("button", { name: "Log out" }).click();

@@ -1,3 +1,4 @@
+import { trackApiRequest } from "@/modules/logging/api-metrics";
 import { NextResponse } from 'next/server'
 import { apiError, invalidJson, readJsonObject, validationError } from '@/lib/api'
 import { resetPassword } from '@/lib/auth/password-reset'
@@ -8,7 +9,7 @@ import { hasErrors, validateResetPassword } from '@/lib/validation'
  * Body: { email, code, newPassword, confirmPassword }
  * 200 -> { message } once the password has been changed.
  */
-export async function POST(request: Request) {
+async function trackedPOST(request: Request) {
   const body = await readJsonObject(request)
   if (!body) return invalidJson()
 
@@ -20,3 +21,5 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ message: 'Your password has been reset. You can now log in with your new password.' })
 }
+
+export const POST = trackApiRequest("/api/auth/reset-password", "POST", trackedPOST);

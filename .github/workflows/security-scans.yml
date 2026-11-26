@@ -1,0 +1,107 @@
+name: SP4-33 Automated Security Scans
+
+on:
+  push:
+    branches:
+      - main
+      - mohammed/sprint-4
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-audit:
+    name: Dependency vulnerability audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Scan dependencies
+        id: audit
+        shell: bash
+        run: |
+          set +e
+          npm audit --json > security-audit.json
+          audit_exit=$?
+          set -e
+          echo "exit_code=$audit_exit" >> "$GITHUB_OUTPUT"
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const p = 'security-audit.json';
+          let report;
+          try {
+            report = JSON.parse(fs.readFileSync(p, 'utf8'));
+          } catch (error) {
+            console.error('npm audit did not produce valid JSON:', error.message);
+            process.exit(1);
+          }
+          if (!report.metadata || !report.metadata.vulnerabilities) {
+            console.error('npm audit failed: no vulnerability metadata in report.');
+            console.error(JSON.stringify(report.error ?? report, null, 2).slice(0, 2000));
+            process.exit(1);
+          }
+          const v = report.metadata.vulnerabilities;
+          const counts = ['critical', 'high', 'moderate', 'low', 'info']
+            .map(level => `${level}: ${v[level] ?? 0}`).join(', ');
+          const summary = [
+            '## SP4-33 Dependency Audit',
+            '',
+            `Vulnerabilities: ${counts}`,
+            '',
+            'The full JSON report is available as a workflow artifact.',
+            'Existing vulnerabilities are reported but do not fail this initial baseline job.',
+            'Review and remediate critical/high findings before enforcing an audit gate.'
+          ].join('\n');
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary + '\n');
+          console.log(counts);
+          NODE
+
+      - name: Upload npm audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sp4-33-npm-audit
+          path: frontend/security-audit.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  codeql:
+    name: CodeQL JavaScript and TypeScript
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          queries: security-extended
+
+      - name: Analyze source code
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:javascript-typescript

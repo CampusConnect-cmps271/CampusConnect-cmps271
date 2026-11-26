@@ -5,6 +5,7 @@ import { FORGOT_PASSWORD_MESSAGE } from '@/lib/auth/password-reset'
 import { log } from '@/modules/logging'
 import { authError, fakeSupabase, postRequest } from '../helpers'
 
+vi.mock("server-only", () => ({}));
 // The real logger is server-only and writes to Supabase; record calls instead.
 vi.mock('@/modules/logging', () => ({
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },

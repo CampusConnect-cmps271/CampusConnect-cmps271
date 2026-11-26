@@ -3,7 +3,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/modules/auth";
 import { log } from "@/modules/logging";
-import { saveMyPreferences, validateCompletedCourses } from "./preferences";
+import { saveMyPreferences, validateCompletedCourses, validateOfferingSemester } from "./preferences";
 import { readPreferences, parsePreferenceValues, type PreferenceState } from "./schema";
 
 export async function updatePreferences(_previous: PreferenceState, form: FormData): Promise<PreferenceState> {
@@ -14,11 +14,13 @@ export async function updatePreferences(_previous: PreferenceState, form: FormDa
   try {
     const unknown = await validateCompletedCourses(parsed.data);
     if (unknown.length) return { status: "error", values, errors: { completed_course_codes: ["Use course codes from the catalogue, separated by commas."] } };
+    if (parsed.data.offering_preferences?.semester_id && !(await validateOfferingSemester(parsed.data))) return { status: "error", values, errors: { offering_preferences: ["Choose a semester with imported course data."] } };
     await saveMyPreferences(parsed.data);
   } catch {
     log.error("electives.preferences.save_failure", {}, { userId: user.id });
     return { status: "error", values, message: "We couldn't save your preferences. Your draft is still here; please try again." };
   }
   revalidatePath("/electives/preferences");
+  revalidatePath("/electives/recommendations");
   return { status: "saved", message: "Preferences saved." };
 }

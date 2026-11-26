@@ -5,16 +5,28 @@ export const QUESTION_MAX_LENGTH = 500;
 /** Most evidence sent to the provider: page chunks, then catalogue courses. */
 export const MAX_PAGE_EVIDENCE = 5;
 export const MAX_COURSE_EVIDENCE = 6;
+export const MAX_CLUB_EVIDENCE = 3;
+export const MAX_EVENT_EVIDENCE = 3;
 
 /** A page of this app's own course catalogue, e.g. /courses/CMPS-271. */
 const COURSE_PATH = /^\/courses\/[A-Za-z0-9%_-]+$/;
+/** A club page of this app, e.g. /clubs/robotics-club (slugs are lower-case words joined by hyphens). */
+const CLUB_PATH = /^\/clubs\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
+/** An event page of this app, e.g. /events/6f1c...; ids are UUIDs. */
+const EVENT_PATH = /^\/events\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** A semester plan page of this app. Plans are private, so the page only opens for the student who owns it. */
+const PLAN_PATH = /^\/planner\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/** The few list pages the student's own saved events and posts live on. Nothing else in the app, and no other student's page. */
+const OWN_PAGES = new Set(["/events", "/saved", "/profile", "/home"]);
 
 /**
- * True only for the two places a citation may point: an https page on
- * aub.edu.lb, or a course page of this app.
+ * True only for the places a citation may point: an https page on aub.edu.lb,
+ * or a course, club, event, plan or list page of this app.
  */
 export function isCitableUrl(value: string): boolean {
-  if (COURSE_PATH.test(value)) return true;
+  if (COURSE_PATH.test(value) || CLUB_PATH.test(value) || EVENT_PATH.test(value)) return true;
+  if (PLAN_PATH.test(value) || OWN_PAGES.has(value)) return true;
   try {
     const url = new URL(value);
     return url.protocol === "https:" && !url.username && !url.password && /(^|\.)aub\.edu\.lb$/.test(url.hostname);
@@ -40,13 +52,13 @@ export const questionSchema = z.object({
 /** One earlier question and the answer shown for it. Context only, never evidence. */
 export type HistoryTurn = z.infer<typeof questionSchema>["history"][number];
 
-/** A stored chunk of an official AUB page, or a catalogue course, retrieved for one question. */
+/** A stored chunk of an official AUB page, a catalogue course, a verified club or an upcoming event, retrieved for one question. */
 export type EvidenceChunk = {
   chunk_id: string;
   source_id: string;
   url: string;
   title: string;
-  /** When the page was fetched; null for catalogue courses, which are live data. */
+  /** When the page was fetched; null for courses, clubs and events, which are live data. */
   retrieved_at: string | null;
   text: string;
 };
@@ -61,12 +73,34 @@ export const providerAnswerSchema = z.object({
   insufficient_evidence: z.boolean(),
 });
 
+/** Where each of the app's own kinds of evidence comes from, in words a student recognises. */
+const SOURCE_LABELS: Record<string, string> = {
+  "course-catalogue": "AUB course catalogue",
+  "club-directory": "Student clubs",
+  "campus-events": "Campus events",
+  "student-plan": "Your semester plan",
+  "student-events": "Your saved events",
+  "student-posts": "Your posts",
+  "campus-feed": "Campus feed",
+};
+
+/**
+ * Names the source of a citation. The app's own sources have fixed labels; any
+ * other source is labelled by where its link points, so an https page is the AUB
+ * website and an app page is never passed off as it.
+ */
+export function sourceLabel(sourceId: string, url: string): string {
+  return SOURCE_LABELS[sourceId] ?? (url.startsWith("https://") ? "AUB website" : "CampusConnect");
+}
+
 export type Citation = {
   source_id: string;
   chunk_id: string;
   url: string;
   title: string;
   retrieved_at: string | null;
+  /** Built from the stored source, never from the model: "Student clubs", "Your semester plan", "AUB website"… */
+  source_label: string;
 };
 
 export type AssistantAnswer = {

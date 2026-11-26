@@ -1,19 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  requireUser: vi.fn(), from: vi.fn(), logError: vi.fn(),
+  requireUser: vi.fn(), from: vi.fn(), rpc: vi.fn(), bundle: vi.fn(), logError: vi.fn(),
 }));
+vi.mock("./semesters", () => ({ getImportedSemesters: async () => [] }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/modules/auth", () => ({ requireUser: mocks.requireUser }));
-vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ from: mocks.from }) }));
+vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ from: mocks.from, rpc: mocks.rpc }) }));
 vi.mock("@/modules/logging", () => ({ log: { error: mocks.logError } }));
 
 import { getCourseCatalogue } from "./catalogue";
 import { courseSearchExpression, coursesUrl, parseCourseFilters } from "./search";
 
 type Response = { data: unknown; error: { code: string; message?: string } | null; count?: number };
-const calls: { table: string; fields: string; head: boolean; filters: unknown[][]; range?: number[]; order: string[] }[] = [];
+const calls: { table: string; fields: string; head: boolean; count?: string; filters: unknown[][]; range?: number[]; order: string[] }[] = [];
 let respond: (call: typeof calls[number]) => Response;
+
+const id = "00000000-0000-4000-8000-000000000001";
+function bundled() { return { courses: [{ id, code: "CMPS 240", name: "Algorithms", department: "Computer Science", credits: 3, description: "Synthetic." }], total: 1, page: 1, pages: 1, departments: ["Computer Science"], semesters: [], ratings: [{ course_id: id, review_count: 0, average_difficulty: null, average_workload: null, average_usefulness: null, average_overall: null }] }; }
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -21,11 +25,21 @@ beforeEach(() => {
   respond = (call) => call.head ? { count: 1, data: null, error: null }
     : { data: call.fields === "department" ? [{ department: "Computer Science" }]
       : [{ id: "one", code: "CMPS 240", name: "Algorithms", department: "Computer Science", credits: 3, description: "Algorithms and analysis." }], error: null };
+  mocks.bundle.mockResolvedValue({ data: bundled(), error: null });
+  mocks.rpc.mockImplementation((name: string, args: unknown) => {
+    if (name === "browse_course_catalogue") return mocks.bundle(args);
+    const call = { table: name, fields: "department", head: false, filters: [], order: [], range: undefined as number[] | undefined };
+    return { range(start: number, end: number) {
+      call.range = [start, end]; calls.push(call);
+      return Promise.resolve(respond(call));
+    } };
+  });
   mocks.from.mockImplementation((table: string) => ({
-    select(fields: string, options?: { head?: boolean }) {
-      const call = { table, fields, head: options?.head ?? false, filters: [] as unknown[][], order: [] as string[], range: undefined as number[] | undefined };
+    select(fields: string, options?: { head?: boolean; count?: string }) {
+      const call = { table, fields, head: options?.head ?? false, count: options?.count, filters: [] as unknown[][], order: [] as string[], range: undefined as number[] | undefined };
       calls.push(call);
       const query = {
+        overrideTypes: () => query,
         eq: (column: string, value: string) => { call.filters.push([column, value]); return query; },
         or: (expression: string) => { call.filters.push([expression]); return query; },
         gte: (column: string, value: number) => { call.filters.push(["gte", column, value]); return query; },
@@ -69,6 +83,13 @@ describe("course request parsing", () => {
 });
 
 describe("course catalogue queries", () => {
+  it("scopes semester courses before rating predicates, counts and pagination", async () => {
+    await getCourseCatalogue(parseCourseFilters({ semester: "202720", difficultyMax: "3.3" }));
+    const queries = calls.filter((call) => call.fields !== "department");
+    expect(queries.map((call) => call.table)).toEqual(["course_semester_catalogue", "course_semester_catalogue"]);
+    expect(queries[0].filters).toEqual([["semester_id", "202720"], ["lte", "difficulty", 3.3]]);
+    expect(queries[0].filters).toEqual(queries[1].filters);
+  });
   it("applies all ranges in Postgres identically before counting and paginating", async () => {
     await getCourseCatalogue(parseCourseFilters({ q: "CMPS", department: "Computer Science",
       creditsMin: "0", creditsMax: "3.5", difficultyMin: "2.5", difficultyMax: "3.3", workloadMin: "1", workloadMax: "4" }));
@@ -80,13 +101,6 @@ describe("course catalogue queries", () => {
       ["gte", "credits", 0], ["lte", "credits", 3.5], ["gte", "difficulty", 2.5],
       ["lte", "difficulty", 3.3], ["gte", "workload", 1], ["lte", "workload", 4],
     ]);
-  });
-
-  it("keeps credit-only searches independent of review availability", async () => {
-    await getCourseCatalogue(parseCourseFilters({ creditsMin: "0", creditsMax: "0" }));
-    const queries = calls.filter((call) => call.fields !== "department");
-    expect(queries.every((call) => call.table === "courses")).toBe(true);
-    expect(queries[0].filters).toEqual([["gte", "credits", 0], ["lte", "credits", 0]]);
   });
 
   it("returns an actionable range error without issuing an invalid course query", async () => {
@@ -110,53 +124,40 @@ describe("course catalogue queries", () => {
     expect(mocks.from).not.toHaveBeenCalled();
   });
 
-  it("applies the same name/code and department filters to count and paginated results", async () => {
-    const result = await getCourseCatalogue(parseCourseFilters({ q: "CMPS240", department: "Computer Science" }));
-    expect(result).toMatchObject({ total: 1, page: 1, pages: 1, departments: ["Computer Science"] });
-    const courseQueries = calls.filter((call) => call.fields !== "department");
-    expect(courseQueries).toHaveLength(2);
-    expect(courseQueries[0].filters).toEqual(courseQueries[1].filters);
-    expect(courseQueries[0].filters).toContainEqual(["department", "Computer Science"]);
-    expect(courseQueries[1].range).toEqual([0, 23]);
-    expect(courseQueries[1].order).toEqual(["department", "code", "id"]);
+  it("loads the normal catalogue in one request including credit bounds and ratings", async () => {
+    const result = await getCourseCatalogue(parseCourseFilters({ q: "CMPS240", department: "Computer Science", creditsMin: "0", creditsMax: "3.5", page: "2" }));
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith("browse_course_catalogue", { p_query: "CMPS240", p_code_query: "CMPS 240", p_department: "Computer Science", p_page: 2, p_credits_min: 0, p_credits_max: 3.5 });
+    expect(mocks.from).not.toHaveBeenCalled();
+    expect(result.ratings?.get(id)).toEqual({ status: "insufficient", reviewCount: 0 });
   });
 
-  it("finds departments beyond the first thousand rows and deduplicates them", async () => {
-    const initial = respond;
-    respond = (call) => call.fields !== "department" ? initial(call) : {
-      data: call.range?.[0] === 0 ? Array.from({ length: 1000 }, () => ({ department: "Computer Science" })) : [{ department: "Zoology" }], error: null,
-    };
+  it("keeps every department from a large metadata response", async () => {
+    const data = bundled(); data.departments = Array.from({ length: 1001 }, (_, i) => `Department ${i}`);
+    mocks.bundle.mockResolvedValue({ data, error: null });
+    expect((await getCourseCatalogue(parseCourseFilters({}))).departments).toHaveLength(1001);
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves catalogue results when ratings cannot be loaded", async () => {
+    mocks.bundle.mockResolvedValue({ data: { ...bundled(), ratings: null }, error: null });
     const result = await getCourseCatalogue(parseCourseFilters({}));
-    expect(result.departments).toEqual(["Computer Science", "Zoology"]);
-    expect(calls.filter((call) => call.fields === "department").map((call) => call.range))
-      .toEqual([[0, 999], [1000, 1999]]);
+    expect(result.courses).toHaveLength(1);expect(result.ratings?.get(id)).toEqual({ status: "unavailable" });
   });
 
-  it("clamps a stale page to the last available page without skipping the remaining courses", async () => {
-    const initial = respond;
-    respond = (call) => call.head ? { data: null, count: 25, error: null } : initial(call);
-    expect(await getCourseCatalogue(parseCourseFilters({ page: "1000" }))).toMatchObject({ page: 2, pages: 2, total: 25 });
-    expect(calls.at(-1)?.range).toEqual([24, 47]);
+  it("rejects invalid catalogue payloads without inventing successful empty results", async () => {
+    mocks.bundle.mockResolvedValue({ data: { ...bundled(), total: -1 }, error: null });
+    await expect(getCourseCatalogue(parseCourseFilters({}))).rejects.toThrow("temporarily unavailable");
+    expect(mocks.logError).toHaveBeenCalledWith("courses.catalogue.read_failure", { code: "invalid_data" });
   });
 
-  it("handles an empty catalogue without requesting an invalid range", async () => {
-    respond = (call) => call.head ? { data: null, count: 0, error: null } : { data: [], error: null };
-    expect(await getCourseCatalogue(parseCourseFilters({}))).toEqual({ courses: [], departments: [], total: 0, page: 1, pages: 1 });
-    expect(calls).toHaveLength(2);
-  });
-
-  it("turns a thrown connection error into the same safe unavailable state", async () => {
-    mocks.from.mockImplementation(() => { throw new Error("private connection details"); });
-    await expect(getCourseCatalogue(parseCourseFilters({}))).rejects.toThrow("The course catalogue is temporarily unavailable.");
-    expect(mocks.logError).toHaveBeenCalledWith("courses.catalogue.read_failure", { code: "connection_failure" });
-  });
-
-  it.each(["department", "count", "rows"])("reports a %s failure without leaking database text", async (stage) => {
-    const initial = respond;
-    respond = (call) => (stage === "department" ? call.fields === "department"
-      : stage === "count" ? call.head : !call.head && call.fields !== "department")
-      ? { data: null, error: { code: "57014", message: "sensitive server details" } } : initial(call);
+  it("reports bundle errors without leaking database text", async () => {
+    mocks.bundle.mockResolvedValue({ data: null, error: { code: "57014", message: "Private server details" } });
     await expect(getCourseCatalogue(parseCourseFilters({}))).rejects.toThrow("The course catalogue is temporarily unavailable.");
     expect(mocks.logError).toHaveBeenCalledWith("courses.catalogue.read_failure", { code: "57014" });
+  });
+
+  it("uses the same safe unavailable state for transport errors", async () => {
+    mocks.bundle.mockRejectedValue(new Error("Private network details"));
+    await expect(getCourseCatalogue(parseCourseFilters({}))).rejects.toThrow("temporarily unavailable");
   });
 });

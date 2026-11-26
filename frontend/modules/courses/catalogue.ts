@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/modules/auth";
 import { log } from "@/modules/logging";
 import { COURSES_PER_PAGE, COURSE_RANGE_FILTERS, courseFilterError, courseSearchExpression, hasRatingFilters, type CourseFilters } from "./search";
+import { getImportedSemesters, type ImportedSemester } from "./semesters";
+import type { RatingSummary } from "@/modules/ratings/model";
+import { CatalogueBundleError, loadCatalogueBundle } from "./catalogue-bundle";
 
 export type Course = {
   id: string;
@@ -11,6 +14,8 @@ export type Course = {
   credits: number;
   description: string;
   department: string;
+  instructors?: string[];
+  attributes?: string[];
 };
 
 type Client = Awaited<ReturnType<typeof createClient>>;
@@ -29,18 +34,20 @@ function failed(error: { code?: string } | null): never {
 }
 
 async function loadDepartments(client: Client) {
-  const departments = new Set<string>();
-  // Supabase caps results at 1,000 rows. Page the narrow projection so later
-  // departments are not silently omitted from the selector.
+  // Deduplicate in Postgres under the caller's RLS, rather than downloading
+  // every course in sequential 1,000-row pages to build a small selector.
+  const departments: string[] = [];
   const batchSize = 1000;
   for (let offset = 0; ; offset += batchSize) {
-    const { data, error } = await client.from("courses").select("department")
-      .order("department").order("id").range(offset, offset + batchSize - 1);
+    const { data, error } = await client.rpc("list_course_departments")
+      .range(offset, offset + batchSize - 1);
     if (error || !data) failed(error);
-    for (const row of data) departments.add(row.department);
+    departments.push(...(data as { department: string }[]).map((row) => row.department));
+    // Usually one small response; still handle a future catalogue with more
+    // than PostgREST's row limit of distinct departments without truncation.
     if (data.length < batchSize) break;
   }
-  return [...departments].sort((a, b) => a.localeCompare(b));
+  return departments.sort((a, b) => a.localeCompare(b));
 }
 
 async function loadCourses(client: Client, filters: CourseFilters): Promise<CoursePage> {
@@ -49,9 +56,10 @@ async function loadCourses(client: Client, filters: CourseFilters): Promise<Cour
   function filtered(head = false) {
     // Rating predicates must apply before counting and pagination, not to only
     // the visible page. The view uses the caller's RLS and displayed averages.
-    let query = client.from(hasRatingFilters(filters) ? "course_filter_catalogue" : "courses").select(
-      "id,code,name,credits,description,department", { count: "exact", head },
+    let query = client.from(filters.semester ? "course_semester_catalogue" : hasRatingFilters(filters) ? "course_filter_catalogue" : "courses").select(
+      filters.semester ? "id,code,name,credits,description,department,instructors,attributes" : "id,code,name,credits,description,department", head ? { count: "exact", head: true } : undefined,
     );
+    if (filters.semester) query = query.eq("semester_id", filters.semester);
     if (filters.department) query = query.eq("department", filters.department);
     if (filters.query) query = query.or(courseSearchExpression(filters.query));
     for (const range of COURSE_RANGE_FILTERS) {
@@ -73,22 +81,28 @@ async function loadCourses(client: Client, filters: CourseFilters): Promise<Cour
   if (count === 0) return { courses: [] as Course[], total: 0, page, pages };
   const start = (page - 1) * COURSES_PER_PAGE;
   const result = await filtered().order("department").order("code").order("id")
-    .range(start, start + COURSES_PER_PAGE - 1);
+    .range(start, start + COURSES_PER_PAGE - 1).overrideTypes<Course[], { merge: false }>();
   if (result.error || !result.data) failed(result.error);
   return { courses: result.data as Course[], total: count, page, pages };
 }
 
-export async function getCourseCatalogue(filters: CourseFilters) {
+export async function getCourseCatalogue(filters: CourseFilters): Promise<CoursePage & {
+  departments: string[]; semesters: ImportedSemester[]; ratings?: Map<string, RatingSummary>;
+}> {
   // Guard the data entry point as well as the page, using the student's RLS
   // client. Catalogue browsing never needs a service-role key.
   await requireUser();
   try {
     const client = await createClient();
-    const [departments, result] = await Promise.all([
-      loadDepartments(client), loadCourses(client, filters),
+    if (!filters.semester && !hasRatingFilters(filters) && !courseFilterError(filters)) {
+      return await loadCatalogueBundle(client, filters);
+    }
+    const [departments, result, semesters] = await Promise.all([
+      loadDepartments(client), loadCourses(client, filters), getImportedSemesters(),
     ]);
-    return { ...result, departments };
+    return { ...result, departments, semesters };
   } catch (error) {
+    if (error instanceof CatalogueBundleError) failed({ code: error.code });
     if (error instanceof CatalogueUnavailable) throw error;
     // Transport/configuration failures get the same safe retry UI. Auth
     // redirects above are intentionally outside this catch.

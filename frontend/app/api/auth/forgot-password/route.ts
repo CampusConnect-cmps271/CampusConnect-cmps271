@@ -1,3 +1,4 @@
+import { trackApiRequest } from "@/modules/logging/api-metrics";
 import { NextResponse } from 'next/server'
 import { apiError, invalidJson, readJsonObject, validationError } from '@/lib/api'
 import { FORGOT_PASSWORD_MESSAGE, requestPasswordReset } from '@/lib/auth/password-reset'
@@ -8,7 +9,7 @@ import { hasErrors, validateForgotPassword } from '@/lib/validation'
  * Body: { email }
  * 200 -> { message } for every well-formed email, registered or not.
  */
-export async function POST(request: Request) {
+async function trackedPOST(request: Request) {
   const body = await readJsonObject(request)
   if (!body) return invalidJson()
 
@@ -20,3 +21,5 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ message: FORGOT_PASSWORD_MESSAGE })
 }
+
+export const POST = trackApiRequest("/api/auth/forgot-password", "POST", trackedPOST);

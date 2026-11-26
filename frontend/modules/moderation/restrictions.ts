@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 
-export type RestrictedContentType = "post" | "comment" | "review" | "announcement";
+export type RestrictedContentType = "post" | "comment" | "review" | "announcement" | "community";
 
 export type ContentRestrictionInput = {
   userId: string;
@@ -170,6 +170,20 @@ export async function checkContentRestrictions(
       .limit(MAX_POSTS_PER_WINDOW + 10);
     if (error) return blocked("check_unavailable");
     return evaluateContentRestrictions(input, (data ?? []) as RecentEntry[]);
+  }
+  if (input.contentType === "community") {
+    // A community's name and description (SCRUM-236), compared with the
+    // communities the student created recently.
+    const { data, error } = await supabase
+      .from("communities")
+      .select("id, title:name, body:description")
+      .eq("owner_id", input.userId)
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(MAX_COMMENTS_PER_WINDOW + 10);
+    if (error) return blocked("check_unavailable");
+    const recent = (data ?? []) as { id: string; title: string; body: string | null }[];
+    return evaluateContentRestrictions(input, recent.map((entry) => ({ ...entry, body: entry.body ?? "" })));
   }
   if (input.contentType === "review") {
     const { data, error } = await supabase

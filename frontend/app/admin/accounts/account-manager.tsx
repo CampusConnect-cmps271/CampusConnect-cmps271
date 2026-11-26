@@ -8,6 +8,9 @@ import {
 } from "@/modules/moderation/actions";
 import type { AppRole } from "@/lib/auth/roles";
 
+const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]";
+const FIELD = `min-h-11 rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-[var(--ink)] ${FOCUS}`;
+
 export type ManagedAccount = {
   user_id: string;
   email: string | null;
@@ -24,7 +27,7 @@ export default function AccountManager({ accounts }: { accounts: ManagedAccount[
   const [reason, setReason] = useState("");
   const [duration, setDuration] = useState("7d");
   const [pending, setPending] = useState(false);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<{ kind: "error" | "success"; text: string } | null>(null);
 
   const visible = useMemo(() => {
     const value = query.trim().toLowerCase();
@@ -35,14 +38,14 @@ export default function AccountManager({ accounts }: { accounts: ManagedAccount[
 
   async function suspend(account: ManagedAccount) {
     setPending(true);
-    setMessage("");
+    setMessage(null);
     const result = await suspendAccount({
       userId: account.user_id,
       reason,
       duration,
     });
     setPending(false);
-    setMessage(result.error ?? "Account suspended.");
+    setMessage({ kind: result.error ? "error" : "success", text: result.error ?? "Account suspended and audit entry recorded." });
     if (!result.error) {
       setReason("");
       setActiveId(null);
@@ -52,13 +55,13 @@ export default function AccountManager({ accounts }: { accounts: ManagedAccount[
 
   async function lift(account: ManagedAccount) {
     setPending(true);
-    setMessage("");
+    setMessage(null);
     const result = await liftAccountSuspension({
       userId: account.user_id,
       reason,
     });
     setPending(false);
-    setMessage(result.error ?? "Suspension lifted.");
+    setMessage({ kind: result.error ? "error" : "success", text: result.error ?? "Suspension lifted and audit entry recorded." });
     if (!result.error) {
       setReason("");
       setActiveId(null);
@@ -67,7 +70,7 @@ export default function AccountManager({ accounts }: { accounts: ManagedAccount[
   }
 
   return (
-    <section className="mt-6 space-y-4">
+    <section className="space-y-4">
       <label className="block text-sm font-semibold" htmlFor="account-search">
         Find account by university email
       </label>
@@ -75,17 +78,20 @@ export default function AccountManager({ accounts }: { accounts: ManagedAccount[
         id="account-search"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        className="w-full rounded-md border px-3 py-2 text-gray-900"
+        type="search"
+        placeholder="student@mail.aub.edu"
+        className={`w-full ${FIELD}`}
       />
-      {message ? <p role="status" className="text-sm">{message}</p> : null}
+      {message ? <p role={message.kind === "error" ? "alert" : "status"} className={`rounded-lg border px-4 py-3 text-sm ${message.kind === "error" ? "border-red-200 bg-red-50 text-[var(--danger)]" : "border-emerald-200 bg-emerald-50 text-[var(--success)]"}`}>{message.text}</p> : null}
 
       <div className="space-y-3">
+        {visible.length === 0 ? <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--maroon-50)] p-8 text-center"><h2 className="font-bold">No matching accounts</h2><p className="mt-2 text-sm text-[var(--ink-soft)]">Check the email spelling or clear the search field.</p></div> : null}
         {visible.map((account) => (
-          <article key={account.user_id} className="rounded-lg border p-4">
+          <article key={account.user_id} className="rounded-xl border border-[var(--border)] p-4">
             <div className="flex flex-wrap justify-between gap-3">
               <div>
                 <h2 className="font-semibold">{account.email ?? account.user_id}</h2>
-                <p className="text-xs opacity-70">{account.role.replaceAll("_", " ")}</p>
+                <p className="text-xs capitalize text-[var(--ink-soft)]">{account.role.replaceAll("_", " ")}</p>
               </div>
               <span className={`rounded-full px-3 py-1 text-xs font-semibold ${account.suspended ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>
                 {account.suspended ? "Suspended" : "Active"}
@@ -93,7 +99,7 @@ export default function AccountManager({ accounts }: { accounts: ManagedAccount[
             </div>
 
             {account.suspended ? (
-              <p className="mt-3 text-sm">
+              <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-[var(--ink)]">
                 {account.suspension_reason}
                 {account.suspended_until
                   ? ` · until ${new Date(account.suspended_until).toLocaleString()}`
@@ -110,7 +116,7 @@ export default function AccountManager({ accounts }: { accounts: ManagedAccount[
                     onChange={(event) => setReason(event.target.value)}
                     rows={2}
                     maxLength={500}
-                    className="mt-1 block w-full rounded-md border px-3 py-2 text-gray-900"
+                    className={`mt-1 block w-full ${FIELD}`}
                   />
                 </label>
 
@@ -120,7 +126,7 @@ export default function AccountManager({ accounts }: { accounts: ManagedAccount[
                     <select
                       value={duration}
                       onChange={(event) => setDuration(event.target.value)}
-                      className="ml-2 rounded-md border px-2 py-1 text-gray-900"
+                      className={`ml-2 ${FIELD}`}
                     >
                       <option value="1d">1 day</option>
                       <option value="7d">7 days</option>
@@ -134,11 +140,11 @@ export default function AccountManager({ accounts }: { accounts: ManagedAccount[
                     type="button"
                     disabled={pending || reason.trim().length < 3}
                     onClick={() => account.suspended ? lift(account) : suspend(account)}
-                    className="rounded-md bg-red-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                    className={`min-h-11 rounded-lg bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 ${FOCUS}`}
                   >
                     {pending ? "Saving…" : account.suspended ? "Lift suspension" : "Suspend account"}
                   </button>
-                  <button type="button" onClick={() => setActiveId(null)} className="rounded-md border px-3 py-2 text-sm">
+                  <button type="button" onClick={() => setActiveId(null)} className={`min-h-11 rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-semibold ${FOCUS}`}>
                     Cancel
                   </button>
                 </div>
@@ -150,7 +156,7 @@ export default function AccountManager({ accounts }: { accounts: ManagedAccount[
                   setActiveId(account.user_id);
                   setReason("");
                 }}
-                className="mt-4 rounded-md border px-3 py-2 text-sm font-semibold"
+                className={`mt-4 min-h-11 rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-semibold hover:bg-[var(--maroon-50)] ${FOCUS}`}
               >
                 {account.suspended ? "Review suspension" : "Suspend"}
               </button>

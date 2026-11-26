@@ -156,6 +156,17 @@ export function matchingPosts(params) {
 export async function handleCommunity(request, response, url) {
   const path = url.pathname;
 
+  if (path === "/rest/v1/rpc/get_campus_feed_page" && request.method === "POST") {
+    const body = await readBody(request);
+    const categories = ["General", "Questions", "Announcements", "Events"];
+    const selectedCategory = categories.includes(body.p_category) ? body.p_category : "";
+    const ranked = rankedFeed({ ...body, p_page_size: 20, p_category: selectedCategory || null });
+    return send(response, 200, {
+      categories, selectedCategory, hasMore: ranked.length > 20,
+      posts: ranked.slice(0, 20).map((post) => ({ ...post, comment_count: comments.filter((c) => c.post_id === post.id).length })),
+    }), true;
+  }
+
   if (path === "/test/community/reset") {
     for (const rows of Object.values(tables)) rows.length = 0;
     return send(response, 200, {}), true;
