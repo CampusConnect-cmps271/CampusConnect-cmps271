@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { LOGIN_PATH } from '@/modules/auth/navigation'
 import { PASSWORD_RULES } from '@/modules/auth/password'
 import {
@@ -44,6 +44,27 @@ export default function ForgotPasswordForm() {
   const [formError, setFormError] = useState('')
   const [notice, setNotice] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const formRef = useRef<HTMLFormElement>(null)
+  const previousStep = useRef<Step>('request')
+
+  // Each step replaces the previous form, so without this a keyboard or
+  // screen-reader user is left on an element that no longer exists.
+  useEffect(() => {
+    if (previousStep.current === step) return
+    previousStep.current = step
+    headingRef.current?.focus()
+  }, [step])
+
+  // After a failed submit, move focus to the first invalid field, or to the
+  // form-level alert, so the problem is announced and reachable.
+  useEffect(() => {
+    if (Object.keys(fieldErrors).length === 0 && !formError) return
+    const target =
+      formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]') ??
+      formRef.current?.querySelector<HTMLElement>('[role="alert"]')
+    target?.focus()
+  }, [fieldErrors, formError])
 
   async function sendCode(isResend = false) {
     setFormError('')
@@ -90,7 +111,7 @@ export default function ForgotPasswordForm() {
     return (
       <div className="auth-success" role="status">
         <div className="auth-success-icon" aria-hidden="true">✓</div>
-        <h1>Password updated</h1>
+        <h1 ref={headingRef} tabIndex={-1}>Password updated</h1>
         <p>{notice}</p>
         <Link href={LOGIN_PATH} className="btn btn-primary btn-block">Back to log in</Link>
         <Link href="/" className="btn btn-ghost btn-block auth-secondary">Go back home</Link>
@@ -101,25 +122,29 @@ export default function ForgotPasswordForm() {
   if (step === 'request') {
     return (
       <form
+        ref={formRef}
         noValidate
         onSubmit={(e) => {
           e.preventDefault()
           void sendCode()
         }}
       >
-        <h1>Forgot your password?</h1>
+        <h1 ref={headingRef} tabIndex={-1}>Forgot your password?</h1>
         <p className="auth-subtitle">
           Enter the email you use for CampusConnect and we&apos;ll send you a code to reset your password.
         </p>
 
-        {formError && <div className="alert alert-error" role="alert">{formError}</div>}
+        {formError && <div className="alert alert-error" role="alert" tabIndex={-1}>{formError}</div>}
 
         <div className="field">
           <label htmlFor="email">University email</label>
           <input
             id="email"
             type="email"
+            inputMode="email"
             autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
             placeholder="you@mail.aub.edu"
             value={email}
             disabled={submitting}
@@ -142,14 +167,14 @@ export default function ForgotPasswordForm() {
   }
 
   return (
-    <form noValidate onSubmit={submitReset}>
-      <h1>Reset your password</h1>
+    <form ref={formRef} noValidate onSubmit={submitReset}>
+      <h1 ref={headingRef} tabIndex={-1}>Reset your password</h1>
       <p className="auth-subtitle">
         Enter the code sent to <strong>{email}</strong> and choose a new password.
       </p>
 
       {notice && <div className="alert alert-info" role="status">{notice}</div>}
-      {formError && <div className="alert alert-error" role="alert">{formError}</div>}
+      {formError && <div className="alert alert-error" role="alert" tabIndex={-1}>{formError}</div>}
 
       <div className="field">
         <label htmlFor="code">Reset code</label>
@@ -178,7 +203,7 @@ export default function ForgotPasswordForm() {
           disabled={submitting}
           onChange={(e) => setNewPassword(e.target.value)}
           aria-invalid={!!fieldErrors.newPassword}
-          aria-describedby="password-rules"
+          aria-describedby={fieldErrors.newPassword ? 'new-password-error password-rules' : 'password-rules'}
         />
         <ul className="password-rules" id="password-rules">
           {/* The 72-character cap is enforced but not listed: it is met until it isn't. */}
@@ -188,7 +213,7 @@ export default function ForgotPasswordForm() {
             </li>
           ))}
         </ul>
-        {fieldErrors.newPassword && <p className="field-error">{fieldErrors.newPassword}</p>}
+        {fieldErrors.newPassword && <p className="field-error" id="new-password-error">{fieldErrors.newPassword}</p>}
       </div>
 
       <div className="field">
