@@ -5,7 +5,7 @@ const require=createRequire(new URL('../frontend/package.json',import.meta.url))
 const {createServerClient}=require('@supabase/ssr');
 const cfg=JSON.parse(process.env.SCRUM309_DIAGNOSTIC_ACCESS||'{}');
 const count=Number(process.env.DIAGNOSTIC_USERS||25);
-if(![5,25].includes(count)||cfg.url!=='https://udtdlctvckaaboycahuk.supabase.co'||typeof cfg.publishableKey!=='string'||!Array.isArray(cfg.accounts)||cfg.accounts.length<count)throw Error('Invalid diagnostic setup');
+if(![5,25,50].includes(count)||cfg.url!=='https://udtdlctvckaaboycahuk.supabase.co'||typeof cfg.publishableKey!=='string'||!Array.isArray(cfg.accounts)||cfg.accounts.length<count)throw Error('Invalid diagnostic setup');
 const selected=cfg.accounts.slice(0,count);
 if(new Set(selected.map(a=>a.email)).size!==count)throw Error('Expected distinct test accounts');
 const sessions=[];

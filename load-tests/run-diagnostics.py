@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Bounded, read-only, single-stage JMeter comparison; no automatic escalation."""
 import argparse,csv,datetime,json,math,os,pathlib,signal,subprocess,time,urllib.request,urllib.error
-p=argparse.ArgumentParser();p.add_argument('--users',type=int,choices=[5,25],default=25);p.add_argument('--sessions',type=pathlib.Path,required=True);p.add_argument('--jmeter',type=pathlib.Path,required=True);p.add_argument('--out',type=pathlib.Path,required=True);p.add_argument('--generator',default='local');p.add_argument('--expected-commit',required=True);a=p.parse_args()
-url='https://campus-connect-cmps271.vercel.app';sessions=json.loads(a.sessions.read_text())[:a.users];ramp=30 if a.users==25 else 5;hold=300
+p=argparse.ArgumentParser();p.add_argument('--users',type=int,choices=[5,25,50],default=25);p.add_argument('--sessions',type=pathlib.Path,required=True);p.add_argument('--jmeter',type=pathlib.Path,required=True);p.add_argument('--out',type=pathlib.Path,required=True);p.add_argument('--generator',default='local');p.add_argument('--expected-commit',required=True);a=p.parse_args()
+url='https://campus-connect-cmps271.vercel.app';sessions=json.loads(a.sessions.read_text())[:a.users];ramp={5:5,25:30,50:60}[a.users];hold=300
 if len(sessions)!=a.users or len({s['userId'] for s in sessions})!=a.users:raise SystemExit('Need separate confirmed student sessions')
 if min(s['expiresAt'] for s in sessions)<time.time()+ramp+hold+120:raise SystemExit('Sessions will expire; refresh setup')
 if not a.jmeter.is_file() or len(a.expected_commit)!=40 or any(c not in '0123456789abcdef' for c in a.expected_commit):raise SystemExit('Invalid JMeter path or expected commit')

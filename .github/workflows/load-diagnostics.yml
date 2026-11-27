@@ -5,7 +5,7 @@ on:
       users:
         description: Synthetic browsing clients (one bounded stage)
         type: choice
-        options: ['5', '25']
+        options: ['5', '25', '50']
         default: '25'
 permissions:
   contents: read
