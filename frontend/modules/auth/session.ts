@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { PATHNAME_HEADER } from "@/lib/headers";
 import { createClient } from "@/lib/supabase/server";
+import { readLiveSessionContext } from "./live-context";
 import { loginPathFor, verifyEmailPathFor } from "./navigation";
 
 export type CurrentUser = {
@@ -49,12 +50,20 @@ async function readProfileName(
 /**
  * Returns the verified current user, or null when signed out.
  *
- * Uses `getUser()` to read the current confirmation state from Auth rather
- * than trusting editable metadata or stale cookie/JWT user data. Memoised
- * with React `cache` so a layout and its page share one lookup per request.
+ * Validates the signed token and reads live account/session state and the
+ * display name in one RPC. Memoised with React cache within a request only.
+ * The explicit rollback flag retains the previous Auth-service path.
  */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const supabase = await createClient();
+  if (process.env.AUTH_LIVE_CONTEXT_ENABLED !== "false") {
+    const context = await readLiveSessionContext(supabase);
+    if (!context) return null;
+    if (!context.confirmed) redirect(verifyEmailPathFor(context.email));
+    const name = [context.profile_name, context.metadata_full_name, context.metadata_name]
+      .map((value) => value?.trim()).find((value) => value);
+    return { id: context.id, email: context.email, name: name ?? context.email?.split("@")[0] ?? "student" };
+  }
   const { data: { user }, error } = await supabase.auth.getUser();
 
   if (error || !user) return null;
