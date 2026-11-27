@@ -61,6 +61,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - run: npx playwright test --config playwright.course-cache.config.ts
+      - run: npx playwright test --config playwright.auth-context.config.ts
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:

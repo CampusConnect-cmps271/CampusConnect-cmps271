@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ getUser: vi.fn(), from: vi.fn(), rpc: vi.fn() }));
 vi.mock("server-only", () => ({}));
@@ -10,7 +10,9 @@ import { getCurrentUser } from "./session";
 import { getCurrentUserAndRole } from "@/lib/auth/server";
 import { PATCH } from "@/app/api/admin/roles/route";
 
-beforeEach(() => { vi.clearAllMocks(); });
+beforeEach(() => { vi.clearAllMocks(); vi.stubEnv("AUTH_LIVE_CONTEXT_ENABLED", "false"); });
+
+afterEach(() => vi.unstubAllEnvs());
 
 describe("server-side email confirmation", () => {
   it("does not trust an unconfirmed user's editable metadata", async () => {

@@ -1,3 +1,4 @@
+import { signedSession, handleLiveContext } from "./mock-live-context.mjs";
 import { createServer } from "node:http";
 import { handleCommunity, matchingPosts } from "./mock-community.mjs";
 import { handleMessaging, unreadConversationCount } from "./mock-messaging.mjs";
@@ -23,6 +24,7 @@ const user = {
 // SP2-60: accounts of their own for the profile tests, so profile edits never
 // leak into the login and verification fixtures that share student@'s id.
 const profileAccounts = {
+  ...Object.fromEntries(Array.from({length:10},(_,i)=>[`auth-context-${i}@mail.aub.edu`, `00000000-0000-4000-8000-${String(800+i).padStart(12,"0")}`])),
   ...electiveAccounts,
   "profile-editor@mail.aub.edu": "00000000-0000-4000-8000-000000000003",
   "profile-viewer@mail.aub.edu": "00000000-0000-4000-8000-000000000005",
@@ -135,7 +137,7 @@ function sessionFor(email, confirmed) {
   const id = confirmed ? (profileAccounts[email] ?? user.id) : "00000000-0000-4000-8000-000000000002";
   const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const access_token = `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ sub: id, aud: "authenticated", role: "authenticated", email, exp: Math.floor(Date.now() / 1000) + 3600 })}.test-signature`;
-  return { access_token, refresh_token: "test-refresh-token", expires_in: 3600, token_type: "bearer", user: { ...user, id, email, email_confirmed_at: confirmed ? user.email_confirmed_at : null } };
+  return signedSession({ access_token, refresh_token: "test-refresh-token", expires_in: 3600, token_type: "bearer", user: { ...user, id, email, email_confirmed_at: confirmed ? user.email_confirmed_at : null } });
 }
 
 createServer(async (request, response) => {
@@ -143,6 +145,7 @@ createServer(async (request, response) => {
   const path = url.pathname;
   response.setHeader("Content-Type", "application/json");
   response.setHeader("x-supabase-api-version", "2024-01-01");
+  if (await handleLiveContext(request, response, url, profiles)) return;
   if (path === "/health") return response.end("{}");
   if (path === "/test/role-lookups") return response.end(JSON.stringify({ roleLookups }));
   if (path === "/test/resends") return response.end(JSON.stringify({ resends }));
