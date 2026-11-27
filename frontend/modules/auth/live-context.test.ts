@@ -5,7 +5,7 @@ vi.mock("@/lib/supabase/server",()=>({createClient:async()=>({auth:m,rpc:m.rpc,f
 vi.mock("@/modules/logging",()=>({log:{warn:m.warn}}));
 vi.mock("next/navigation",()=>({redirect:(path:string):never=>{throw new Error(`REDIRECT:${path}`);}}));
 vi.mock("next/headers",()=>({headers:async()=>new Headers()}));
-import { getCurrentUser } from "./session";
+import { getCurrentUser, getCurrentUserHeaderCounts } from "./session";
 const a="00000000-0000-4000-8000-000000000001", b="00000000-0000-4000-8000-000000000002";
 const claims=()=>({sub:a,session_id:b,role:"authenticated",aud:"authenticated",iss:"http://127.0.0.1:3101/auth/v1",exp:Math.floor(Date.now()/1000)+3600});
 const context=()=>({id:a,email:"one@example.test",confirmed:true,profile_name:" Profile One ",metadata_full_name:"Registration",metadata_name:null});
@@ -48,4 +48,22 @@ describe("verified live session context",()=>{
     m.rpc.mockResolvedValue({data:{...context(),id:b,profile_name:"Another Student"},error:null});
     expect(await getCurrentUser()).toEqual({id:b,email:"one@example.test",name:"Another Student"});expect(m.rpc).toHaveBeenCalledTimes(2);
   });
+});
+
+it("reads only verified live header counts and tolerates old/malformed optional data",async()=>{
+  for(const header_counts of [undefined,null,{messages:-1,notifications:0},{messages:0,notifications:"2"}]){
+    m.rpc.mockResolvedValueOnce({data:{...context(),header_counts},error:null});
+    expect(await getCurrentUserHeaderCounts()).toBeNull();
+  }
+  m.rpc.mockResolvedValueOnce({data:{...context(),header_counts:{messages:0,notifications:3}},error:null});
+  expect(await getCurrentUserHeaderCounts()).toEqual({messages:0,notifications:3});
+});
+it("does not expose bundled counts from unconfirmed or revoked identities",async()=>{
+  m.rpc.mockResolvedValueOnce({data:{...context(),confirmed:false,header_counts:{messages:9,notifications:9}},error:null});
+  expect(await getCurrentUserHeaderCounts()).toBeNull();
+  m.rpc.mockResolvedValueOnce({data:null,error:null});expect(await getCurrentUserHeaderCounts()).toBeNull();
+});
+it("does not read the new context when the legacy Auth rollback is enabled",async()=>{
+  vi.stubEnv("AUTH_LIVE_CONTEXT_ENABLED","false");expect(await getCurrentUserHeaderCounts()).toBeNull();
+  expect(m.getClaims).not.toHaveBeenCalled();expect(m.rpc).not.toHaveBeenCalled();
 });

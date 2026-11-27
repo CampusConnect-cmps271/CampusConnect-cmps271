@@ -19,6 +19,7 @@ test('real signed-token verification uses a single live context per page and no 
   const after=await counts(page);
   expect(after.user).toBe(before.user);
   expect(after.context-before.context).toBe(1);
+  expect(after.header).toBe(before.header);
   expect(after.jwks).toBeGreaterThan(0);
   await change(page,0,{profileName:'Live Changed Name'});
   await page.goto('/home');
@@ -54,4 +55,20 @@ test('tampered signature cannot read context or enter a protected page',async({p
   await context.addCookies([{...cookie!,value:'base64-'+Buffer.from(JSON.stringify(session)).toString('base64url')}]);
   const before=await counts(page);await page.goto('/courses');await expect(page).toHaveURL(/\/login\?/);
   expect((await counts(page)).context).toBe(before.context);
+});
+
+test('events reuse the same live session and bundled header without Auth-user calls',async({page})=>{
+  await login(page,9);const before=await counts(page);
+  await page.goto('/events');await expect(page.getByRole('heading',{name:'Campus Events',exact:true})).toBeVisible();
+  await expect(page.getByText('Could not load events.',{exact:true})).toHaveCount(0);
+  const after=await counts(page);
+  expect(after.context-before.context).toBe(1);expect(after.header).toBe(before.header);expect(after.user).toBe(before.user);expect(after.events-before.events).toBe(2);
+});
+test('old or malformed bundled counts fall back without rejecting the live session',async({page})=>{
+  await login(page,9);
+  for(const countsMode of ['missing','invalid']){
+    await change(page,9,{countsMode});const before=await counts(page);
+    await page.goto('/courses');await expect(page.getByRole('heading',{name:'Course catalogue',exact:true})).toBeVisible();
+    const after=await counts(page);expect(after.header-before.header).toBe(1);expect(after.context-before.context).toBe(1);
+  }
 });

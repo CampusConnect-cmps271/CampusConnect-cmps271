@@ -1,7 +1,7 @@
 import {beforeEach,expect,it,vi} from 'vitest';
-const m=vi.hoisted(()=>({requireUser:vi.fn(),rpc:vi.fn(),error:vi.fn()}));
+const m=vi.hoisted(()=>({requireUser:vi.fn(),bundled:vi.fn(),rpc:vi.fn(),error:vi.fn()}));
 vi.mock('server-only',()=>({}));
-vi.mock('@/modules/auth',()=>({requireUser:m.requireUser}));
+vi.mock('@/modules/auth',()=>({requireUser:m.requireUser,getCurrentUserHeaderCounts:m.bundled}));
 vi.mock('@/lib/supabase/server',()=>({createClient:async()=>({rpc:m.rpc})}));
 vi.mock('@/modules/logging',()=>({log:{error:m.error}}));
 import {getHeaderCounts} from './counts';
@@ -10,3 +10,5 @@ it('fetches both counters in one caller-scoped RPC',async()=>{expect(await getHe
 it('keeps unknown counts unknown on failure',async()=>{m.rpc.mockResolvedValue({data:null,error:{code:'57014'}});expect(await getHeaderCounts()).toEqual({messages:null,notifications:null});});
 it('rejects malformed counters',async()=>{m.rpc.mockResolvedValue({data:{messages:-1,notifications:0},error:null});expect(await getHeaderCounts()).toEqual({messages:null,notifications:null});});
 it('does not hide an authentication redirect',async()=>{m.requireUser.mockRejectedValue(new Error('redirect'));await expect(getHeaderCounts()).rejects.toThrow('redirect');expect(m.rpc).not.toHaveBeenCalled();});
+
+it("uses verified bundled counts without another database request",async()=>{m.bundled.mockResolvedValue({messages:7,notifications:0});expect(await getHeaderCounts()).toEqual({messages:7,notifications:0});expect(m.rpc).not.toHaveBeenCalled();});

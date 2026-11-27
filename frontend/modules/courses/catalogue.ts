@@ -94,10 +94,12 @@ export async function getCourseCatalogue(filters: CourseFilters): Promise<Course
   // client. Catalogue browsing never needs a service-role key.
   await requireUser();
   try {
-    const client = await createClient();
     if (!filters.semester && !hasRatingFilters(filters) && !courseFilterError(filters)) {
-      return await loadSharedCatalogueBundle(filters) ?? await loadCatalogueBundle(client, filters);
+      const shared = await loadSharedCatalogueBundle(filters);
+      if (shared) return shared;
+      return await loadCatalogueBundle(await createClient(), filters);
     }
+    const client = await createClient();
     const [departments, result, semesters] = await Promise.all([
       loadDepartments(client), loadCourses(client, filters), getImportedSemesters(),
     ]);

@@ -1,6 +1,7 @@
 
 import "server-only";
 
+import { getCurrentUser } from "@/modules/auth";
 import { createEventServerClient } from "./server";
 
 export const EVENT_PAGE_SIZE = 20;
@@ -151,12 +152,9 @@ export async function listPublishedEvents(
   const checked = validateFilters(filters);
   const supabase = await createEventServerClient();
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
-  if (authError || !user) {
+  if (!user) {
     throw new Error(
       "You must be signed in to browse events.",
     );
@@ -212,12 +210,9 @@ export async function listPublishedEventCategories(): Promise<
 > {
   const supabase = await createEventServerClient();
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
-  if (authError || !user) {
+  if (!user) {
     throw new Error(
       "You must be signed in to browse event categories.",
     );

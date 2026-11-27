@@ -1,21 +1,19 @@
 import "server-only";
-import { z } from "zod";
-import { requireUser } from "@/modules/auth";
+import { headerCountsSchema } from "@/lib/header-counts";
+import { getCurrentUserHeaderCounts, requireUser } from "@/modules/auth";
 import { createClient } from "@/lib/supabase/server";
 import { log } from "@/modules/logging";
-
-const countsSchema = z.object({
-  messages: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-  notifications: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-});
 
 /** Private counters stay request-scoped; neither result nor identity is cached. */
 export async function getHeaderCounts(): Promise<{ messages: number | null; notifications: number | null }> {
   await requireUser();
   try {
+    const bundled = await getCurrentUserHeaderCounts();
+    if (bundled) return bundled;
+    // Compatibility with the prior migration and the explicit Auth rollback.
     const client = await createClient();
     const { data, error } = await client.rpc("get_my_header_counts");
-    const result = countsSchema.safeParse(data);
+    const result = headerCountsSchema.safeParse(data);
     if (error || !result.success) throw new Error("unavailable");
     return result.data;
   } catch {

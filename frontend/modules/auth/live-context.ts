@@ -1,6 +1,8 @@
 import "server-only";
 import { z } from "zod";
-import type { createClient } from "@/lib/supabase/server";
+import { cache } from "react";
+import { headerCountsSchema } from "@/lib/header-counts";
+import { createClient } from "@/lib/supabase/server";
 import { log } from "@/modules/logging";
 
 const claimsSchema = z.object({
@@ -10,6 +12,7 @@ const claimsSchema = z.object({
   iss: z.string(), exp: z.number().int().positive(),
 });
 const contextSchema = z.object({
+  header_counts: z.unknown().optional(),
   id: z.uuid(), email: z.string().nullable(), confirmed: z.boolean(),
   profile_name: z.string().nullable(), metadata_full_name: z.string().nullable(), metadata_name: z.string().nullable(),
 });
@@ -40,10 +43,18 @@ export async function readLiveSessionContext(client: Awaited<ReturnType<typeof c
       }
       return null;
     }
-    return parsed.data;
+    // Optional display data must not invalidate a verified identity. Older
+    // migrations omit it; bad/unavailable counts use the existing caller RPC.
+    const counts = headerCountsSchema.safeParse(parsed.data.header_counts);
+    return { ...parsed.data, header_counts: counts.success ? counts.data : null };
   } catch {
     // A failed identity check must not grant access. Cookies remain available
     // for the normal proxy refresh flow; this never signs another user in.
     return null;
   }
 }
+
+/** Shares verified live state only within the current React render/request. */
+export const readCurrentLiveSessionContext = cache(async () =>
+  readLiveSessionContext(await createClient()),
+);
