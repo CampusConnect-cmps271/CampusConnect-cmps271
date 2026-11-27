@@ -23,7 +23,6 @@ jobs:
     timeout-minutes: 15
     env:
       DIAGNOSTIC_USERS: ${{ inputs.users || '25' }}
-      DIAGNOSTIC_PRIVATE_DIR: ${{ runner.temp }}/scrum309-private
     steps:
       - uses: actions/checkout@v7
         with:
@@ -60,6 +59,8 @@ jobs:
           with tarfile.open(archive) as tf:tf.extractall(target,filter='data')
           PY
           echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+      - name: Set private session directory
+        run: echo "DIAGNOSTIC_PRIVATE_DIR=$RUNNER_TEMP/scrum309-private" >> "$GITHUB_ENV"
       - name: Prepare private test sessions
         env:
           SCRUM309_DIAGNOSTIC_ACCESS: ${{ secrets.SCRUM309_DIAGNOSTIC_ACCESS }}
