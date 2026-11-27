@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { PATHNAME_HEADER } from "@/lib/headers";
 import { createClient } from "@/lib/supabase/server";
-import { readLiveSessionContext } from "./live-context";
+import { readCurrentLiveSessionContext } from "./live-context";
 import { loginPathFor, verifyEmailPathFor } from "./navigation";
 
 export type CurrentUser = {
@@ -55,15 +55,15 @@ async function readProfileName(
  * The explicit rollback flag retains the previous Auth-service path.
  */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
-  const supabase = await createClient();
   if (process.env.AUTH_LIVE_CONTEXT_ENABLED !== "false") {
-    const context = await readLiveSessionContext(supabase);
+    const context = await readCurrentLiveSessionContext();
     if (!context) return null;
     if (!context.confirmed) redirect(verifyEmailPathFor(context.email));
     const name = [context.profile_name, context.metadata_full_name, context.metadata_name]
       .map((value) => value?.trim()).find((value) => value);
     return { id: context.id, email: context.email, name: name ?? context.email?.split("@")[0] ?? "student" };
   }
+  const supabase = await createClient();
   const { data: { user }, error } = await supabase.auth.getUser();
 
   if (error || !user) return null;
@@ -99,4 +99,11 @@ export async function requireUser(): Promise<CurrentUser> {
 
   const requestHeaders = await headers();
   redirect(loginPathFor(requestHeaders.get(PATHNAME_HEADER)));
+}
+
+/** Live, caller-only display counts; never cached across incoming requests. */
+export async function getCurrentUserHeaderCounts() {
+  if (process.env.AUTH_LIVE_CONTEXT_ENABLED === "false") return null;
+  const context = await readCurrentLiveSessionContext();
+  return context?.confirmed ? context.header_counts : null;
 }

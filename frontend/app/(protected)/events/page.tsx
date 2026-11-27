@@ -1,5 +1,6 @@
 
 import Link from "next/link";
+import { requireUser } from "@/modules/auth";
 
 import {
   listPublishedEvents,
@@ -139,6 +140,8 @@ function EventCard({ event }: { event: EventSummary }) {
 export default async function EventsPage({
   searchParams,
 }: PageProps) {
+  // Redirect outside the optional discovery error UI.
+  await requireUser();
   const search = await searchParams;
 
   const category = getValue(search.category).trim();

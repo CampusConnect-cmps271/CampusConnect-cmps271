@@ -55,7 +55,7 @@ export {
   type RegisterInput,
 } from "./schema";
 
-export { getCurrentUser, requireUser, type CurrentUser } from "./session";
+export { getCurrentUser, getCurrentUserHeaderCounts, requireUser, type CurrentUser } from "./session";
 
 export { AuthButtons } from "./components/AuthButtons";
 export { LoginForm } from "./components/LoginForm";

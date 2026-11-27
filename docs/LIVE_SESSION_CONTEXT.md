@@ -55,3 +55,24 @@ After deployment, rerun the same guarded 50-user warm workload before progressin
 to 100 and 200. Compare errors, p95, p99 and gateway upstream timings. Reducing
 Auth/profile network calls does not establish a concurrency limit or prove that
 memory, pool waits or infrastructure stalls are resolved.
+
+## Bundled private navigation counts
+
+`20261127160454_bundle_navigation_context.sql` extends the existing public invoker
+RPC with optional own unread-message and notification counts. The original
+private live-identity helper is unchanged. Counts are read only after confirmed
+live identity and under caller RLS. Count-read failure returns null without
+changing the identity decision. The frontend shares the verified context within
+the current React render only; it never places unread counts in a shared cache.
+
+The header reuses this context instead of sending another PostgREST request.
+Older migrations, missing or malformed optional counts, and the explicit Auth
+rollback keep the existing count-RPC fallback. A rejected identity still cannot
+render a protected page. Event discovery reuses the same live verified identity
+instead of independently calling Auth `/user`; its page guard runs outside the
+optional event-data error UI. Mutation/admin Auth checks are unchanged.
+
+The shared course-cache hit path also avoids constructing an unused caller
+Supabase client. The course data, filters, ratings and review invalidation
+semantics are unchanged. These changes reduce HTTP overhead; they do not prove
+200-user capacity until deployed and retested.

@@ -26,6 +26,22 @@ before(async () => {
     insert into auth.sessions values('${sid}','${a}',null),('${otherSid}','${b}',null);
     insert into public.profiles values('${a}','Profile One'),('${b}','Profile Two');`);
   await db.exec(await readFile(new URL('../../supabase/migrations/20261127145452_live_session_context.sql',import.meta.url),'utf8'));
+  await db.exec(`create table public.test_messages(user_id uuid,n integer);
+    insert into public.test_messages values('${a}',2),('${b}',5);
+    alter table public.test_messages enable row level security;
+    create policy own_messages on public.test_messages for select to authenticated using(user_id=(select auth.uid()));
+    grant select on public.test_messages to authenticated;
+    create function public.count_my_unread_conversations() returns integer language sql stable security invoker set search_path='' as $$select n from public.test_messages where user_id=(select auth.uid())$$;
+    revoke all on function public.count_my_unread_conversations() from public,anon;grant execute on function public.count_my_unread_conversations() to authenticated;
+    create table public.notifications(recipient_id uuid,read_at timestamptz);
+    insert into public.notifications values('${a}',null),('${b}',null),('${b}',null);
+    alter table public.notifications enable row level security;
+    create policy own_notifications on public.notifications for select to authenticated using(recipient_id=(select auth.uid()));
+    grant select on public.notifications to authenticated;`);
+  const batch=await readFile(new URL('../../supabase/migrations/20261125164302_batch_browsing_reads.sql',import.meta.url),'utf8');
+  await db.exec(batch.slice(0,batch.indexOf('create function public.browse_course_catalogue('))+'commit;');
+  await db.exec(await readFile(new URL('../../supabase/migrations/20261127160454_bundle_navigation_context.sql',import.meta.url),'utf8'));
+
 });
 after(async () => db?.close());
 async function read(overrides={}) {
@@ -40,7 +56,7 @@ async function changed(sql, check) {
   finally { await db.exec('reset role;rollback'); }
 }
 it('returns only the live caller and caller-visible profile, without sensitive Auth fields', async () => {
-  assert.deepEqual(await read(), {id:a,email:'one@example.test',confirmed:true,profile_name:'Profile One',metadata_full_name:'Registered One',metadata_name:null});
+  assert.deepEqual(await read(), {id:a,email:'one@example.test',confirmed:true,profile_name:'Profile One',metadata_full_name:'Registered One',metadata_name:null,header_counts:{messages:2,notifications:1}});
   assert.equal((await read({sub:b,session_id:otherSid})).profile_name,'Profile Two');
   assert.equal(await read({session_id:otherSid}),null);
 });
@@ -77,7 +93,7 @@ it('rejects banned, deleted and anonymous users from live state', async () => {
 });
 it('uses live confirmation rather than editable metadata and skips the profile for unconfirmed users', async () => {
   await changed(`update auth.users set email_confirmed_at=null where id='${a}'`,async()=>{
-    const r=await read(); assert.equal(r.confirmed,false); assert.equal(r.profile_name,null);
+    const r=await read(); assert.equal(r.confirmed,false); assert.equal(r.profile_name,null); assert.equal(r.header_counts,null);
   });
 });
 it('preserves profile RLS and handles optional missing or unreadable names',async()=>{
@@ -90,4 +106,18 @@ it('returns only string metadata names and sees live email changes',async()=>{
   await changed(`update auth.users set email='changed@example.test',raw_user_meta_data='{"full_name":123,"name":"Current Name"}' where id='${a}'`,async()=>{
     const r=await read();assert.equal(r.email,'changed@example.test');assert.equal(r.metadata_full_name,null);assert.equal(r.metadata_name,'Current Name');
   });
+});
+
+it('bundles only the current caller counts and preserves count-table RLS',async()=>{
+  assert.deepEqual((await read()).header_counts,{messages:2,notifications:1});
+  assert.deepEqual((await read({sub:b,session_id:otherSid})).header_counts,{messages:5,notifications:2});
+  await changed('drop policy own_notifications on public.notifications',async()=>assert.equal((await read()).header_counts.notifications,0));
+});
+it('count permission failure preserves identity but returns unknown counts',async()=>{
+  await changed('revoke execute on function public.get_my_header_counts() from authenticated',async()=>{
+    const r=await read();assert.equal(r.id,a);assert.equal(r.confirmed,true);assert.equal(r.header_counts,null);
+  });
+});
+it('reads changed counts in the next call without a new access token',async()=>{
+  await changed(`update public.test_messages set n=8 where user_id='${a}';insert into public.notifications values('${a}',null)`,async()=>assert.deepEqual((await read()).header_counts,{messages:8,notifications:2}));
 });

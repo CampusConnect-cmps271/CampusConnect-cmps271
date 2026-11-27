@@ -1,11 +1,13 @@
 // Test-only asymmetric issuer. The application uses the real Supabase SDK's
 // signature verification; no app auth methods are stubbed by browser tests.
+import { unreadConversationCount } from './mock-messaging.mjs';
+import { unreadNotificationCount } from './mock-notifications.mjs';
 import { generateKeyPairSync, randomUUID, sign, verify } from 'node:crypto';
 const enabled = process.env.AUTH_TEST_ASYMMETRIC === 'true';
 const { privateKey, publicKey } = generateKeyPairSync('ec',{namedCurve:'prime256v1'});
 const jwk = {...publicKey.export({format:'jwk'}),kid:'local-auth-context-test',alg:'ES256',use:'sig'};
 const users = new Map(), sessions = new Map();
-const counts = {user:0,context:0,jwks:0};
+const counts = {user:0,context:0,jwks:0,header:0,events:0};
 const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
 export function signedSession(session) {
   if (!enabled) return session;
@@ -34,13 +36,19 @@ export async function handleLiveContext(request,response,url,profiles) {
     let raw='';for await(const part of request)raw+=part;
     const {email,patch}=JSON.parse(raw),user=[...users.values()].find(u=>u.email===email);
     if(!user){response.statusCode=404;response.end('{}');return true;}
-    for(const k of ['confirmed','banned','deleted'])if(k in patch)user[k]=patch[k];
+    for(const k of ['confirmed','banned','deleted','countsMode'])if(k in patch)user[k]=patch[k];
     if('profileName' in patch)profiles.set(user.id,{id:user.id,full_name:patch.profileName});
     for(const [sid,s] of sessions)if(s.id===user.id){
       if(patch.revoked)sessions.delete(sid);
       if(patch.expired)s.notAfter=Date.now()-1000;
     }
     response.end('{}');return true;
+  }
+  if(path==='/rest/v1/rpc/get_my_header_counts') counts.header++;
+  if(path==='/rest/v1/rpc/list_published_events'||path==='/rest/v1/rpc/list_published_event_categories'){
+    counts.events++;
+    if(!verified(request)){response.statusCode=401;response.end('{}');return true;}
+    response.end('[]');return true;
   }
   if(path==='/auth/v1/user' && request.method==='GET'){
     counts.user++;
@@ -51,7 +59,7 @@ export async function handleLiveContext(request,response,url,profiles) {
     const claims=verified(request),user=users.get(claims?.sub),session=sessions.get(claims?.session_id);
     if(!claims){response.statusCode=401;response.end('{}');return true;}
     if(!user||!session||session.id!==user.id||user.banned||user.deleted||(session.notAfter&&session.notAfter<=Date.now())){response.end('null');return true;}
-    response.end(JSON.stringify({id:user.id,email:user.email,confirmed:user.confirmed,profile_name:user.confirmed?(profiles.get(user.id)?.full_name??user.email.split('@')[0]):null,metadata_full_name:null,metadata_name:null}));
+    response.end(JSON.stringify({id:user.id,email:user.email,confirmed:user.confirmed,header_counts:!user.confirmed||user.countsMode==='missing'?undefined:user.countsMode==='invalid'?{messages:-1,notifications:0}:{messages:unreadConversationCount(user.id),notifications:unreadNotificationCount(user.id)},profile_name:user.confirmed?(profiles.get(user.id)?.full_name??user.email.split('@')[0]):null,metadata_full_name:null,metadata_name:null}));
     return true;
   }
   return false;
