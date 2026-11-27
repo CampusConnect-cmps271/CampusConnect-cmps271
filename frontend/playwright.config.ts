@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
+  testIgnore: "**/catalogue-cache.spec.ts",
   forbidOnly: Boolean(process.env.CI),
   workers: 2,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
@@ -29,6 +30,9 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:3101",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_only",
       SUPABASE_SECRET_KEY: "sb_secret_test_only",
+      // Per-account failure fixtures exercise the caller path. The dedicated
+      // catalogue cache suite tests actual cross-request caching separately.
+      COURSE_CATALOGUE_CACHE_ENABLED: "false",
       // Browser fixtures must never contact the real shared cache.
       UPSTASH_REDIS_REST_URL: "",
       UPSTASH_REDIS_REST_TOKEN: "",

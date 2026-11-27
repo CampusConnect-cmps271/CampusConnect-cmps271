@@ -1,5 +1,6 @@
 "use server";
 
+import { invalidateSharedCourseCatalogue } from "@/modules/courses/catalogue-cache";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/server";
 import { createClient } from "@/lib/supabase/server";
@@ -80,6 +81,7 @@ export async function moderateReportedContent(
   }
 
   revalidatePath("/moderation");
+  if (parsed.data.targetType === "review") invalidateSharedCourseCatalogue();
   revalidatePath("/home");
   revalidatePath("/posts/[id]", "page");
   revalidatePath("/courses/[code]", "page");

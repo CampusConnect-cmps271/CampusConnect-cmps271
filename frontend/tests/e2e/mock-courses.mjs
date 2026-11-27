@@ -13,6 +13,9 @@ export const courses = [
   { code: "MATH 202", name: "Differential Equations", credits: 3, department: "Mathematics", description: "Ordinary differential equations and modelling." },
 ].map((course, index) => ({ prerequisites: "", ...course, id: `10000000-0000-4000-8000-${String(index).padStart(12, "0")}` }));
 
+let sharedCatalogueCalls = 0;
+let callerCatalogueCalls = 0;
+
 function like(pattern, text) {
   let regex = "";
   for (let index = 0; index < pattern.length; index++) {
@@ -27,18 +30,27 @@ function like(pattern, text) {
 }
 
 export async function handleCourses(request, response, url, email) {
+  if (url.pathname === "/test/courses/shared-cache-calls") {
+    response.end(JSON.stringify({ calls: sharedCatalogueCalls, callerCalls: callerCatalogueCalls })); return true;
+  }
+  const shared = url.pathname === "/rest/v1/rpc/read_shared_course_catalogue";
+  if (shared) sharedCatalogueCalls++;
+  if (url.pathname === "/rest/v1/rpc/browse_course_catalogue") callerCatalogueCalls++;
   const semesterFilter = url.pathname === "/rest/v1/course_semester_catalogue";
   const semesterList = url.pathname === "/rest/v1/resis_semesters";
   const ratingFilter = url.pathname === "/rest/v1/course_filter_catalogue" || semesterFilter;
   const departments = url.pathname === "/rest/v1/rpc/list_course_departments";
-  const bundle = url.pathname === "/rest/v1/rpc/browse_course_catalogue";
+  const bundle = shared || url.pathname === "/rest/v1/rpc/browse_course_catalogue";
   if (url.pathname !== "/rest/v1/courses" && !ratingFilter && !semesterList && !departments && !bundle) return false;
   if (ratingFilter && email === "filters-unavailable@mail.aub.edu") {
     response.statusCode = 404;
     response.end(JSON.stringify({ code: "PGRST205", message: "Synthetic private filter-view failure" }));
     return true;
   }
-  if (!email || email === "courses-unavailable@mail.aub.edu") {
+  // The shared source accepts only the synthetic server key, like its
+  // service_role-only database grant; it has no student's email claim.
+  if ((shared && request.headers.apikey !== "sb_secret_test_only") ||
+      (!shared && (!email || email === "courses-unavailable@mail.aub.edu"))) {
     response.statusCode = 403;
     response.end(JSON.stringify({ code: "42501", message: "Synthetic database failure details must never reach the page" }));
     return true;
