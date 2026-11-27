@@ -30,7 +30,7 @@ export function ComparisonToggle({ code, filters }: { code: string; filters: Cou
   }
   return <Link className={styles.toggle} scroll={false} prefetch={false}
     href={coursesUrl(toggleComparison(filters, code))}
-    aria-label={`${selected ? "Remove" : "Add"} ${code} ${selected ? "from" : "to"} comparison`}>
+    aria-label={`${selected ? "Selected · Remove" : "Select for comparison"}: ${code}`}>
     {selected ? "Selected · Remove" : "Select for comparison"}
   </Link>;
 }

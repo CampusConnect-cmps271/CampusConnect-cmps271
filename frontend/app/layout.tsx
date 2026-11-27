@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Lora, Montserrat } from "next/font/google";
 import "./globals.css";
+import { SkipLink } from "@/components/SkipLink";
 
 // Geist is the app-wide default (Tailwind's font-sans). Montserrat and Lora are
 // the landing-page and password-reset brand fonts, applied only inside
@@ -23,7 +24,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} ${montserrat.variable} ${lora.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <SkipLink />
+        {children}
+      </body>
     </html>
   );
 }

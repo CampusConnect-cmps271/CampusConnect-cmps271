@@ -16,6 +16,7 @@
     "verify:redis": "vitest run --config vitest.upstash.config.mts",
     "test:db": "node --test tests/*.test.mjs",
     "test:e2e": "playwright test",
+    "test:a11y": "playwright test --config playwright.a11y.config.ts",
     "test:smoke": "playwright test --config playwright.smoke.config.ts",
     "test:security": "node --test tests/roles-permissions.test.mjs tests/messaging.test.mjs tests/planner.test.mjs tests/event-reminders.test.mjs tests/clubs.test.mjs tests/event-management.test.mjs tests/moderation.test.mjs tests/monitoring-security.test.mjs && vitest run modules/logging/redact.test.ts modules/auth/actions.test.ts modules/moderation/restrictions.test.ts",
     "test:reliability": "node --test tests/api-availability.test.mjs tests/reliability.test.mjs && vitest run modules/monitoring/alerts.test.ts modules/monitoring/health.test.ts modules/monitoring/cron-route.test.ts",
@@ -44,6 +45,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.1",
     "@electric-sql/pglite": "0.5.8",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
