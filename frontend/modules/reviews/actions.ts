@@ -1,5 +1,6 @@
 "use server";
 
+import { invalidateSharedCourseCatalogue } from "@/modules/courses/catalogue-cache";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/modules/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -60,6 +61,7 @@ export async function saveMyReview(_previous: ReviewState, formData: FormData): 
     log.error("reviews.save.failure", { code: "connection_failure" }, { userId: user.id });
     return failed(RETRY);
   }
+  invalidateSharedCourseCatalogue();
   revalidatePath(courseUrl(code));
   revalidatePath("/courses/[code]", "page");
   revalidatePath("/courses");
@@ -91,6 +93,7 @@ export async function deleteMyReview(_previous: ReviewState, formData: FormData)
     log.error("reviews.delete.failure", { code: "connection_failure" }, { userId: user.id });
     return failed("We couldn't delete your review. Please try again.");
   }
+  invalidateSharedCourseCatalogue();
   revalidatePath(courseUrl(code));
   revalidatePath("/courses/[code]", "page");
   revalidatePath("/courses");

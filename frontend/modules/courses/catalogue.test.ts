@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   requireUser: vi.fn(), from: vi.fn(), rpc: vi.fn(), bundle: vi.fn(), logError: vi.fn(),
 }));
+vi.mock("./catalogue-cache", () => ({ loadSharedCatalogueBundle: async () => null }));
 vi.mock("./semesters", () => ({ getImportedSemesters: async () => [] }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/modules/auth", () => ({ requireUser: mocks.requireUser }));

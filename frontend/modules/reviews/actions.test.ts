@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  user: vi.fn(), from: vi.fn(), restrictions: vi.fn(), revalidate: vi.fn(), log: vi.fn(),
+  user: vi.fn(), from: vi.fn(), restrictions: vi.fn(), revalidate: vi.fn(), invalidate: vi.fn(), log: vi.fn(),
 }));
+vi.mock("@/modules/courses/catalogue-cache", () => ({ invalidateSharedCourseCatalogue: mocks.invalidate }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/modules/auth", () => ({ requireUser: mocks.user }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ from: mocks.from }) }));
@@ -68,6 +69,7 @@ describe("review server actions", () => {
     } });
     expect(calls[1].payload).not.toHaveProperty("created_at");
     expect(mocks.restrictions).toHaveBeenCalledWith({ userId, contentType: "review", body: "Useful projects.", excludeId: undefined });
+    expect(mocks.invalidate).toHaveBeenCalledExactlyOnceWith();
     expect(mocks.revalidate).toHaveBeenCalledWith("/courses/CMPS-240");
     expect(mocks.revalidate).toHaveBeenCalledWith("/courses/[code]", "page");
   });
@@ -119,6 +121,7 @@ describe("review server actions", () => {
     expect(await deleteMyReview(idle, form({ reviewId, updatedAt: version, confirmDelete: "yes" }))).toMatchObject({ status: "deleted" });
     expect(calls[1]).toMatchObject({ method: "delete", filters: [["id", reviewId], ["course_id", courseId], ["student_id", userId], ["updated_at", version]] });
     expect(mocks.restrictions).not.toHaveBeenCalled();
+    expect(mocks.invalidate).toHaveBeenCalledExactlyOnceWith();
   });
   it("does not claim deletion of another user's or a stale review", async () => {
     reviewResult = { data: null, error: null };

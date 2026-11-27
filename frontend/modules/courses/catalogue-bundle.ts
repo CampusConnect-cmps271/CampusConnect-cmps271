@@ -22,8 +22,8 @@ export class CatalogueBundleError extends Error {
 }
 
 /** Base catalogue only. Rich semester/rating filters retain their existing query path. */
-export async function loadCatalogueBundle(client: Awaited<ReturnType<typeof createClient>>, filters: CourseFilters) {
-  const { data, error } = await client.rpc("browse_course_catalogue", {
+export async function readCatalogueBundle(client: Pick<Awaited<ReturnType<typeof createClient>>, "rpc">, filters: CourseFilters, rpc = "browse_course_catalogue") {
+  const { data, error } = await client.rpc(rpc, {
     p_query: filters.query,
     p_code_query: filters.query.replace(/^([a-z]{2,8})\s*(\d{3,4}[a-z]{0,3})$/i, "$1 $2"),
     p_department: filters.department, p_page: filters.page,
@@ -33,12 +33,22 @@ export async function loadCatalogueBundle(client: Awaited<ReturnType<typeof crea
   const parsed = bundleSchema.safeParse(data);
   if (!parsed.success) throw new CatalogueBundleError("invalid_data");
   const { ratings: rows, ...result } = parsed.data;
+  const checked = z.array(ratingRowSchema).max(24).safeParse(rows);
+  if (!checked.success) log.error("ratings.read_failure", { code: "bundle_unavailable" });
+  // Strip unknown properties before anything can enter the shared cache.
+  return { ...result, ratings: checked.success ? checked.data : null };
+}
+
+export type CatalogueBundle = Awaited<ReturnType<typeof readCatalogueBundle>>;
+
+export function formatCatalogueBundle({ ratings: rows, ...result }: CatalogueBundle) {
   const ratings = new Map<string, RatingSummary>(result.courses.map((course) => [course.id, { status: "unavailable" }]));
-  const checked = z.array(ratingRowSchema).safeParse(rows);
-  if (checked.success) {
-    for (const row of checked.data) if (ratings.has(row.course_id)) ratings.set(row.course_id, summarizeRating(row));
-  } else {
-    log.error("ratings.read_failure", { code: "bundle_unavailable" });
+  for (const row of rows ?? []) {
+    if (ratings.has(row.course_id)) ratings.set(row.course_id, summarizeRating(row));
   }
   return { ...result, departments: result.departments.sort((a, b) => a.localeCompare(b)), ratings };
+}
+
+export async function loadCatalogueBundle(client: Awaited<ReturnType<typeof createClient>>, filters: CourseFilters) {
+  return formatCatalogueBundle(await readCatalogueBundle(client, filters));
 }

@@ -5,6 +5,7 @@ import { log } from "@/modules/logging";
 import { COURSES_PER_PAGE, COURSE_RANGE_FILTERS, courseFilterError, courseSearchExpression, hasRatingFilters, type CourseFilters } from "./search";
 import { getImportedSemesters, type ImportedSemester } from "./semesters";
 import type { RatingSummary } from "@/modules/ratings/model";
+import { loadSharedCatalogueBundle } from "./catalogue-cache";
 import { CatalogueBundleError, loadCatalogueBundle } from "./catalogue-bundle";
 
 export type Course = {
@@ -95,7 +96,7 @@ export async function getCourseCatalogue(filters: CourseFilters): Promise<Course
   try {
     const client = await createClient();
     if (!filters.semester && !hasRatingFilters(filters) && !courseFilterError(filters)) {
-      return await loadCatalogueBundle(client, filters);
+      return await loadSharedCatalogueBundle(filters) ?? await loadCatalogueBundle(client, filters);
     }
     const [departments, result, semesters] = await Promise.all([
       loadDepartments(client), loadCourses(client, filters), getImportedSemesters(),

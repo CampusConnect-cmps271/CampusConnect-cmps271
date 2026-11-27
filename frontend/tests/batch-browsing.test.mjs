@@ -12,8 +12,8 @@ before(async()=>{
  alter default privileges in schema public grant execute on functions to anon,authenticated,service_role;`);
  await db.exec(await migration('20261017091812_create_courses.sql'));
  await db.exec(await migration('20261125121639_optimize_course_departments.sql'));
- await db.exec(`create table public.resis_semesters(id text primary key,name text,synced_at timestamptz);
- insert into public.resis_semesters values('202720','Spring','2026-11-01Z'),('202710','Unfinished',null);
+ await db.exec(`create table public.resis_semesters(id text primary key,name text,synced_at timestamptz,active_import_id uuid default gen_random_uuid());
+ insert into public.resis_semesters(id,name,synced_at) values('202720','Spring','2026-11-01Z'),('202710','Unfinished',null);
  create view public.course_rating_averages with(security_invoker=true) as select id as course_id,0::bigint as review_count,null::numeric as average_difficulty,null::numeric as average_workload,null::numeric as average_usefulness,null::numeric as average_overall from public.courses;
  grant select on public.course_rating_averages to authenticated;
  create table public.conversation_test_counts(user_id uuid,n integer);
@@ -40,6 +40,10 @@ before(async()=>{
  insert into public.post_comments(post_id,author_id,status) select '10000000-0000-4000-8000-000000000030','${a}','published' from generate_series(1,1001);
  insert into public.post_comments(post_id,author_id,status) values('10000000-0000-4000-8000-000000000030','${b}','removed');`);
  await db.exec(await migration('20261011180000_feed_top_sorting.sql'));await db.exec(await migration('20261125164302_batch_browsing_reads.sql'));
+ await db.exec(await migration('20261127074219_cache_shared_course_catalogue.sql'));
+ await db.exec(`insert into public.resis_semesters(id,name,synced_at,active_import_id) values('202630','Inactive','2026-10-01Z',null);
+ alter table public.resis_semesters enable row level security;
+ create policy active_semesters on public.resis_semesters for select to authenticated using(active_import_id is not null);`);
 });
 after(async()=>db?.close());
 async function asUser(id,work){await db.exec(`set role authenticated;set request.jwt.claim.sub='${id}'`);try{return await work();}finally{await db.exec('reset role;reset request.jwt.claim.sub');}}
@@ -74,4 +78,19 @@ it('preserves feed pagination and counts over 1,000 visible comments',async()=>{
 it('ignores invalid categories and preserves valid empty filters',async()=>{
  const r=await asUser(a,()=>rpc("select public.get_campus_feed_page(1,'newest','invalid') as result"));assert.equal(r.selectedCategory,'');assert.equal(r.posts.length,20);
  const e=await asUser(a,()=>rpc("select public.get_campus_feed_page(1,'newest','Questions') as result"));assert.equal(e.selectedCategory,'Questions');assert.deepEqual(e.posts,[]);
+});
+
+it('restricts the shared cache source to the server role and active semester labels',async()=>{
+ for(const role of ['anon','authenticated']){
+  await db.exec('set role '+role);
+  try{await assert.rejects(db.query('select public.read_shared_course_catalogue()'),e=>e.code==='42501');}finally{await db.exec('reset role');}
+ }
+ await db.exec('set role service_role');
+ try{
+  const r=await rpc('select public.read_shared_course_catalogue() as result');
+  assert.equal(r.courses.length,24);assert.equal(r.total,32);assert.deepEqual(r.semesters.map(s=>s.id),['202720']);
+  assert.deepEqual(Object.keys(r).sort(),['courses','departments','page','pages','ratings','semesters','total']);
+ }finally{await db.exec('reset role');}
+ const {rows}=await db.query("select prosecdef,proconfig from pg_proc where proname='read_shared_course_catalogue'");
+ assert.equal(rows[0].prosecdef,false);assert.ok(rows[0].proconfig.includes('search_path=""'));
 });
