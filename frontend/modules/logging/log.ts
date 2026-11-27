@@ -1,6 +1,6 @@
 import "server-only";
 import { after } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { storeLogRow } from "./log-store";
 import { notifyLogAlert } from "@/modules/monitoring";
 import { redact, redactMessage } from "./redact";
 import type { LogLevel } from "./schema";
@@ -23,8 +23,8 @@ export type LogOptions = {
 };
 
 /**
- * Builds the row. Redaction happens here, so there is no path that writes an
- * entry without it.
+ * Builds and redacts routine rows before they enter the persistence queue.
+ * Course diagnostics separately construct their fixed whitelist of fields.
  */
 export function buildEntry(
   level: LogLevel,
@@ -43,33 +43,19 @@ export function buildEntry(
 }
 
 /** Writes the row, reporting its own failure rather than throwing. */
-export async function persistEntry(entry: LogEntry): Promise<void> {
+export async function persistEntry(entry: LogEntry, createdAt = new Date().toISOString()): Promise<void> {
   try {
-    const supabase = createAdminClient();
-    const { error } = await supabase.from("app_logs").insert(entry);
-
-    if (error) {
-      console.error(
-        JSON.stringify({
-          level: "error",
-          event: "logging.write.failure",
-          message: error.message,
-          original_event: entry.event,
-        }),
-      );
-      return;
-    }
-
+    await storeLogRow({ ...entry, created_at: createdAt });
+    // Alert delivery stays per entry, after successful persistence. It does
+    // not hold the database batch writer open or merge alert decisions.
     await notifyLogAlert(entry);
   } catch (cause) {
-    console.error(
-      JSON.stringify({
-        level: "error",
-        event: "logging.write.failure",
-        message: cause instanceof Error ? cause.message : String(cause),
-        original_event: entry.event,
-      }),
-    );
+    const message = cause instanceof Error ? cause.message :
+      typeof cause === "object" && cause !== null && "message" in cause && typeof cause.message === "string" ? cause.message : "Log persistence failed";
+    console.error(JSON.stringify({
+      level: "error", event: "logging.write.failure",
+      message: redactMessage(message), original_event: entry.event,
+    }));
   }
 }
 
@@ -93,13 +79,14 @@ function emit(
 ): Promise<void> {
   const entry = buildEntry(level, event, context, options);
 
-  console.log(JSON.stringify({ ts: new Date().toISOString(), ...entry }));
+  const emittedAt = new Date().toISOString();
+  console.log(JSON.stringify({ ts: emittedAt, ...entry }));
 
   try {
-    after(() => persistEntry(entry));
+    after(() => persistEntry(entry, emittedAt));
     return Promise.resolve();
   } catch {
-    return persistEntry(entry);
+    return persistEntry(entry, emittedAt);
   }
 }
 
