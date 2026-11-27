@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { submitContentReport } from "./actions";
 import type { ReportReason } from "./schema";
 
@@ -26,6 +26,17 @@ export default function ReportDialog({
   const [message, setMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const titleId = `report-${targetType}-${targetId}-title`;
+  const openerRef = useRef<HTMLButtonElement>(null);
+  const reasonRef = useRef<HTMLSelectElement>(null);
+  const wasOpen = useRef(false);
+
+  // Opening the panel moves focus into it; closing it returns focus to the
+  // button that opened it, so a keyboard user is never left on a removed element.
+  useEffect(() => {
+    if (open) reasonRef.current?.focus();
+    else if (wasOpen.current) openerRef.current?.focus();
+    wasOpen.current = open;
+  }, [open]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -53,10 +64,11 @@ export default function ReportDialog({
   if (!open) {
     return (
       <button
+        ref={openerRef}
         type="button"
         onClick={() => setOpen(true)}
         aria-expanded={open}
-        className="min-h-10 rounded-lg px-2 text-xs font-semibold text-[var(--danger)] underline-offset-2 hover:bg-red-50 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]"
+        className="min-h-11 rounded-lg px-2 text-xs font-semibold text-[var(--danger)] underline-offset-2 hover:bg-red-50 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]"
       >
         Report {targetType}
       </button>
@@ -64,7 +76,13 @@ export default function ReportDialog({
   }
 
   return (
-    <section aria-labelledby={titleId} className="mt-3 rounded-xl border border-red-200 bg-red-50 p-4 text-[var(--ink)]">
+    <section
+      aria-labelledby={titleId}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") setOpen(false);
+      }}
+      className="mt-3 rounded-xl border border-red-200 bg-red-50 p-4 text-[var(--ink)]"
+    >
       <h3 id={titleId} className="font-semibold">Report this {targetType}</h3>
       <p className="mt-1 text-xs text-[var(--ink-soft)]">Reports are private and reviewed by the moderation team.</p>
 
@@ -86,6 +104,7 @@ export default function ReportDialog({
           <label className="block text-sm">
             Reason
             <select
+              ref={reasonRef}
               value={reason}
               onChange={(event) => setReason(event.target.value as ReportReason)}
               className="mt-1 block min-h-11 w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--maroon)]"

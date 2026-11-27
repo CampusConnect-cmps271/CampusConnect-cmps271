@@ -131,14 +131,14 @@ export default async function PostPage({
         </h1>
 
         <div className="mb-6 flex flex-wrap items-center gap-3">
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-[var(--ink-soft)]">
             Author:{" "}
             {isAuthor ? (
               "You"
             ) : author ? (
               <Link
                 href={`/profile/${author.id}`}
-                className="font-medium text-blue-400 hover:underline"
+                className="font-medium text-[var(--maroon)] underline-offset-2 hover:underline"
               >
                 {author.fullName}
               </Link>
