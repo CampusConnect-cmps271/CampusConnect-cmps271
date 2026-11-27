@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import type { createClient } from "@/lib/supabase/server";
+import { traceCoursePhase } from "@/modules/performance/course-tracing";
 import { log } from "@/modules/logging";
 import { ratingRowSchema, summarizeRating, type RatingSummary } from "@/modules/ratings/model";
 import type { CourseFilters } from "./search";
@@ -23,12 +24,12 @@ export class CatalogueBundleError extends Error {
 
 /** Base catalogue only. Rich semester/rating filters retain their existing query path. */
 export async function readCatalogueBundle(client: Pick<Awaited<ReturnType<typeof createClient>>, "rpc">, filters: CourseFilters, rpc = "browse_course_catalogue") {
-  const { data, error } = await client.rpc(rpc, {
+  const { data, error } = await traceCoursePhase("catalogue_rpc", async () => await client.rpc(rpc, {
     p_query: filters.query,
     p_code_query: filters.query.replace(/^([a-z]{2,8})\s*(\d{3,4}[a-z]{0,3})$/i, "$1 $2"),
     p_department: filters.department, p_page: filters.page,
     p_credits_min: filters.creditsMin ?? null, p_credits_max: filters.creditsMax ?? null,
-  });
+  }));
   if (error) throw new CatalogueBundleError(error.code ?? "read_failure");
   const parsed = bundleSchema.safeParse(data);
   if (!parsed.success) throw new CatalogueBundleError("invalid_data");

@@ -8,6 +8,6 @@ export default defineConfig({
   workers: 1,
   webServer: (Array.isArray(base.webServer) ? base.webServer : []).map(server => ({
     ...server,
-    env: {...server.env, AUTH_LIVE_CONTEXT_ENABLED:"true", AUTH_TEST_ASYMMETRIC:"true"},
+    env: {...server.env, AUTH_LIVE_CONTEXT_ENABLED:"true", AUTH_TEST_ASYMMETRIC:"true", COURSE_TRACING_ENABLED:"true", COURSE_TRACE_SAMPLE_RATE:"1", COURSE_TRACE_PERSIST_ENABLED:"false"},
   })),
 });

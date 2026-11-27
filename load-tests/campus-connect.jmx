@@ -1,0 +1,143 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Campus Connect — authenticated browsing" enabled="true">
+      <stringProp name="TestPlan.comments">SCRUM-309. Separate prepared student sessions; no browser rendering, login burst, writes or AI calls. Closed-loop workload with 3–7 seconds between requests.</stringProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="Variables" enabled="true">
+        <collectionProp name="Arguments.arguments" />
+      </elementProp>
+    </TestPlan>
+    <hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Students" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Repeat browsing" enabled="true">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <stringProp name="LoopController.loops">-1</stringProp>
+        </elementProp>
+        <stringProp name="ThreadGroup.num_threads">${__P(users,3)}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${__P(ramp,3)}</stringProp>
+        <stringProp name="ThreadGroup.duration">${__P(duration,23)}</stringProp>
+        <stringProp name="ThreadGroup.delay">0</stringProp>
+        <boolProp name="ThreadGroup.scheduler">true</boolProp>
+        <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
+      </ThreadGroup>
+      <hashTree>
+        <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Student session headers" enabled="true">
+          <collectionProp name="HeaderManager.headers">
+            <elementProp name="" elementType="Header">
+              <stringProp name="Header.name">Accept-Encoding</stringProp>
+              <stringProp name="Header.value">${__P(accept_encoding,identity)}</stringProp>
+            </elementProp>
+            <elementProp name="" elementType="Header">
+              <stringProp name="Header.name">Cookie</stringProp>
+              <stringProp name="Header.value">${student_cookie}</stringProp>
+            </elementProp>
+            <elementProp name="" elementType="Header">
+              <stringProp name="Header.name">Accept</stringProp>
+              <stringProp name="Header.value">${accept}</stringProp>
+            </elementProp>
+            <elementProp name="" elementType="Header">
+              <stringProp name="Header.name">User-Agent</stringProp>
+              <stringProp name="Header.value">CampusConnect-SCRUM309-JMeter/1.0</stringProp>
+            </elementProp>
+          </collectionProp>
+        </HeaderManager>
+        <hashTree />
+        <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="Reading time: 3–7 seconds" enabled="true">
+          <stringProp name="ConstantTimer.delay">${__P(think_min,3000)}</stringProp>
+          <stringProp name="RandomTimer.range">${__P(think_range,4000)}</stringProp>
+        </UniformRandomTimer>
+        <hashTree />
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="${scenario}" enabled="true">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments" />
+          </elementProp>
+          <stringProp name="HTTPSampler.domain">${__P(host,127.0.0.1)}</stringProp>
+          <stringProp name="HTTPSampler.port">${__P(port,3200)}</stringProp>
+          <stringProp name="HTTPSampler.protocol">${__P(scheme,http)}</stringProp>
+          <stringProp name="HTTPSampler.path">${request_path}</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <stringProp name="HTTPSampler.implementation">HttpClient4</stringProp>
+          <stringProp name="HTTPSampler.connect_timeout">5000</stringProp>
+          <stringProp name="HTTPSampler.response_timeout">15000</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">false</boolProp>
+          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+          <boolProp name="HTTPSampler.image_parser">false</boolProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Select student and browsing action" enabled="true">
+            <stringProp name="scriptLanguage">groovy</stringProp>
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="script">
+import groovy.json.JsonSlurper
+if (!vars.get('student_cookie')) {
+  def sessions
+  synchronized(props) {
+    sessions=props.get('campus.sessions')
+    if(sessions==null) {
+      sessions=new JsonSlurper().parse(new File(props.getProperty('sessions_file')))
+      props.put('campus.sessions',sessions)
+    }
+  }
+  def row=sessions[ctx.getThreadNum()]
+  if(row.expiresAt*1000L &lt; System.currentTimeMillis()+60000L) throw new IllegalStateException('Student session expired')
+  vars.put('student_cookie',row.cookie)
+  vars.putObject('random',new Random(ctx.getThreadNum()+309L))
+  vars.putObject('step',0)
+}
+def rng=vars.getObject('random')
+int step=vars.getObject('step')
+int action=step&lt;5 ? (step+ctx.getThreadNum())%5 : ([0]*35+[1]*20+[2]*15+[3]*25+[4]*5)[rng.nextInt(100)]
+vars.putObject('step',step+1)
+def routes=[
+ ['feed','/home?page='+ (1+rng.nextInt(3)), 'Campus Feed'],
+ ['post-search','/search?q=campus&amp;page='+ (1+rng.nextInt(3)), 'Search campus posts'],
+ ['events','/events?includePast=false&amp;page='+ (1+rng.nextInt(2)), 'Campus Events'],
+ ['courses','/courses?q='+java.net.URLEncoder.encode(props.getProperty('course_query','LT'),'UTF-8')+'&amp;page='+ (1+rng.nextInt(3)), 'Course catalogue'],
+ ['notifications','/api/notifications','']
+]
+def route=routes[action]
+vars.put('scenario',route[0]); vars.put('request_path',route[1]); vars.put('expected',route[2])
+vars.put('accept',action==4?'application/json':'text/html')
+</stringProp>
+          </JSR223PreProcessor>
+          <hashTree />
+          <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="Keep only random course request correlation ID" enabled="true">
+            <stringProp name="scriptLanguage">groovy</stringProp>
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="script">
+vars.put('course_request_id','')
+if(vars.get('scenario')=='courses') {
+  def match=prev.getResponseHeaders() =~ /(?im)^x-cc-request-id:\s*([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\s*$/
+  if(match.find()) vars.put('course_request_id',match.group(1))
+}
+</stringProp>
+          </JSR223PostProcessor>
+          <hashTree />
+          <JSR223Assertion guiclass="TestBeanGUI" testclass="JSR223Assertion" testname="Check content and authentication" enabled="true">
+            <stringProp name="scriptLanguage">groovy</stringProp>
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="script">
+import groovy.json.JsonSlurper
+def fail={ message -&gt; AssertionResult.setFailure(true); AssertionResult.setFailureMessage(message) }
+if(prev.getResponseCode()!='200') { fail('Expected HTTP 200; received '+prev.getResponseCode()); return }
+def body=prev.getResponseDataAsString()
+if(vars.get('scenario')=='notifications') {
+  try { if(!(new JsonSlurper().parseText(body).items instanceof List)) fail('Invalid notifications response') }
+  catch(Exception ignored) { fail('Response is not valid JSON') }
+} else {
+  if(!body.contains(vars.get('expected'))) fail('Expected page content missing')
+  if(body.contains('role="alert"') || body.contains('NEXT_REDIRECT') || body.contains('NEXT_HTTP_ERROR_FALLBACK') || body.contains('"digest":')) fail('Page contains an application error or redirect')
+}
+</stringProp>
+          </JSR223Assertion>
+          <hashTree />
+        </hashTree>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

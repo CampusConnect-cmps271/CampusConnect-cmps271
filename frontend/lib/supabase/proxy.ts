@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { ACCOUNT_ID_HEADER, PATHNAME_HEADER } from "@/lib/headers";
+import { COURSE_REQUEST_ID_HEADER, courseTracingEnabled } from "@/lib/course-trace-config";
 import { getSupabaseConfig } from "./config";
 
 /**
@@ -22,22 +23,27 @@ import { getSupabaseConfig } from "./config";
 function requestHeadersFor(
   request: NextRequest,
   accountId?: string,
+  diagnosticId?: string,
 ): Headers {
   const headers = new Headers(request.headers);
   headers.set(
     PATHNAME_HEADER,
     `${request.nextUrl.pathname}${request.nextUrl.search}`,
   );
+  headers.delete(COURSE_REQUEST_ID_HEADER);
+  if (diagnosticId) headers.set(COURSE_REQUEST_ID_HEADER, diagnosticId);
   headers.delete(ACCOUNT_ID_HEADER);
   if (accountId) headers.set(ACCOUNT_ID_HEADER, accountId);
   return headers;
 }
 
 export async function updateSession(request: NextRequest) {
+  const diagnosticId = courseTracingEnabled() && request.nextUrl.pathname === "/courses" ? crypto.randomUUID() : undefined;
   let response = NextResponse.next({
-    request: { headers: requestHeadersFor(request) },
+    request: { headers: requestHeadersFor(request, undefined, diagnosticId) },
   });
 
+  if (diagnosticId) response.headers.set(COURSE_REQUEST_ID_HEADER, diagnosticId);
   const config = getSupabaseConfig();
   if (!config) return response;
 
@@ -54,7 +60,7 @@ export async function updateSession(request: NextRequest) {
         const previousCookies = response.cookies.getAll();
         const previousHeaders = response.headers;
         response = NextResponse.next({
-          request: { headers: requestHeadersFor(request) },
+          request: { headers: requestHeadersFor(request, undefined, diagnosticId) },
         });
         previousHeaders.forEach((value, name) => response.headers.set(name, value));
         previousCookies.forEach((cookie) => response.cookies.set(cookie));
@@ -79,7 +85,7 @@ export async function updateSession(request: NextRequest) {
     // it after verification and retain any refreshed session cookies.
     const previousResponse = response;
     response = NextResponse.next({
-      request: { headers: requestHeadersFor(request, accountId) },
+      request: { headers: requestHeadersFor(request, accountId, diagnosticId) },
     });
     previousResponse.headers.forEach((value, name) => {
       if (name !== "set-cookie" && !name.startsWith("x-middleware-")) {
@@ -94,6 +100,7 @@ export async function updateSession(request: NextRequest) {
   // never hand that to the next visitor. The library's own headers arrive only
   // on the first cookie write, so they cannot carry this on their own.
   response.headers.set("Cache-Control", "private, no-store");
+  if (diagnosticId) response.headers.set(COURSE_REQUEST_ID_HEADER, diagnosticId);
 
   return response;
 }

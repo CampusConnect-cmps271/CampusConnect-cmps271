@@ -1,0 +1,89 @@
+name: Bounded load diagnostics
+on:
+  workflow_dispatch:
+    inputs:
+      users:
+        description: Synthetic browsing clients (one bounded stage)
+        type: choice
+        options: ['5', '25']
+        default: '25'
+permissions:
+  contents: read
+  deployments: read
+concurrency:
+  group: campus-connect-load-diagnostics
+  cancel-in-progress: false
+jobs:
+  diagnostic:
+    if: github.repository == 'CampusConnect-cmps271/CampusConnect-cmps271'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DIAGNOSTIC_USERS: ${{ inputs.users || '25' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install pinned frontend dependencies
+        run: npm ci --prefix frontend
+      - name: Verify deployed main commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sha=$(gh api repos/$GITHUB_REPOSITORY/commits/main --jq .sha)
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          deployment=$(gh api "repos/$GITHUB_REPOSITORY/deployments?environment=Production&sha=$sha&per_page=5" --jq '.[0].id')
+          state=$(gh api "repos/$GITHUB_REPOSITORY/deployments/$deployment/statuses" --jq '.[0].state')
+          test "$state" = success
+          echo "DIAGNOSTIC_COMMIT=$sha" >> "$GITHUB_ENV"
+          echo "Verified production deployment $deployment at $sha"
+      - name: Install verified Apache JMeter 5.6.3
+        run: |
+          python3 - <<'PY'
+          import urllib.request,hashlib,tarfile,os,pathlib
+          target=pathlib.Path(os.environ['RUNNER_TEMP'])
+          archive=target/'apache-jmeter-5.6.3.tgz'
+          with urllib.request.urlopen('https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-5.6.3.tgz',timeout=90) as src,archive.open('wb') as out:
+            while chunk:=src.read(1048576):out.write(chunk)
+          expected='5978a1a35edb5a7d428e270564ff49d2b1b257a65e17a759d259a9283fc17093e522fe46f474a043864aea6910683486340706d745fcdf3db1505fd71e689083'
+          assert hashlib.sha512(archive.read_bytes()).hexdigest()==expected,'JMeter checksum mismatch'
+          with tarfile.open(archive) as tf:tf.extractall(target,filter='data')
+          PY
+          echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+      - name: Set private session directory
+        run: echo "DIAGNOSTIC_PRIVATE_DIR=$RUNNER_TEMP/scrum309-private" >> "$GITHUB_ENV"
+      - name: Prepare private test sessions
+        env:
+          SCRUM309_DIAGNOSTIC_ACCESS: ${{ secrets.SCRUM309_DIAGNOSTIC_ACCESS }}
+        run: node load-tests/prepare-sessions.mjs
+      - name: Run one guarded browsing stage
+        run: >-
+          python3 load-tests/run-diagnostics.py
+          --users "$DIAGNOSTIC_USERS"
+          --sessions "$DIAGNOSTIC_PRIVATE_DIR/sessions.json"
+          --jmeter "$RUNNER_TEMP/apache-jmeter-5.6.3/bin/jmeter"
+          --out load-tests/results/current
+          --generator github-hosted-ubuntu
+          --expected-commit "$DIAGNOSTIC_COMMIT"
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: bounded-load-diagnostics
+          path: |
+            load-tests/results/current/run.json
+            load-tests/results/current/summary.json
+            load-tests/results/current/samples.jtl
+            load-tests/results/current/runtime.jsonl
+            load-tests/results/current/guardrail-stop.json
+            load-tests/results/current/dashboard/
+          retention-days: 3
+          if-no-files-found: ignore
+      - name: Remove private session material
+        if: always()
+        run: rm -rf "$DIAGNOSTIC_PRIVATE_DIR"

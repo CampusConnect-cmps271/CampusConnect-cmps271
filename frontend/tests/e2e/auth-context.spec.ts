@@ -72,3 +72,12 @@ test('old or malformed bundled counts fall back without rejecting the live sessi
     const after=await counts(page);expect(after.header-before.header).toBe(1);expect(after.context-before.context).toBe(1);
   }
 });
+
+test('course diagnostics replace incoming IDs without changing authenticated content',async({page})=>{
+  await login(page,0);
+  const response=await page.request.get('/courses',{headers:{'x-cc-request-id':'spoofed'}});
+  expect(response.status()).toBe(200);
+  expect(await response.text()).toContain('Course catalogue');
+  expect(response.headers()['x-cc-request-id']).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  expect(response.headers()['cache-control']).toContain('no-store');
+});
