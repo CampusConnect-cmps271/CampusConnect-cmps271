@@ -106,6 +106,18 @@ vars.put('accept',action==4?'application/json':'text/html')
 </stringProp>
           </JSR223PreProcessor>
           <hashTree />
+          <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="Keep only random course request correlation ID" enabled="true">
+            <stringProp name="scriptLanguage">groovy</stringProp>
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="script">
+vars.put('course_request_id','')
+if(vars.get('scenario')=='courses') {
+  def match=prev.getResponseHeaders() =~ /(?im)^x-cc-request-id:\s*([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\s*$/
+  if(match.find()) vars.put('course_request_id',match.group(1))
+}
+</stringProp>
+          </JSR223PostProcessor>
+          <hashTree />
           <JSR223Assertion guiclass="TestBeanGUI" testclass="JSR223Assertion" testname="Check content and authentication" enabled="true">
             <stringProp name="scriptLanguage">groovy</stringProp>
             <stringProp name="cacheKey">true</stringProp>

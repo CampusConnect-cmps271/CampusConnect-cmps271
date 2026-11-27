@@ -3,6 +3,7 @@ import { z } from "zod";
 import { cache } from "react";
 import { headerCountsSchema } from "@/lib/header-counts";
 import { createClient } from "@/lib/supabase/server";
+import { traceCoursePhase } from "@/modules/performance/course-tracing";
 import { log } from "@/modules/logging";
 
 const claimsSchema = z.object({
@@ -25,13 +26,13 @@ export async function readLiveSessionContext(client: Awaited<ReturnType<typeof c
     // getClaims verifies signature/expiration, using cached public signing keys
     // for asymmetric projects. The SDK retains its Auth validation fallback for
     // symmetric keys; the application never disables signature validation.
-    const { data, error } = await client.auth.getClaims();
+    const { data, error } = await traceCoursePhase("jwt_verification", () => client.auth.getClaims());
     const checked = claimsSchema.safeParse(data?.claims);
     if (error || !checked.success) return null;
     const project = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
     if (!project || checked.data.iss !== `${new URL(project).origin}/auth/v1` || checked.data.exp <= Date.now() / 1000) return null;
 
-    const result = await client.rpc("get_my_session_context");
+    const result = await traceCoursePhase("live_session", async () => await client.rpc("get_my_session_context"));
     // A revoked, deleted, banned or expired identity returns null. Do not
     // retry it through getUser(), which would bypass this live decision.
     if (!result.error && result.data === null) return null;

@@ -1,3 +1,6 @@
+import { headers } from "next/headers";
+import { COURSE_REQUEST_ID_HEADER, courseTracingEnabled } from "@/lib/course-trace-config";
+import { attachCourseRequestId, traceCoursePhase } from "@/modules/performance/course-tracing";
 import type { Metadata } from "next";
 import { AppShell } from "@/components/AppShell";
 import Link from "next/link";
@@ -9,7 +12,8 @@ import styles from "@/modules/courses/courses.module.css";
 export const metadata: Metadata = { title: "Courses · CampusConnect" };
 
 export default async function CoursesPage({ searchParams }: { searchParams: Promise<CourseSearchParams> }) {
-  await requireUser();
+  if (courseTracingEnabled()) attachCourseRequestId((await headers()).get(COURSE_REQUEST_ID_HEADER));
+  await traceCoursePhase("page_auth", requireUser);
   const filters = parseCourseFilters(await searchParams);
   return <AppShell><main className={styles.page}>
     <Link href="/home">← Campus home</Link>

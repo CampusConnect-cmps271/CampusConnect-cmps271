@@ -71,6 +71,18 @@ export async function register(): Promise<void> {
   // Edge and browser instrumentation share this file; the logger needs Node.
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
+  // Keep this explicit runtime branch so the Edge instrumentation bundle
+  // never includes Node process/crypto or the Node OpenTelemetry processor.
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    if (process.env.COURSE_TRACING_ENABLED !== "false" &&
+        (process.env.VERCEL === "1" || process.env.COURSE_TRACING_ENABLED === "true")) {
+      try {
+        const { registerCourseTracing } = await import("@/modules/performance/register-course-tracing");
+        registerCourseTracing();
+      } catch { console.warn("Course timing diagnostics unavailable"); }
+    }
+  }
+
   const { log } = await import("@/modules/logging");
 
   const missing = REQUIRED_ENV_VARS.filter(([, value]) => !value?.trim()).map(

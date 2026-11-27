@@ -2,6 +2,7 @@ import "server-only";
 import { unstable_cache, updateTag } from "next/cache";
 import { requireUser } from "@/modules/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { traceCoursePhase } from "@/modules/performance/course-tracing";
 import { log } from "@/modules/logging";
 import { COURSE_CATALOGUE_TAG } from "./cache-tags";
 import { formatCatalogueBundle, readCatalogueBundle, type CatalogueBundle } from "./catalogue-bundle";
@@ -44,7 +45,7 @@ export async function loadSharedCatalogueBundle(filters: CourseFilters) {
   const key = JSON.stringify([project, keyFilters]);
   let request = pending.get(key);
   if (!request) {
-    request = readCached(project, keyFilters);
+    request = traceCoursePhase("catalogue_cache", () => readCached(project, keyFilters));
     if (pending.size < MAX_PENDING) pending.set(key, request);
   }
   try {

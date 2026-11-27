@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { traceCoursePhase } from "@/modules/performance/course-tracing";
 import { CatalogueUnavailable, getCourseCatalogue, type Course } from "./catalogue";
 import { COURSES_PER_PAGE, COURSE_RANGE_FILTERS, coursesUrl, type CourseFilters } from "./search";
 import styles from "./courses.module.css";
@@ -11,7 +12,7 @@ import { ComparisonSelection, ComparisonToggle } from "./ComparisonSelection";
 export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
   // Authentication redirects must escape this catch, rather than becoming
   // a misleading database error (the page calls requireUser before rendering).
-  const result = await getCourseCatalogue(filters).then(
+  const result = await traceCoursePhase("catalogue_load", () => getCourseCatalogue(filters)).then(
     (data) => ({ data, failed: false as const }),
     (error: unknown) => {
       if (error instanceof CatalogueUnavailable) {
@@ -28,7 +29,7 @@ export async function CourseCatalogue({ filters }: { filters: CourseFilters }) {
     </section>
   );
   const { courses, departments, semesters, total, page, pages, filterError } = result.data;
-  const ratings = result.data.ratings ?? await getCourseRatings(courses.map((course) => course.id));
+  const ratings = result.data.ratings ?? await traceCoursePhase("ratings_load", () => getCourseRatings(courses.map((course) => course.id)));
   const groups = new Map<string, Course[]>();
   for (const course of courses) {
     const group = groups.get(course.department) ?? [];

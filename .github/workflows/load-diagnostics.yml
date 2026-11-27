@@ -7,9 +7,6 @@ on:
         type: choice
         options: ['5', '25']
         default: '25'
-  push:
-    branches: [codex/trace-course-latency]
-    paths: ['load-tests/**', '.github/workflows/load-diagnostics.yml']
 permissions:
   contents: read
   deployments: read
