@@ -47,7 +47,10 @@ export async function handleCourses(request, response, url, email) {
     response.end(JSON.stringify({ code: "PGRST205", message: "Synthetic private filter-view failure" }));
     return true;
   }
-  if (!email || email === "courses-unavailable@mail.aub.edu") {
+  // The shared source accepts only the synthetic server key, like its
+  // service_role-only database grant; it has no student's email claim.
+  if ((shared && request.headers.apikey !== "sb_secret_test_only") ||
+      (!shared && (!email || email === "courses-unavailable@mail.aub.edu"))) {
     response.statusCode = 403;
     response.end(JSON.stringify({ code: "42501", message: "Synthetic database failure details must never reach the page" }));
     return true;
