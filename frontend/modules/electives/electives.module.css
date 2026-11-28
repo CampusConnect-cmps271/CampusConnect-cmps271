@@ -50,3 +50,17 @@
 .optionalPreferences { margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 1rem; }
 .optionalPreferences > summary { font-weight: 700; cursor: pointer; }
 @media (max-width: 560px) { .attributeChoices { grid-template-columns: minmax(0, 1fr); } .browseControls > button { width: 100%; } }
+.moreFilters { border-top: 1px solid var(--border); padding-top: .75rem; }
+.moreFilters > summary { cursor: pointer; font-weight: 650; }
+.moreFilters > div { margin-top: .75rem; }
+.courseRow { border: 1px solid var(--border); border-radius: .6rem; margin: .6rem 0; background: white; overflow: hidden; }
+.courseRow > summary { display: flex; align-items: center; gap: .8rem; cursor: pointer; padding: 1rem; list-style: none; }
+.courseRow > summary::-webkit-details-marker { display: none; }
+.courseRow > summary::before { content: "+"; color: var(--maroon); font-weight: 700; }
+.courseRow[open] > summary::before { content: "−"; }
+.courseRow > summary > strong { white-space: nowrap; }
+.rowHint { margin-left: auto; color: var(--ink-soft); font-size: .8rem; }
+.courseRow .card { margin: 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; }
+.page .scheduleButton { display: inline-block; background: var(--maroon); color: white; padding: .65rem 1rem; border-radius: .5rem; text-decoration: none; margin-top: .75rem; }
+.scheduleForm { display: grid; gap: .75rem; }
+@media (max-width:560px) { .courseRow > summary { flex-wrap: wrap; gap: .5rem; } .courseRow > summary > span:not(.rowHint) { flex-basis: 100%; padding-left: 1.1rem; } }

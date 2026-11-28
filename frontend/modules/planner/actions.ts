@@ -74,6 +74,10 @@ export async function createPlan(_previous: NewPlanState, formData: FormData): P
 
   log.info("planner.plan.created", { planId: data.id }, { userId: user.id });
   revalidatePath("/planner");
+  const electiveCourse = text(formData, "electiveCourse"), electiveSemester = text(formData, "electiveSemester");
+  if (plannerIdSchema.safeParse(electiveCourse).success && /^\d{6}$/.test(electiveSemester)) {
+    redirect(`/electives/schedule?course=${encodeURIComponent(electiveCourse)}&semester=${encodeURIComponent(electiveSemester)}`);
+  }
   redirect(`/planner/${data.id}`);
 }
 

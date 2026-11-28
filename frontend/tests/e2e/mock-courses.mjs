@@ -1,3 +1,4 @@
+import { attributeCourses, attributeSections } from "./mock-attribute-courses.mjs";
 import { ratingFixture } from "./mock-reviews.mjs";
 
 // Entirely synthetic records: these fixtures never contact hosted Supabase.
@@ -86,7 +87,7 @@ export async function handleCourses(request, response, url, email) {
     response.end(JSON.stringify(id ? semesters.filter(s => s.id === id.slice(3)) : semesters));
     return true;
   }
-  let rows = [...courses];
+  let rows = email === "recommendations-attributes@mail.aub.edu" && !semesterFilter ? [...attributeCourses] : [...courses];
   if (semesterFilter) rows = rows.filter((c) => c.code === "CMPS 240").flatMap((course) => ["202720", "202710"].map((semester_id) => ({
     ...course, semester_id, semester_name: semester_id === "202720" ? "Spring 2026-2027" : "Fall 2026-2027",
     synced_at: "2026-11-08T00:00:00Z", source_updated_at: "2026-11-07T23:00:00Z",
@@ -96,6 +97,9 @@ export async function handleCourses(request, response, url, email) {
       instructors: [semester_id === "202720" ? "Spring Instructor" : "Fall Instructor"], attributes: ["Writing in the Discipline"],
       prerequisites: "CMPS 101 or CMPS 102", sessions: [{ days: "MW", start: ["09:00", "10:30", "12:00", "14:00"][index], end: ["10:15", "11:45", "13:15", "15:15"][index], type: "Lecture", location: "Test Hall", instructor: "Test Instructor" }],
       source_updated_at: "2026-11-07T23:00:00Z", details_url: "https://www-banner.aub.edu.lb/pls/weba/bwckschd.p_disp_detail_sched?term_in=202720&crn_in=20904", restrictions: null })),
+  })));
+  if (semesterFilter && email === "recommendations-attributes@mail.aub.edu") rows = attributeCourses.flatMap(course => ["202720", "202710"].map(semester_id => ({
+    ...course, semester_id, semester_name:semester_id === "202720" ? "Spring 2026-2027" : "Fall 2026-2027", synced_at:"2026-11-08T00:00:00Z", instructors:["Spring Instructor"],sections:attributeSections(course),prerequisite_variants:[],source_updated_at:null,
   })));
   const semester = url.searchParams.get("semester_id");
   if (semester) rows = rows.filter((row) => row.semester_id === semester.slice(3));

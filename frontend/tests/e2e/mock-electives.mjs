@@ -7,6 +7,7 @@ const electiveCourses = [...courses, {
   credits: 3, prerequisites: "Prerequisite: CMPS 101 or instructor consent.",
 }];
 export const electiveAccounts = {
+  "electives-schedule@mail.aub.edu": "00000000-0000-4000-8000-000000000509",
   "recommendations-attributes@mail.aub.edu": "00000000-0000-4000-8000-000000000508",
   "recommendations-browse@mail.aub.edu": "00000000-0000-4000-8000-000000000507",
   "recommendations-offerings@mail.aub.edu": "00000000-0000-4000-8000-000000000506",
@@ -34,7 +35,6 @@ export async function handleElectives(request, response, url, claims) {
     if(filters.semester_id){
       const capture={setHeader(){},end(body){rows=JSON.parse(body);}};
       handleCourses({method:"GET"},capture,new URL(`http://mock/rest/v1/course_semester_catalogue?semester_id=eq.${filters.semester_id}`),claims.email);
-      if (claims.email === "recommendations-attributes@mail.aub.edu") rows = ["Social Sciences I", "Social Sciences II", "Science", "both"].map((attribute, index) => ({...rows[0], id:`30000000-0000-4000-8000-${String(index).padStart(12,"0")}`,code:`SOCI ${200+index}`,name:`Social elective ${index+1}`,sections:rows[0].sections.map(section=>({...section,attributes:attribute === "both" ? ["Social Sciences I","Social Sciences II"] : [attribute]}))}));
       rows=rows.map(row=>({...row,sections:row.sections.map(section=>claims.email === "recommendations-browse@mail.aub.edu"?{...section,attributes:["Culture and History"]}:section).filter(section=>{
         if(filters.instructors?.length&&!filters.instructors.some(w=>section.instructors.some(v=>norm(v)===norm(w))))return false;
         if(filters.attributes?.length){

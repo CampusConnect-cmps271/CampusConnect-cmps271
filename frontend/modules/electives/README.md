@@ -297,7 +297,8 @@ then choose **Show courses**. Multiple attributes match **any** by default, so
 Social Sciences I and Social Sciences II returns the union without duplicate
 course cards. **All selected attributes** requires them on the same section.
 Clearing attributes browses the whole semester. Changing the semester clears
-selected attributes and old results; changing a filter clears old results too.
+selected attributes and old results. Attribute/instructor changes clear old results;
+department changes filter the already-loaded complete result locally.
 
 Quick browsing does not overwrite private saved preferences or require interests,
 workload, instructors or schedule fields. It uses one recommendations request
@@ -310,3 +311,29 @@ client: SQL and JavaScript must both support `attribute_match: "any"`. Omitted
 mode keeps the previous all-attributes semantics for saved preferences. The
 migration keeps invoker security and the existing authenticated/service role
 permissions; no RLS policies or stored student preferences are rewritten.
+
+
+### Compact results and calendar handoff
+
+Quick-browse results start as course code/name rows. Opening a row mounts its
+full course card, section details and review controls; closing it removes those
+details from the page. **More filters** exposes a semester-specific department
+selector and instructor suggestions. Existing attribute selections survive
+changes to those filters. Every matching result remains available through the
+24-row Show more control.
+
+**Add to schedule** opens `/electives/schedule?course=<id>&semester=<id>`.
+The server re-reads the imported offering and lists only the student's plans
+linked to that semester. If there is no plan, the existing official-term plan
+form can create one and return to the selected elective. No course is added
+until the student submits **Add elective to my schedule**.
+
+The server action verifies authentication, course availability, plan ownership
+and the linked semester before calling the existing planner add/section picker
+flow. A course already in the plan opens its calendar without inserting again.
+Students choose actual imported sections (and connected components) in the
+planner; TBA times remain unknown. The existing conflict engine checks the
+resulting saved meetings, items and going events. Each planned course with times
+has a **View on calendar** link. This is timetable planning, not SIS registration.
+No additional database migration is needed beyond the attribute-any migration
+already included on this branch.

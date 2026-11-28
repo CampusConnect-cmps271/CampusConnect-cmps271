@@ -116,6 +116,7 @@ export async function listMyPlans(): Promise<PlanSummary[]> {
     starts_on: row.starts_on,
     ends_on: row.ends_on,
     course_count: row.plan_courses?.length ?? 0,
+    semester: row.resis_semester_id && row.resis_semesters ? row.resis_semesters : null,
   }));
 }
 

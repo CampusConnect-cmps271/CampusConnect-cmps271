@@ -117,6 +117,7 @@ export type PlanSummary = {
   starts_on: string;
   ends_on: string;
   course_count: number;
+  semester?: ImportedSemester | null;
 };
 
 export type CourseSearchResult = {
