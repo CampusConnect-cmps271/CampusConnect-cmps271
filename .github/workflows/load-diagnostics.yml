@@ -62,6 +62,12 @@ jobs:
         env:
           SCRUM309_DIAGNOSTIC_ACCESS: ${{ secrets.SCRUM309_DIAGNOSTIC_ACCESS }}
         run: node load-tests/prepare-sessions.mjs
+      - name: Cool down after authentication setup
+        run: |
+          python3 - <<'PYWAIT'
+          import time
+          time.sleep(180)
+          PYWAIT
       - name: Run one guarded browsing stage
         run: >-
           python3 load-tests/run-diagnostics.py
