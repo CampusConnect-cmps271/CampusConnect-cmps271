@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { updatePreferences } from "./actions";
 import { MEETING_DAYS, preferenceValues, type ElectivePreferences, type PreferenceValues } from "./schema";
 import type { OfferingOptions } from "./offering-options";
@@ -14,12 +15,16 @@ export function PreferenceForm({ initial, offeringOptions = { semesters: [], ins
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
       const value = e.target.value;
       setValues(previous => key === "semester_id" && !value
-        ? { ...previous, semester_id: "", instructors: "", attributes: "", meeting_days: "", earliest_start: "", latest_end: "" }
+        ? { ...previous, semester_id: "", instructors: "", attributes: "", attribute_match: "", meeting_days: "", earliest_start: "", latest_end: "" }
         : { ...previous, [key]: value });
     },
     "aria-invalid": Boolean(state.errors?.[errorKey(key)]), "aria-describedby": `${key}-hint ${errorKey(key)}-error`, disabled: pending });
   const errors = (key: keyof ElectivePreferences) => <p id={`${key}-error`} className={styles.error}>{state.errors?.[key]?.join(" ")}</p>;
-  return <form action={action} className={styles.form}>
+  return <details className={styles.optionalPreferences} open={state.status !== "idle" ? true : undefined}>
+    <summary>Personalize recommendations (optional)</summary>
+    <p>Add interests, instructors or schedule preferences for personalized suggestions.</p>
+    <form action={action} className={styles.form}>
+    {values.attribute_match && <input type="hidden" name="attribute_match" value={values.attribute_match} />}
     <fieldset className={styles.offeringPreferences} aria-describedby="offering-preferences-hint offering_preferences-error">
       <legend>Semester and class preferences</legend>
       <p id="offering-preferences-hint">Optional. Find electives with at least one section that meets all your choices. Course offerings provided by <a href="https://resis.org/" target="_blank" rel="noreferrer">Resis</a>.</p>
@@ -41,7 +46,7 @@ export function PreferenceForm({ initial, offeringOptions = { semesters: [], ins
           <datalist id="elective-instructors">{(offeringOptions.instructors[values.semester_id ?? ""] ?? []).map(name => <option key={name} value={name} />)}</datalist>
         </div>
         <div><label htmlFor="attributes">Required course attributes</label>
-          <p id="attributes-hint">Attributes are AUB course classifications. Choose from the semester suggestions or enter up to 10, separated by commas. Each recommended section must have every attribute you enter.</p>
+          <p id="attributes-hint">Attributes are AUB course classifications. Choose from the semester suggestions or enter up to 10, separated by commas. Each recommended section must have {values.attribute_match === "any" ? "at least one" : "every"} attribute you enter.</p>
           <input {...field("attributes")} list="elective-attributes" maxLength={3020} autoComplete="off" />
           <datalist id="elective-attributes">{(offeringOptions.attributes[values.semester_id ?? ""] ?? []).map(name => <option key={name} value={name} />)}</datalist>
         </div>
@@ -79,5 +84,7 @@ export function PreferenceForm({ initial, offeringOptions = { semesters: [], ins
     {state.status === "error" && <p role="alert" className={styles.error}>{state.message ?? "Please check the highlighted fields. Your draft has been kept."}</p>}
     {state.status === "saved" && <p role="status">{state.message}</p>}
     <button disabled={pending} type="submit">{pending ? "Saving…" : "Save preferences"}</button>
-  </form>;
+  </form>
+    <p><Link href="/electives/recommendations">View elective recommendations →</Link></p>
+  </details>;
 }

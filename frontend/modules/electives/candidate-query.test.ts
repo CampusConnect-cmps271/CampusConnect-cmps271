@@ -12,7 +12,10 @@ const section:CourseSection={crn:"12345",section:"1",title:"Security",credits:3,
   sessions:[{days:"MW",start:"09:00",end:"10:15",type:"Lecture",location:"Test Hall",instructor:"Alice"}]};
 const cases:[CourseSection,OfferingPreferences][]=[
   [section,{}],[section,{instructors:["ALICE (P)"]}],[section,{instructors:["Bob"]}],
-  [section,{attributes:["Science","Writing"]}],[section,{attributes:["Humanities"]}],
+  [section,{attributes:["Science","Writing"]}],
+  [section,{attributes:["Science","Humanities"],attribute_match:"any"}],
+  [section,{attributes:["Humanities"],attribute_match:"any"}],
+  [section,{attributes:[],attribute_match:"any"}],[section,{attributes:["Humanities"]}],
   [section,{meeting_days:["M","W"],earliest_start:"09:00",latest_end:"10:15"}],
   [section,{meeting_days:["M"]}],[section,{earliest_start:"09:01"}],[section,{latest_end:"10:14"}],
   [{...section,sessions:[]},{earliest_start:"09:00"}],
@@ -62,4 +65,15 @@ it("denies anonymous execution and obeys the caller's course RLS",async()=>{
 it("rejects unbounded or malformed direct RPC arguments",async()=>{
   await expect(db.query("select public.elective_candidate_page('[]','{}',0,1001)")).rejects.toMatchObject({code:"22023"});
   await expect(db.query("select public.elective_candidate_page('{}','{}')")).rejects.toMatchObject({code:"22023"});
+});
+
+it("returns the union of attribute sections once per course and keeps other filters strict", async () => {
+  const preferences = { ...base, interests: [], offering_preferences: { semester_id: "202720", attributes: ["Science", "Humanities"], attribute_match: "any" as const } };
+  const result = await fetchCandidateCatalogue(databaseClient(db,0), preferences);
+  expect(result.value.courses).toHaveLength(1);
+  expect(result.value.courses[0].offering?.sections.map(s => s.section)).toEqual(["1", "2"]);
+  const strict = await fetchCandidateCatalogue(databaseClient(db,0), { ...preferences, offering_preferences: { ...preferences.offering_preferences, attribute_match: "all" } });
+  expect(strict.value.courses).toHaveLength(0);
+  const instructor = await fetchCandidateCatalogue(databaseClient(db,0), { ...preferences, offering_preferences: { ...preferences.offering_preferences, instructors: ["Alice"] } });
+  expect(instructor.value.courses[0].offering?.sections.map(s => s.section)).toEqual(["1"]);
 });

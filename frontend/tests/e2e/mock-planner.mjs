@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { courses } from "./mock-courses.mjs";
+import { courses as baseCourses } from "./mock-courses.mjs";
+import { attributeCourses, attributeSections } from "./mock-attribute-courses.mjs";
+const courses = [...baseCourses, ...attributeCourses];
 
 // Test-only, in-memory stand-in for the planner tables: semester_plans,
 // plan_courses, plan_meetings, plan_items, going_events and
@@ -8,6 +10,7 @@ import { courses } from "./mock-courses.mjs";
 // planner.spec.ts. Each test uses its own student, so nothing here needs
 // resetting between tests.
 export const plannerTestAccounts = {
+  "electives-schedule@mail.aub.edu": "00000000-0000-4000-8000-000000000509",
   "planner-rana@mail.aub.edu": "00000000-0000-4000-8000-000000000301",
   "planner-omar@mail.aub.edu": "00000000-0000-4000-8000-000000000302",
   "planner-phone@mail.aub.edu": "00000000-0000-4000-8000-000000000304",
@@ -36,6 +39,7 @@ const TERM_SEMESTER = { "Spring 2027": "202720" };
 // section, MATH 201 isn't offered.
 const lecture = (days, start, end) => ({ days, start, end, type: "Lecture", location: "Test Hall 101", instructor: "Test Instructor" });
 const OFFERINGS = {
+  ...Object.fromEntries(attributeCourses.map(course=>[course.code,attributeSections(course)])),
   "MATH 202": [
     { crn: "90011", section: "1", sessions: [lecture("MWF", "09:00", "09:50")], instructors: ["Test Instructor"], connected_crns: ["90013"] },
     { crn: "90012", section: "2", sessions: [lecture("TR", "11:00", "12:15")], instructors: ["Test Instructor"], connected_crns: ["90013"] },

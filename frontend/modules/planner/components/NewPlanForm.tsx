@@ -7,10 +7,11 @@ import { AUB_CALENDAR_SOURCE, formatTermDate, type OfficialTerm } from "../terms
 type NewPlanFormProps = {
   /** Official terms the student has no plan for yet and whose classes haven't ended. */
   terms: readonly OfficialTerm[];
+  elective?: { courseId: string; semesterId: string };
 };
 
 /** "New plan": choose a term; its dates come from the AUB academic calendar. */
-export function NewPlanForm({ terms }: NewPlanFormProps) {
+export function NewPlanForm({ terms, elective }: NewPlanFormProps) {
   const [state, formAction, pending] = useActionState(createPlan, undefined);
   const [term, setTerm] = useState(terms[0]?.term ?? "");
 
@@ -34,6 +35,7 @@ export function NewPlanForm({ terms }: NewPlanFormProps) {
 
   return (
     <form action={formAction} className="flex flex-col gap-3" noValidate>
+      {elective && <><input type="hidden" name="electiveCourse" value={elective.courseId} /><input type="hidden" name="electiveSemester" value={elective.semesterId} /></>}
       <div className="flex flex-col gap-1">
         <label htmlFor="new-plan-term" className="text-sm font-semibold text-[var(--ink)]">
           Term

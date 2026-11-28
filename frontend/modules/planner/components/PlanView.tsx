@@ -295,6 +295,7 @@ function PlannedCourseCard({
               {planned.code} <span className="font-normal">{planned.name}</span>
             </h3>
             <p className="text-xs text-[var(--ink-soft)]">{creditLabel(creditHundredths(planned.credits))}</p>
+            {planned.meetings.length > 0 && <Link href={`/planner/${planId}#calendar`} aria-label={`View ${planned.code} on calendar`} className="text-xs font-semibold text-[var(--maroon)] underline">View on calendar</Link>}
           </div>
           <div className="flex shrink-0 items-start">
             {first ? null : (

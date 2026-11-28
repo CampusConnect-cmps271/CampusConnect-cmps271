@@ -9,6 +9,7 @@ export const offeringPreferencesSchema = z.object({
   semester_id: z.string().regex(/^\d{6}$/, "Choose an imported semester.").optional(),
   instructors: z.array(text(300)).max(10).optional(),
   attributes: z.array(text(300)).max(10).optional(),
+  attribute_match: z.enum(["any", "all"]).optional(),
   meeting_days: z.array(z.enum(["M", "T", "W", "R", "F", "S", "U"])).max(7).optional(),
   earliest_start: time.optional(), latest_end: time.optional(),
 }).strict().superRefine((value, ctx) => {
@@ -30,7 +31,7 @@ export const preferencesSchema = z.object({
 
 export type ElectivePreferences = z.infer<typeof preferencesSchema>;
 type BasicKey = "interests" | "preferred_workload" | "academic_goals" | "completed_course_codes";
-export type OfferingField = "semester_id" | "instructors" | "attributes" | "meeting_days" | "earliest_start" | "latest_end";
+export type OfferingField = "semester_id" | "instructors" | "attributes" | "attribute_match" | "meeting_days" | "earliest_start" | "latest_end";
 export type PreferenceValues = Record<BasicKey, string> & Partial<Record<OfferingField, string>>;
 export type PreferenceState = {
   status: "idle" | "saved" | "error";
@@ -41,7 +42,7 @@ export type PreferenceState = {
 export function readPreferences(form: FormData): PreferenceValues {
   const values = Object.fromEntries(["interests", "preferred_workload", "academic_goals", "completed_course_codes"]
     .map((key) => [key, typeof form.get(key) === "string" ? form.get(key) : form.get(key) === null ? "" : "\u0000"])) as PreferenceValues;
-  for (const key of ["semester_id", "instructors", "attributes", "earliest_start", "latest_end"] as const) {
+  for (const key of ["semester_id", "instructors", "attributes", "attribute_match", "earliest_start", "latest_end"] as const) {
     if (form.has(key)) values[key] = typeof form.get(key) === "string" ? form.get(key) as string : "\u0000";
   }
   if (form.has("meeting_days")) values.meeting_days = form.getAll("meeting_days").map(String).join(",");
@@ -52,6 +53,7 @@ export function parsePreferenceValues(values: PreferenceValues) {
   const offering = {
     ...(values.semester_id ? { semester_id: values.semester_id } : {}),
     ...(values.instructors?.trim() ? { instructors: list(values.instructors) } : {}),
+    ...(values.attribute_match ? { attribute_match: values.attribute_match } : {}),
     ...(values.attributes?.trim() ? { attributes: list(values.attributes) } : {}),
     ...(values.meeting_days ? { meeting_days: list(values.meeting_days) } : {}),
     ...(values.earliest_start ? { earliest_start: values.earliest_start } : {}),
@@ -69,6 +71,7 @@ export function preferenceValues(value: ElectivePreferences | null): PreferenceV
     academic_goals: value?.academic_goals ?? "", completed_course_codes: value?.completed_course_codes.join(", ") ?? "",
     ...(value?.offering_preferences && Object.keys(value.offering_preferences).length ? {
       semester_id: value.offering_preferences.semester_id ?? "", instructors: value.offering_preferences.instructors?.join(", ") ?? "",
+      ...(value.offering_preferences.attribute_match ? { attribute_match: value.offering_preferences.attribute_match } : {}),
       attributes: value.offering_preferences.attributes?.join(", ") ?? "", meeting_days: value.offering_preferences.meeting_days?.join(",") ?? "",
       earliest_start: value.offering_preferences.earliest_start ?? "", latest_end: value.offering_preferences.latest_end ?? "",
     } : {}),

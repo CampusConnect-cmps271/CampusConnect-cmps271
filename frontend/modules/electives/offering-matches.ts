@@ -7,7 +7,10 @@ const clock = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 /** Every listed meeting of one section must fit; never combine different sections' facts. */
 export function sectionMatches(section: CourseSection, preferences: OfferingPreferences): boolean {
   if (preferences.instructors?.length && !preferences.instructors.some((wanted) => section.instructors.some((name) => normalize(name) === normalize(wanted)))) return false;
-  if (preferences.attributes?.some((wanted) => !section.attributes.some((value) => normalize(value) === normalize(wanted)))) return false;
+  if (preferences.attributes?.length) {
+    const matches = (wanted: string) => section.attributes.some(value => normalize(value) === normalize(wanted));
+    if (preferences.attribute_match === "any" ? !preferences.attributes.some(matches) : !preferences.attributes.every(matches)) return false;
+  }
   if (!preferences.meeting_days?.length && !preferences.earliest_start && !preferences.latest_end) return true;
   if (!section.sessions.length) return false;
   return section.sessions.every((meeting) => {

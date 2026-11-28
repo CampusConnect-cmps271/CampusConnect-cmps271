@@ -27,6 +27,7 @@ export async function benchmarkDatabase(fixture, snapshots = []) {
   }
   await migration("20261112162408_elective_candidate_queries.sql");
   await migration("20261112162835_elective_candidate_query_cost.sql");
+  await migration("20261128092554_elective_attribute_any_match.sql");
   await db.exec("set role authenticated");
   return db;
 }
