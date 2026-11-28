@@ -27,6 +27,7 @@ describe("elective preferences migration and RLS", () => {
     await db.exec(await readFile(new URL(`../../supabase/migrations/${extra}`, import.meta.url), "utf8"));
     const browse = (await readdir(new URL("../../supabase/migrations/", import.meta.url))).find(name => name.endsWith("_elective_attribute_browse.sql"));
     await db.exec(await readFile(new URL(`../../supabase/migrations/${browse}`, import.meta.url), "utf8"));
+    await db.exec(await readFile(new URL("../../supabase/migrations/20261128092554_elective_attribute_any_match.sql", import.meta.url), "utf8"));
     await db.exec("insert into public.courses(code,name,description,credits,department) values ('CMPS 101','Computing','Introduction',3,'CMPS')");
   });
   after(async () => db?.close());
@@ -113,6 +114,17 @@ describe("elective preferences migration and RLS", () => {
     await asUser(OWNER, async () => {
       await db.query("update public.elective_preferences set offering_preferences='{}'");
       assert.deepEqual((await db.query("select offering_preferences from public.elective_preferences")).rows[0].offering_preferences, {});
+    });
+  });
+  it("persists any/all attribute matching and rejects invalid modes", async () => {
+    await asUser(OWNER, async () => {
+      for (const attribute_match of ["any", "all"]) {
+        const value = {semester_id:"202720",attributes:["Social Sciences I","Social Sciences II"],attribute_match};
+        await db.query("update public.elective_preferences set offering_preferences=$1::jsonb", [JSON.stringify(value)]);
+        assert.deepEqual((await db.query("select offering_preferences from public.elective_preferences")).rows[0].offering_preferences, value);
+      }
+      for (const attribute_match of ["invalid", null, 1]) await assert.rejects(
+        db.query("update public.elective_preferences set offering_preferences=$1::jsonb", [JSON.stringify({semester_id:"202720",attribute_match})]), e => e.code === "23514");
     });
   });
   it("validates offering JSON, active semesters and time bounds on direct database writes", async () => {

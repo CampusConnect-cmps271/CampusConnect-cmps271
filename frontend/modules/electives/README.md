@@ -287,3 +287,26 @@ triggers remain in force. Local regression tests cover empty preferences, all
 53 synthetic matches, Redis preservation, connection labels and stale-fetch
 protection. A hosted authenticated-role RPC returned all 133 Spring courses with
 Cultures and Histories; this is the saved snapshot, not current SIS availability.
+
+
+## Quick attribute browsing
+
+`/electives/preferences` starts with a one-page course browser: choose an
+imported semester, search the available attribute names and select checkboxes,
+then choose **Show courses**. Multiple attributes match **any** by default, so
+Social Sciences I and Social Sciences II returns the union without duplicate
+course cards. **All selected attributes** requires them on the same section.
+Clearing attributes browses the whole semester. Changing the semester clears
+selected attributes and old results; changing a filter clears old results too.
+
+Quick browsing does not overwrite private saved preferences or require interests,
+workload, instructors or schedule fields. It uses one recommendations request
+per search and the existing cached candidate query, with no AI provider call.
+Personalized saved preferences remain under **Personalize recommendations
+(optional)**. Results continue to reveal 24 cards at a time.
+
+Apply `20261128092554_elective_attribute_any_match.sql` before deploying the new
+client: SQL and JavaScript must both support `attribute_match: "any"`. Omitted
+mode keeps the previous all-attributes semantics for saved preferences. The
+migration keeps invoker security and the existing authenticated/service role
+permissions; no RLS policies or stored student preferences are rewritten.

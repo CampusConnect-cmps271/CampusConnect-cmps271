@@ -6,7 +6,7 @@ test("private semester and section choices persist, filter recommendations and c
   await page.getByLabel("Password", { exact: true }).fill("test-verified-password");
   await page.getByRole("button", { name: "Log in", exact: true }).click();
   await expect(page).toHaveURL(/\/home$/);
-  await page.goto("/electives/preferences");
+  await page.goto("/electives/preferences"); await openPersonalization(page);
   await page.getByLabel("Interests", { exact: true }).fill("operating");
   await page.getByLabel("Academic goals", { exact: true }).fill("Learn systems");
   await expect(page.getByLabel("Instructors", { exact: true })).toBeDisabled();
@@ -19,7 +19,7 @@ test("private semester and section choices persist, filter recommendations and c
   await page.getByLabel("Latest class end", { exact: true }).fill("11:45");
   await page.getByRole("button", { name: "Save preferences" }).click();
   await expect(page.getByRole("status")).toHaveText("Preferences saved.");
-  await page.reload();
+  await page.reload(); await openPersonalization(page);
   await expect(page.getByLabel("Semester", { exact: true })).toHaveValue("202720");
   await expect(page.getByLabel("Instructors", { exact: true })).toHaveValue("Spring Instructor");
   await expect(page.getByLabel("Required course attributes", { exact: true })).toHaveValue("Writing in the Discipline");
@@ -48,7 +48,7 @@ test("private semester and section choices persist, filter recommendations and c
   await expect(page.getByRole("link", { name: "CMPS 240 · Operating Systems", exact: true })).toHaveAttribute("href", "/courses/CMPS-240?semester=202720");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: "/tmp/campusconnect-elective-offering-results.png", fullPage: true });
-  await page.getByRole("link", { name: "Edit your preferences" }).click();
+  await page.getByRole("link", { name: "Edit your preferences" }).click(); await openPersonalization(page);
   await page.getByLabel("Monday", { exact: true }).uncheck();
   await page.getByLabel("Wednesday", { exact: true }).uncheck();
   await page.getByLabel("Tuesday", { exact: true }).check();
@@ -57,11 +57,11 @@ test("private semester and section choices persist, filter recommendations and c
   await page.getByRole("link", { name: "View elective recommendations →" }).click();
   await page.getByRole("button", { name: "Get recommendations" }).click();
   await expect(page.getByRole("status")).toHaveText("0 recommendations found.");
-  await page.getByRole("link", { name: "Edit your preferences" }).click();
+  await page.getByRole("link", { name: "Edit your preferences" }).click(); await openPersonalization(page);
   await page.getByLabel("Semester", { exact: true }).selectOption("");
   await page.getByRole("button", { name: "Save preferences" }).click();
   await expect(page.getByRole("status")).toHaveText("Preferences saved.");
-  await page.reload();
+  await page.reload(); await openPersonalization(page);
   await expect(page.getByLabel("Semester", { exact: true })).toHaveValue("");
   await expect(page.getByLabel("Instructors", { exact: true })).toHaveValue("");
   await page.getByRole("link", { name: "View elective recommendations →" }).click();
@@ -76,14 +76,14 @@ test("browse an attribute without placeholder interests, use day presets and rev
  await page.getByLabel("University email",{exact:true}).fill("recommendations-browse@mail.aub.edu");
  await page.getByLabel("Password",{exact:true}).fill("test-verified-password");
  await page.getByRole("button",{name:"Log in",exact:true}).click();await expect(page).toHaveURL(/\/home$/);
- await page.goto("/electives/preferences");
+ await page.goto("/electives/preferences"); await openPersonalization(page);
  await page.getByLabel("Semester",{exact:true}).selectOption("202720");
  await page.getByLabel("Required course attributes",{exact:true}).fill("Culture and History");
  await page.getByRole("button",{name:"MWF",exact:true}).click();await expect(page.getByLabel("Friday",{exact:true})).toBeChecked();
  await page.getByRole("button",{name:"TR",exact:true}).click();await expect(page.getByLabel("Thursday",{exact:true})).toBeChecked();await expect(page.getByLabel("Friday",{exact:true})).not.toBeChecked();
  await page.getByRole("button",{name:"MW",exact:true}).click();
  await page.getByRole("button",{name:"Save preferences"}).click();await expect(page.getByRole("status")).toHaveText("Preferences saved.");
- await page.reload();await expect(page.getByLabel("Interests",{exact:true})).toHaveValue("");await expect(page.getByLabel("Academic goals",{exact:true})).toHaveValue("");
+ await page.reload(); await openPersonalization(page);await expect(page.getByLabel("Interests",{exact:true})).toHaveValue("");await expect(page.getByLabel("Academic goals",{exact:true})).toHaveValue("");
  await page.getByRole("link",{name:"View elective recommendations →"}).click();
  const response=page.waitForResponse(r=>r.url().endsWith("/api/electives/recommendations") && r.request().method()==="POST");
  await page.getByRole("button",{name:"Browse matching courses"}).click();expect((await response).status()).toBe(200);
@@ -96,3 +96,10 @@ test("browse an attribute without placeholder interests, use day presets and rev
  await page.setViewportSize({width:375,height:812});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.locator("article").first().screenshot({path:"/tmp/campusconnect-attribute-browse.png"});
 });
+
+async function openPersonalization(page: import("@playwright/test").Page) {
+  const panel = page.locator("details").filter({has: page.locator("summary", {hasText: "Personalize recommendations (optional)"})});
+  await page.waitForURL(/\/electives\/preferences$/);
+  await panel.waitFor({state:"attached"});
+  if (await panel.getAttribute("open") === null) await panel.locator("summary").click();
+}

@@ -7,7 +7,7 @@ async function login(page: Page, email: string) {
   await expect(page).toHaveURL(/\/home$/, { timeout: 15_000 });
 }
 test("recommendations work without AI configuration and show prerequisite uncertainty", async ({ page }) => {
-  await login(page, "recommendations-ranking@mail.aub.edu"); await page.goto("/electives/preferences");
+  await login(page, "recommendations-ranking@mail.aub.edu"); await page.goto("/electives/preferences"); await openPersonalization(page);
   await page.getByLabel("Interests", { exact: true }).fill("computing");
   await page.getByLabel("Academic goals", { exact: true }).fill("Learn programming");
   await page.getByRole("button", { name: "Save preferences" }).click();
@@ -41,7 +41,7 @@ test("recommendations work without AI configuration and show prerequisite uncert
   await expect(page.locator("main").getByRole("alert")).toHaveText("Recommendations are temporarily unavailable.");
 });
 test("empty catalogue has a useful empty state", async ({ page }) => {
-  await login(page, "recommendations-empty@mail.aub.edu"); await page.goto("/electives/preferences");
+  await login(page, "recommendations-empty@mail.aub.edu"); await page.goto("/electives/preferences"); await openPersonalization(page);
   await page.getByLabel("Interests", { exact: true }).fill("computing");
   await page.getByLabel("Academic goals", { exact: true }).fill("Learn programming");
   await page.getByRole("button", { name: "Save preferences" }).click(); await expect(page.getByRole("status")).toHaveText("Preferences saved.");
@@ -50,7 +50,7 @@ test("empty catalogue has a useful empty state", async ({ page }) => {
 });
 test("students without a major still get all-department results and a Profile prompt", async ({ page }) => {
   await login(page, "recommendations-no-major@mail.aub.edu");
-  await page.goto("/electives/preferences");
+  await page.goto("/electives/preferences"); await openPersonalization(page);
   await page.getByLabel("Interests", { exact: true }).fill("computing");
   await page.getByLabel("Academic goals", { exact: true }).fill("Learn programming");
   await page.getByRole("button", { name: "Save preferences" }).click();
@@ -65,13 +65,13 @@ test("students without a major still get all-department results and a Profile pr
 });
 test("comma-separated interests stay grouped when saved and only complete groups are recommended", async ({ page }) => {
   await login(page, "recommendations-groups@mail.aub.edu");
-  await page.goto("/electives/preferences");
+  await page.goto("/electives/preferences"); await openPersonalization(page);
   await expect(page.locator("#interests-hint")).toContainText("software AND security, OR cryptography");
   await page.getByLabel("Interests", { exact: true }).fill("software security, cryptography");
   await page.getByLabel("Academic goals", { exact: true }).fill("software security");
   await page.getByRole("button", { name: "Save preferences" }).click();
   await expect(page.getByRole("status")).toHaveText("Preferences saved.");
-  await page.reload();
+  await page.reload(); await openPersonalization(page);
   await expect(page.getByLabel("Interests", { exact: true })).toHaveValue("software security, cryptography");
   await page.getByRole("link", { name: "View elective recommendations →" }).click();
   await page.getByRole("button", { name: "Get recommendations" }).click();
@@ -81,7 +81,7 @@ test("comma-separated interests stay grouped when saved and only complete groups
   await expect(page.getByRole("link", { name: "EECE 463 · Cryptography", exact: true })).toBeVisible();
   await expect(page.locator("article").filter({ hasText: "CMPS 203" })).toContainText("Catalogue interest matches: software security.");
   await expect(page.getByRole("link", { name: /Software Design|Security Policy|Econometrics II/ })).toHaveCount(0);
-  await page.getByRole("link", { name: "Edit your preferences" }).click();
+  await page.getByRole("link", { name: "Edit your preferences" }).click(); await openPersonalization(page);
   await page.getByLabel("Interests", { exact: true }).fill("software security cryptography");
   await page.getByRole("button", { name: "Save preferences" }).click();
   await expect(page.getByRole("status")).toHaveText("Preferences saved.");
@@ -99,7 +99,7 @@ test("comma-separated interests stay grouped when saved and only complete groups
 });
 test("AI-assisted explanations are identified while course facts remain visible", async ({ page }) => {
   await login(page, "recommendations-ai@mail.aub.edu");
-  await page.goto("/electives/preferences");
+  await page.goto("/electives/preferences"); await openPersonalization(page);
   await page.getByLabel("Interests", { exact: true }).fill("computing");
   await page.getByLabel("Academic goals", { exact: true }).fill("programming");
   await page.getByRole("button", { name: "Save preferences" }).click();
@@ -150,3 +150,10 @@ test("AI-assisted explanations are identified while course facts remain visible"
   await expect(page.getByRole("link", { name: "Open Profile" })).toBeFocused();
   await first.screenshot({ path: test.info().outputPath("ai-assisted-analysis.png") });
 });
+
+async function openPersonalization(page: import("@playwright/test").Page) {
+  const panel = page.locator("details").filter({has: page.locator("summary", {hasText: "Personalize recommendations (optional)"})});
+  await page.waitForURL(/\/electives\/preferences$/);
+  await panel.waitFor({state:"attached"});
+  if (await panel.getAttribute("open") === null) await panel.locator("summary").click();
+}

@@ -49,3 +49,12 @@ it("accepts empty or punctuation-only interests with a semester and optional goa
   expect(parsed.interests).toEqual([]);expect(parsed.academic_goals).toBe("");
  }
 });
+
+it("round-trips any/all matching and rejects unknown modes", () => {
+  for (const attribute_match of ["any", "all"] as const) {
+    const value = {...preferences, offering_preferences: {semester_id:"202720",attributes:["Social Sciences I","Social Sciences II"],attribute_match}};
+    const parsed = parsePreferenceValues(preferenceValues(value));
+    expect(parsed.success && parsed.data.offering_preferences).toEqual(value.offering_preferences);
+  }
+  expect(preferencesSchema.safeParse({...preferences,offering_preferences:{semester_id:"202720",attribute_match:"invalid"}}).success).toBe(false);
+});

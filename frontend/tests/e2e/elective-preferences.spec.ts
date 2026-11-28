@@ -16,7 +16,7 @@ test("mobile questionnaire preserves invalid drafts, saves, reloads and edits pr
   await login(page);
   await page.setViewportSize({ width: 375, height: 812 });
   await page.getByRole("button", { name: "Menu", exact: true }).click();
-  await page.getByRole("link", { name: "Elective preferences", exact: true }).click();
+  await page.getByRole("link", { name: "Elective preferences", exact: true }).click(); await openPersonalization(page);
   await fillDraft(page);
   await page.getByRole("button", { name: "Save preferences" }).click();
   await expect(page.locator("main").getByRole("alert")).toContainText("draft has been kept");
@@ -27,7 +27,7 @@ test("mobile questionnaire preserves invalid drafts, saves, reloads and edits pr
   await expect(page.getByRole("button", { name: "Save preferences" })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("status")).toHaveText("Preferences saved.");
-  await page.reload();
+  await page.reload(); await openPersonalization(page);
   await expect(page.getByLabel("Academic goals", { exact: true })).toHaveValue("Learn design");
   await expect(page.getByLabel("Interests", { exact: true })).toHaveValue("robotics, فن");
   await expect(page.getByLabel("Completed course codes (self-reported)")).toHaveValue("CMPS 101");
@@ -35,14 +35,14 @@ test("mobile questionnaire preserves invalid drafts, saves, reloads and edits pr
   await page.getByLabel("Academic goals", { exact: true }).fill("Build a robot");
   await page.getByRole("button", { name: "Save preferences" }).click();
   await expect(page.getByRole("status")).toHaveText("Preferences saved.");
-  await page.reload();
+  await page.reload(); await openPersonalization(page);
   await expect(page.getByLabel("Academic goals", { exact: true })).toHaveValue("Build a robot");
   await expect(page.getByLabel("Preferred workload", { exact: true })).toHaveValue("light");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   const otherContext = await browser.newContext();
   const other = await otherContext.newPage();
   await login(other, "electives-other@mail.aub.edu");
-  await other.goto("/electives/preferences");
+  await other.goto("/electives/preferences"); await openPersonalization(other);
   await expect(other.getByLabel("Academic goals", { exact: true })).toHaveValue("");
   await otherContext.close();
 });
@@ -50,7 +50,7 @@ test("server validation keeps a draft even when JavaScript is unavailable", asyn
   await login(page, "electives-native@mail.aub.edu");
   const context = await browser.newContext({ javaScriptEnabled: false, storageState: await page.context().storageState() });
   const native = await context.newPage();
-  await native.goto("/electives/preferences");
+  await native.goto("/electives/preferences"); await openPersonalization(native);
   await fillDraft(native);
   await native.getByLabel("Completed course codes (self-reported)").press("Enter");
   await expect(native.locator("main").getByRole("alert")).toContainText("draft has been kept");
@@ -60,13 +60,13 @@ test("server validation keeps a draft even when JavaScript is unavailable", asyn
   await native.getByLabel("Completed course codes (self-reported)").fill("CMPS 101");
   await native.getByLabel("Completed course codes (self-reported)").press("Enter");
   await expect(native.getByRole("status")).toHaveText("Preferences saved.");
-  await native.reload();
+  await native.reload(); await openPersonalization(native);
   await expect(native.getByLabel("Academic goals", { exact: true })).toHaveValue("Learn design");
   await context.close();
 });
 test("save failures keep the draft and hide database details", async ({ page }) => {
   await login(page, "electives-failure@mail.aub.edu");
-  await page.goto("/electives/preferences");
+  await page.goto("/electives/preferences"); await openPersonalization(page);
   await fillDraft(page);
   await page.getByLabel("Completed course codes (self-reported)").fill("");
   await page.getByRole("button", { name: "Save preferences" }).click();
@@ -82,7 +82,7 @@ test("signed-out visitors are sent to login", async ({ page }) => {
 test("empty, whitespace and over-limit drafts can be corrected to saved Unicode preferences", async ({ page }) => {
   test.setTimeout(45_000);
   await login(page, "electives-validation@mail.aub.edu");
-  await page.goto("/electives/preferences");
+  await page.goto("/electives/preferences"); await openPersonalization(page);
   const interests = page.getByLabel("Interests", { exact: true });
   const goals = page.getByLabel("Academic goals", { exact: true });
   const completed = page.getByLabel("Completed course codes (self-reported)");
@@ -112,9 +112,16 @@ test("empty, whitespace and over-limit drafts can be corrected to saved Unicode 
   await expect(save).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("status")).toHaveText("Preferences saved.");
-  await page.reload();
+  await page.reload(); await openPersonalization(page);
   await expect(interests).toHaveValue("تعلم الآلة, فن");
   await expect(goals).toHaveValue("تعلم تصميم الروبوتات");
   await expect(completed).toHaveValue("CMPS 101");
   await expect(page.getByText("These are not verified academic records.", { exact: false })).toBeVisible();
 });
+
+async function openPersonalization(page: import("@playwright/test").Page) {
+  const panel = page.locator("details").filter({has: page.locator("summary", {hasText: "Personalize recommendations (optional)"})});
+  await page.waitForURL(/\/electives\/preferences$/);
+  await panel.waitFor({state:"attached"});
+  if (await panel.getAttribute("open") === null) await panel.locator("summary").click();
+}
